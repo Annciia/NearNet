@@ -9,13 +9,13 @@ import com.nearnet.sessionlayer.data.db.Converters
 @TypeConverters(Converters::class)
 data class RoomData(
     @PrimaryKey(autoGenerate = true) val idRoom: Long = 0L,  // Zmieniamy typ na Long
-    var name: String,
-    var description: String,
-    var imagesSettings: String,
-    var password: String,
-    var isPrivate: Boolean,
-    var isVisible: Boolean,
-    val idAdmin: String,
-    val users: List<String>
+    val name: String = "",
+    val description: String = "",
+    val imagesSettings: String = "",
+    val password: String = "",
+    val isPrivate: Boolean = false,
+    val isVisible: Boolean = true,
+    val idAdmin: String = "",
+    val users: List<String> = emptyList()
 )
 

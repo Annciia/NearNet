@@ -1,107 +1,110 @@
 package com.nearnet
 
+import android.content.Intent
 import android.os.Bundle
-import androidx.activity.enableEdgeToEdge
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
-import com.nearnet.sessionlayer.logic.CryptoUtils
-import com.nearnet.sessionlayer.logic.UserRepository
-import androidx.lifecycle.lifecycleScope
-import android.util.Base64
 import android.util.Log
 import android.widget.Toast
-import com.nearnet.sessionlayer.data.model.UserData
-import com.nearnet.sessionlayer.logic.RoomUtils
-import kotlinx.coroutines.Dispatchers
+import androidx.activity.ComponentActivity
+import androidx.lifecycle.lifecycleScope
+import io.socket.client.IO
+import io.socket.client.Socket
+import com.nearnet.sessionlayer.network.SocketClient
+import com.nearnet.sessionlayer.logic.UserRepository
 import kotlinx.coroutines.launch
+import com.nearnet.sessionlayer.logic.RoomUtils
+import com.nearnet.sessionlayer.data.model.RoomData
+import com.nearnet.sessionlayer.logic.RoomUtils.createRoom
+import io.socket.client.Ack
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import com.nearnet.sessionlayer.data.model.Message
+import com.nearnet.sessionlayer.logic.MessageUtils
 
 
-class MainActivity : AppCompatActivity() {
 
-    private lateinit var userRepository: UserRepository
+class MainActivity : ComponentActivity() {
+
+    private lateinit var socket: Socket
+    private val serverUrl = "http://192.168.0.16:3000"
+    private var jwtToken: String = ""
+    private val messages = mutableListOf<Message>()
+
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        val messageUtils = MessageUtils(messages)
+        //laczenie zeby sie zalogowac
+        SocketClient.connectSocket()
+        if (jwtToken.isNotEmpty()) {
+            socket.emit("join_all_rooms")
+            //RoomUtils.getRoomList(SocketClient.socket) - ogarnac musze jak to wywolac
+        }
 
-        val repo = UserRepository(this)
-        val roomUtils = RoomUtils()
-        userRepository = UserRepository(applicationContext)
+        //SocketClient.initSocketListeners()
 
         lifecycleScope.launch {
+            val repository = UserRepository(
+                context = this@MainActivity,
+                socket = SocketClient.socket
+            )
+            //logowanie
+            repository.loginUser("Marek", "123")
+
+            val token = UserRepository.getTokenFromPreferences(this@MainActivity)
+            //dopiero teraz polaczenie bo wczesniej nie chcialo sie autoryzowac
+            SocketClient.connectSocket(token)
+            SocketClient.initSocketListeners(messages, "Marek") //TUTAJ TRZEBA Z SHERED PREFERENCES POTEM BO Z PALCA WPISANE
+            SocketClient.socket.emit("join_all_rooms")
 
 
-            //REJESTRACJA
-//            val keyPair = CryptoUtils.generateRSAKeys()
-//            val publicKeyString = Base64.encodeToString(keyPair.public.encoded, Base64.DEFAULT)
-//
-//            val result = repo.registerUser(
+
+
+
+//REJESTRACJA
+//            repository.registerUser(
+//                userName = "exampleUser",
+//                password = "password123",
+//                avatar = "https://example.com/avatar.png",
+//            )
+//LOGOWANIE - tutaj bede z shered pobieral jak juz sie zrobi logowanie i rejestracje
+            //repository.loginUser("Marek", "123")
+            //repository.loginUser("Kuba", "456")
+            //repository.loginUser("Ania", "789")
+
+//LOGOUT
+            //repository.logOutUser("Marek")
+            //repository.deleteUser("Marek")
+            //repository.deleteUser("Chuj")
+////Lista wszystkich pokoi pokoi - tutaj trza chyba na serwerze zmienic, zeby odsyalalo wszystkie, bo teraz odsyle te w ktorych jest uzytkownik
+//            val rooms = RoomUtils.getRoomList(SocketClient.socket)
+//            Log.d("Rooms", "Rooms from server: $rooms")
+////POKOJE UZYTKOWNIKA - jeszcze nie ma na serwie
+//            val userRooms = RoomUtils.getUserRoomList(
 //                userName = "Marek",
-//                password = "xyz123",
-//                avatar = "default.png",
-//                publicKey = publicKeyString
+//                userRepository = repository,
+//                socket = SocketClient.socket
 //            )
-              //wyswetla w logach kogo zarejestrowalo
-//            Log.d("RegisterUser", "Zarejestrowano: ${result.data}")
-//
-//            //wyswietla w logach wszystkich uzytkownikow w logu z bazy danych na fonie
-//            val users = repo.getAllUsers()
-//            for (user in users) {
-//                Log.d("AllUsers", "ID: ${user.idUser}, Name: ${user.name}")
-//            }
 
-
-
-//            //LOGOWANIE
-//            val loginResult = repo.loginUser("Marek", "xyz123")
-//
-//
-//            if (loginResult.command == "loginUser") {
-//                Toast.makeText(this@MainActivity, "Zalogowano", Toast.LENGTH_SHORT).show()
-//            } else {
-//                Toast.makeText(this@MainActivity, "Błąd logowania: ${loginResult.data}", Toast.LENGTH_SHORT).show()
-//            }
-
-            //POKOJE Z SERWERA - operacje na osobnym watku przeznaczonym do opracji wejscia/wyjscia
-//            val roomList = withContext(Dispatchers.IO) {
-//                RoomUtils().getRoomList()
-//            }
-//
-//            // Możesz teraz użyć listy na UI thread
-//            roomList.forEach { room ->
-//                Log.d("RoomList", "Room ID: ${room.idRoom}, Name: ${room.name}")
-//            }
-//            val roomNames = roomList.joinToString(", ") { it.name }
-//            Toast.makeText(this@MainActivity, "Pokoje: $roomNames", Toast.LENGTH_LONG).show()
-
-            //LISTA POKOI UZYTKOWNIKA
-//            val userRooms = withContext(Dispatchers.IO) {
-//                RoomUtils().getUserRoomList("d911d3bb-f5af-4b9c-a510-4db5e6b5611d") // podaj właściwe ID użytkownika
-//            }
-//
-//            userRooms.forEach {
-//                Log.d("UserRoom", "ID: ${it.idRoom}, Name: ${it.name}")
-//            }
-//
-//            Toast.makeText(this@MainActivity, "Masz ${userRooms.size} pokoi", Toast.LENGTH_SHORT).show()
-
-            //WYLOGOWANIE< USUWANIE, UPDATE same TOAST
-//            val logOutResult = userRepository.logOutUser("user123")
-//            val deleteResult = userRepository.deleteUser("user123")
-//            val updateResult = userRepository.updateUser(
-//                UserData(
-//                    idUser = "user123",
-//                    name = "Test",
-//                    avatar = "avatar.png",
-//                    publicKey = "publicKey",
-//                    passwordHash = "hashedPassword",
-//                    darkLightMode = false
-//                )
+//TWORZENIE POKOJU - trzeba dodac na serwerze obsluge wszystkiego
+//            val roomData = RoomData(
+//                name = "TestRoom2",
+//                password = "5678",
 //            )
+//            val roomId = createRoom(this@MainActivity, SocketClient.socket, roomData)
+//            Log.d("CreateRoom", "Room created with ID: $roomId")
+
+            val message = Message("Marek", "Hello!", System.currentTimeMillis(), "20c2a7e70f1cc281")
+            messageUtils.sendMessage("roomId", message)
 
 
         }
+
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        SocketClient.disconnectSocket()
     }
 }
