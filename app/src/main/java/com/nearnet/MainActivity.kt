@@ -1,21 +1,223 @@
 package com.nearnet
 
+import android.graphics.Paint.Align
 import android.os.Bundle
-import androidx.activity.enableEdgeToEdge
-import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
+import androidx.activity.ComponentActivity
+import android.util.Log
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.twotone.PlayArrow
+import androidx.compose.material3.BottomAppBar
+import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonColors
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import androidx.core.view.MenuProvider
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleOwner
+import androidx.navigation.NavHost
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import com.nearnet.ui.theme.NearNetTheme
 
-class MainActivity : AppCompatActivity() {
+
+class MainActivity : ComponentActivity() {
+    //var tekscik : String = "cos bla bla"
+
+    @Preview
+    @Composable
+    fun App(){
+        //var x: @Composable ()->Unit = { Text("...doc")}
+        val navController = rememberNavController()
+        NearNetTheme {
+            Scaffold(
+                topBar = { TopBar(navController) },
+                bottomBar = { BottomBar(navController) },
+                content = { padding ->
+                    Column(modifier = Modifier.padding(padding)) {
+                        ContentArea(navController)
+                        Text("Kotek")
+                        Text("Miau miau")
+                        Button(onClick = {}) {
+                            Text("MIAU")
+
+                        }
+
+                    }
+                }
+            )
+        }
+    }
+
+    @OptIn(ExperimentalMaterial3Api::class)
+    @Composable
+    fun TopBar(navController: NavHostController) :Unit {
+        TopAppBar(
+            navigationIcon = {IconButton(
+                onClick = {},
+                content={Icon(
+                    imageVector = Icons.TwoTone.PlayArrow,
+                    contentDescription = "Go back",
+                    modifier = Modifier.scale(scaleX = -1f, scaleY =1f)
+                )},
+                colors = IconButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    disabledContainerColor = MaterialTheme.colorScheme.primary,
+                    disabledContentColor = MaterialTheme.colorScheme.primary
+                )
+            )},
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = { navController.navigate("userProfileScreen") }, content = {
+                        Image(
+                            painter = painterResource((R.drawable.ic_launcher_foreground)),
+                            contentDescription = "Avatar",
+                            modifier = Modifier.size(80.dp).clip(CircleShape)
+                                .border(2.dp, MaterialTheme.colorScheme.onPrimary, CircleShape)
+                        )
+                    })
+                    Spacer(Modifier.width(5.dp))
+                    Text(
+                        "Top kitten bar.",
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                }
+            },
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                titleContentColor = MaterialTheme.colorScheme.onPrimary
+            )
+        )
+    }
+
+    @Composable
+    fun BottomBar(navController: NavHostController) :Unit {
+        BottomAppBar (
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentPadding = PaddingValues(0.dp)
+        ){
+            Column(
+                modifier = Modifier.fillMaxHeight()
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().height(4.dp)
+                        .background(MaterialTheme.colorScheme.onPrimary)
+                ){}
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    //verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceEvenly
+
+                ){
+                    NavigationButton(icon=R.drawable.ic_launcher_foreground, iconDescription = "recent", text = "recent", navController, screenName = "recentScreen")
+                    NavigationButton(icon=R.drawable.ic_launcher_foreground, iconDescription = "rooms", text = "rooms", navController, screenName = "roomsScreen")
+                    NavigationButton(icon=R.drawable.ic_launcher_foreground, iconDescription = "discover", text = "discover", navController, screenName = "discoverScreen")
+                }
+            }
+        }
+    }
+
+    @Composable
+    fun NavigationButton(icon : Int, iconDescription: String, text: String, navController: NavHostController, screenName: String) :Unit {
+        Button(
+            onClick = { navController.navigate(screenName)},
+            modifier = Modifier.padding(0.dp)
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Icon(
+                    painter= painterResource(id=icon),
+                    contentDescription = iconDescription,
+                    modifier = Modifier
+                        .size(40.dp)
+                        //.background(MaterialTheme.colorScheme.secondary)
+                )
+                Text(
+                    text= text,
+                    style = MaterialTheme.typography.labelMedium
+                )
+            }
+        }
+
+    }
+    //Text("Bottom kitten bar.")
+    //Text("Kitten bar.")
+
+    @Composable
+    fun ContentArea(navController: NavHostController) :Unit {
+        NavHost(navController, startDestination = "recentScreen") {
+            composable("recentScreen") { RecentScreen() }
+            composable("roomsScreen") { RoomsScreen() }
+            composable("discoverScreen") { DiscoverScreen() }
+            composable("userProfileScreen") { UserProfileScreen() }
+        }
+    }
+
+    @Preview
+    @Composable
+    fun RecentScreen() : Unit {
+        Text("RECENT")
+    }
+
+    @Preview
+    @Composable
+    fun RoomsScreen() : Unit {
+        Text("ROOMS")
+    }
+
+    @Preview
+    @Composable
+    fun DiscoverScreen() : Unit {
+        Text("DISCOVER")
+    }
+
+    @Preview
+    @Composable
+    fun UserProfileScreen() : Unit {
+        Text("USER PROFILE")
+    }
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
-        setContentView(R.layout.activity_main)
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main)) { v, insets ->
-            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
-            insets
+
+        setContent {
+            App()
         }
     }
 
