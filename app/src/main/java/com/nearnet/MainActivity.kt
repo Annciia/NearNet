@@ -20,7 +20,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.twotone.PlayArrow
 import androidx.compose.material3.BottomAppBar
@@ -50,11 +53,16 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.nearnet.ui.component.RoomItem
+import com.nearnet.ui.component.SearchField
 import com.nearnet.ui.theme.NearNetTheme
+
+data class Room(val id: Int, val name: String, val description: String?)
 
 
 class MainActivity : ComponentActivity() {
-    //var tekscik : String = "cos bla bla"
+
+    private var selectedRoom: Room? = null
 
     @Preview
     @Composable
@@ -66,7 +74,7 @@ class MainActivity : ComponentActivity() {
                 topBar = { TopBar(navController) },
                 bottomBar = { BottomBar(navController) },
                 content = { padding ->
-                    Column(modifier = Modifier.padding(padding)) {
+                    Column(modifier = Modifier.padding(padding).padding(horizontal = 16.dp)) {
                         ContentArea(navController)
                         Text("Kotek")
                         Text("Miau miau")
@@ -182,9 +190,10 @@ class MainActivity : ComponentActivity() {
     fun ContentArea(navController: NavHostController) :Unit {
         NavHost(navController, startDestination = "recentScreen") {
             composable("recentScreen") { RecentScreen() }
-            composable("roomsScreen") { RoomsScreen() }
+            composable("roomsScreen") { RoomsScreen(navController) }
             composable("discoverScreen") { DiscoverScreen() }
             composable("userProfileScreen") { UserProfileScreen() }
+            composable("roomConversationScreen") { RoomConversationScreen() }
         }
     }
 
@@ -194,10 +203,62 @@ class MainActivity : ComponentActivity() {
         Text("RECENT")
     }
 
-    @Preview
+    private var roomNames: List<String> = listOf("Kot", "Axolotl", "Tukan", "Pomidor")
+    private var rooms: List<Room> = listOf(
+        Room(0, "Stormvik games", "Witaj! Jestem wikingiem."),
+        Room(1, "You cat", "Meeeeeeeeeeeeeeeow!"),
+        Room(2, "虫籠のカガステル", "No comment needed. Just join!"),
+        Room(3, "Biohazard", "Be careful."),
+        Room(4, "Mibik game server", "Mi mi mi! It's me."),
+        Room(5, "Fallout", null),
+        Room(7, "My new world", "Don't join. It's private"),
+        Room(8, "The Lord of the Rings: The Battle for the Middle Earth", "Elen"),
+    )
     @Composable
-    fun RoomsScreen() : Unit {
-        Text("ROOMS")
+    fun RoomsScreen(navController: NavHostController) : Unit {
+        Column {
+            Text(
+                text = "My rooms",
+                style = MaterialTheme.typography.headlineLarge,
+                modifier = Modifier.padding(vertical = 20.dp)
+            )
+            SearchField(placeholderText = "Search rooms...")
+            Spacer(Modifier.height(8.dp).fillMaxWidth())
+            Text(
+                text = "Found 8 rooms"
+            )
+            Spacer(Modifier.height(8.dp).fillMaxWidth())
+            LazyColumn(
+                Modifier.height(400.dp).fillMaxWidth()
+            ) {
+                items(rooms) { room ->
+                    RoomItem(room, onClick = { room ->
+                        selectedRoom = room
+                        navController.navigate("roomConversationScreen")
+                    })
+                }
+                /*item {
+                    Text("Bla bla bla")
+                }
+                item {
+                    Text(text = "Bla bla bla", modifier = Modifier.padding(vertical=4.dp).background(color = MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(6.dp)).padding(5.dp).fillMaxWidth()
+                    )
+                }
+                items(20) { index ->
+                    Text(
+                        text = index.toString(),
+                        modifier = Modifier.padding(vertical=4.dp).background(color = MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(6.dp)).padding(5.dp).fillMaxWidth()
+                    )
+                }
+                items(roomNames) { roomName ->
+                    Text(
+                        text = roomName,
+                        modifier = Modifier.padding(vertical=4.dp).background(color = MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(6.dp)).padding(5.dp).fillMaxWidth()
+                    )
+                }*/
+            }
+        }
+
     }
 
     @Preview
@@ -210,6 +271,12 @@ class MainActivity : ComponentActivity() {
     @Composable
     fun UserProfileScreen() : Unit {
         Text("USER PROFILE")
+    }
+
+    @Preview
+    @Composable
+    fun RoomConversationScreen() : Unit {
+        Text("ROOM CONVERSATION " + selectedRoom?.name)
     }
 
 

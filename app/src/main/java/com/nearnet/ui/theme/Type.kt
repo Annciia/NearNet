@@ -22,7 +22,15 @@ val Typography = Typography(
     labelMedium = TextStyle(
         fontSize = 12.sp,
         fontWeight = FontWeight.Normal
-    )
+    ),
+    headlineLarge = TextStyle(
+        fontSize = 32.sp,
+        fontWeight = FontWeight.Normal
+    ),
+    //labelSmall = TextStyle(),
+    //titleSmall = TextStyle()
+
+
 
     /* Other default text styles to override
     titleLarge = TextStyle(
