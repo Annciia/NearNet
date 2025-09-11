@@ -4,6 +4,7 @@ import android.graphics.Paint.Align
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -57,7 +58,7 @@ import com.nearnet.ui.component.RoomItem
 import com.nearnet.ui.component.SearchField
 import com.nearnet.ui.theme.NearNetTheme
 
-data class Room(val id: Int, val name: String, val description: String?)
+data class Room(val id: Int, var name: String, var description: String?, var isPrivate: Boolean)
 
 
 class MainActivity : ComponentActivity() {
@@ -94,7 +95,7 @@ class MainActivity : ComponentActivity() {
     fun TopBar(navController: NavHostController) :Unit {
         TopAppBar(
             navigationIcon = {IconButton(
-                onClick = {},
+                onClick = {navController.popBackStack()},
                 content={Icon(
                     imageVector = Icons.TwoTone.PlayArrow,
                     contentDescription = "Go back",
@@ -205,14 +206,14 @@ class MainActivity : ComponentActivity() {
 
     private var roomNames: List<String> = listOf("Kot", "Axolotl", "Tukan", "Pomidor")
     private var rooms: List<Room> = listOf(
-        Room(0, "Stormvik games", "Witaj! Jestem wikingiem."),
-        Room(1, "You cat", "Meeeeeeeeeeeeeeeow!"),
-        Room(2, "虫籠のカガステル", "No comment needed. Just join!"),
-        Room(3, "Biohazard", "Be careful."),
-        Room(4, "Mibik game server", "Mi mi mi! It's me."),
-        Room(5, "Fallout", null),
-        Room(7, "My new world", "Don't join. It's private"),
-        Room(8, "The Lord of the Rings: The Battle for the Middle Earth", "Elen"),
+        Room(0, "Stormvik games", "Witaj! Jestem wikingiem.", true),
+        Room(1, "You cat", "Meeeeeeeeeeeeeeeow!", false),
+        Room(2, "虫籠のカガステル", "No comment needed. Just join!", false),
+        Room(3, "Biohazard", "Be careful.", false),
+        Room(4, "Mibik game server", "Mi mi mi! It's me.", false),
+        Room(5, "Fallout", null, true),
+        Room(7, "My new world", "Don't join. It's private", true),
+        Room(8, "The Lord of the Rings: The Battle for the Middle Earth", "Elen", false),
     )
     @Composable
     fun RoomsScreen(navController: NavHostController) : Unit {
@@ -222,10 +223,14 @@ class MainActivity : ComponentActivity() {
                 style = MaterialTheme.typography.headlineLarge,
                 modifier = Modifier.padding(vertical = 20.dp)
             )
-            SearchField(placeholderText = "Search rooms...")
+            SearchField(placeholderText = "Search rooms...", onSearch = {
+                searchText -> //TODO filtrowanie po grupach
+                Log.e("SEARCHED ROOM", searchText)
+                Toast.makeText(this@MainActivity, searchText, Toast.LENGTH_SHORT).show()
+            })
             Spacer(Modifier.height(8.dp).fillMaxWidth())
             Text(
-                text = "Found 8 rooms"
+                text = "Found "+ rooms.size +" rooms"
             )
             Spacer(Modifier.height(8.dp).fillMaxWidth())
             LazyColumn(
