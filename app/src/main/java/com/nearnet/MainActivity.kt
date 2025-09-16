@@ -39,6 +39,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -49,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.view.MenuProvider
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHost
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -56,6 +59,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.nearnet.ui.component.RoomItem
 import com.nearnet.ui.component.SearchField
+import com.nearnet.ui.model.LocalViewModel
+import com.nearnet.ui.model.NearNetViewModel
 import com.nearnet.ui.theme.NearNetTheme
 
 data class Room(val id: Int, var name: String, var description: String?, var isPrivate: Boolean)
@@ -70,23 +75,26 @@ class MainActivity : ComponentActivity() {
     fun App(){
         //var x: @Composable ()->Unit = { Text("...doc")}
         val navController = rememberNavController()
+        val vm : NearNetViewModel = viewModel()
         NearNetTheme {
-            Scaffold(
-                topBar = { TopBar(navController) },
-                bottomBar = { BottomBar(navController) },
-                content = { padding ->
-                    Column(modifier = Modifier.padding(padding).padding(horizontal = 16.dp)) {
-                        ContentArea(navController)
-                        Text("Kotek")
-                        Text("Miau miau")
-                        Button(onClick = {}) {
-                            Text("MIAU")
+            CompositionLocalProvider(LocalViewModel provides vm) {
+                Scaffold(
+                    topBar = { TopBar(navController) },
+                    bottomBar = { BottomBar(navController) },
+                    content = { padding ->
+                        Column(modifier = Modifier.padding(padding).padding(horizontal = 16.dp)) {
+                            ContentArea(navController)
+                            Text("Kotek")
+                            Text("Miau miau")
+                            Button(onClick = {}) {
+                                Text("MIAU")
+
+                            }
 
                         }
-
                     }
-                }
-            )
+                )
+            }
         }
     }
 
@@ -160,7 +168,7 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    fun NavigationButton(icon : Int, iconDescription: String, text: String, navController: NavHostController, screenName: String) :Unit {
+    fun NavigationButton(icon: Int, iconDescription: String, text: String, navController: NavHostController, screenName: String) :Unit {
         Button(
             onClick = { navController.navigate(screenName)},
             modifier = Modifier.padding(0.dp)
@@ -205,7 +213,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private var roomNames: List<String> = listOf("Kot", "Axolotl", "Tukan", "Pomidor")
-    private var rooms: List<Room> = listOf(
+    /*private var rooms: List<Room> = listOf(
         Room(0, "Stormvik games", "Witaj! Jestem wikingiem.", true),
         Room(1, "You cat", "Meeeeeeeeeeeeeeeow!", false),
         Room(2, "虫籠のカガステル", "No comment needed. Just join!", false),
@@ -214,9 +222,10 @@ class MainActivity : ComponentActivity() {
         Room(5, "Fallout", null, true),
         Room(7, "My new world", "Don't join. It's private", true),
         Room(8, "The Lord of the Rings: The Battle for the Middle Earth", "Elen", false),
-    )
+    )*/
     @Composable
     fun RoomsScreen(navController: NavHostController) : Unit {
+        val rooms = LocalViewModel.current.rooms.collectAsState().value
         Column {
             Text(
                 text = "My rooms",
