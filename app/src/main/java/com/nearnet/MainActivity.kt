@@ -225,6 +225,7 @@ class MainActivity : ComponentActivity() {
     )*/
     @Composable
     fun RoomsScreen(navController: NavHostController) : Unit {
+        LocalViewModel.current.loadRooms()
         val rooms = LocalViewModel.current.rooms.collectAsState().value
         Column {
             Text(
