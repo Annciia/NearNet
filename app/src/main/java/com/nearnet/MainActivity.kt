@@ -1,6 +1,5 @@
 package com.nearnet
 
-import android.graphics.Paint.Align
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import android.util.Log
@@ -16,6 +15,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -23,8 +23,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.twotone.PlayArrow
 import androidx.compose.material3.BottomAppBar
@@ -40,6 +40,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,15 +49,13 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.core.view.MenuProvider
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.NavHost
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.nearnet.ui.component.ConversationPanel
+import com.nearnet.ui.component.MessageItem
 import com.nearnet.ui.component.RoomItem
 import com.nearnet.ui.component.SearchField
 import com.nearnet.ui.model.LocalViewModel
@@ -64,11 +63,11 @@ import com.nearnet.ui.model.NearNetViewModel
 import com.nearnet.ui.theme.NearNetTheme
 
 data class Room(val id: Int, var name: String, var description: String?, var isPrivate: Boolean)
+data class Message(val id: Int, val userNameSender: String, val content: String)
 
 
 class MainActivity : ComponentActivity() {
 
-    private var selectedRoom: Room? = null
 
     @Preview
     @Composable
@@ -227,6 +226,7 @@ class MainActivity : ComponentActivity() {
     fun RoomsScreen(navController: NavHostController) : Unit {
         LocalViewModel.current.loadRooms()
         val rooms = LocalViewModel.current.rooms.collectAsState().value
+        val vm = LocalViewModel.current
         Column {
             Text(
                 text = "My rooms",
@@ -248,7 +248,7 @@ class MainActivity : ComponentActivity() {
             ) {
                 items(rooms) { room ->
                     RoomItem(room, onClick = { room ->
-                        selectedRoom = room
+                        vm.selectRoom(room)
                         navController.navigate("roomConversationScreen")
                     })
                 }
@@ -288,10 +288,29 @@ class MainActivity : ComponentActivity() {
         Text("USER PROFILE")
     }
 
-    @Preview
     @Composable
     fun RoomConversationScreen() : Unit {
-        Text("ROOM CONVERSATION " + selectedRoom?.name)
+        val selectedRoom = LocalViewModel.current.selectedRoom.collectAsState().value
+        val listState = rememberLazyListState()
+
+        val messages = LocalViewModel.current.messages.collectAsState().value
+        Column {
+            Text("ROOM CONVERSATION " + selectedRoom?.name)
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.weight(1f).fillMaxWidth()
+            ){
+                items(messages) {message ->
+                    MessageItem(message)
+                }
+            }
+            ConversationPanel()
+        }
+        LaunchedEffect(messages.size) {
+            if (messages.isNotEmpty()) {
+                listState.animateScrollToItem(messages.lastIndex)
+            }
+        }
     }
 
 
