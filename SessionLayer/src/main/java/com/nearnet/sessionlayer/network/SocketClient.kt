@@ -6,24 +6,36 @@ import com.nearnet.sessionlayer.data.PackageCommand
 import com.nearnet.sessionlayer.data.model.Message
 import io.socket.client.IO
 import io.socket.client.Socket
+import io.socket.engineio.client.transports.WebSocket
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.Socket as JavaSocket
 
+//to dla socketIO, z tym serwerem teraz nieuzywane
 object SocketClient {
-    private const val HOST = "192.168.0.16"
-    private const val PORT = 8080
     lateinit var socket: Socket
-    private const val SERVER_URL = "http://192.168.0.16:3000"
+    //private const val SERVER_URL = "http://192.168.0.10:3000"
+    private const val SERVER_URL = "http://95.108.77.201:3001/"
+    private var isConnected = false
+    private var isInitialized = false
 
 
-    // Funkcja do połączenia z serwerem za pomocą Socket.IO
+    // funkcja do połączenia z serwerem za pomocą Socket.IO
     fun connectSocket(token: String? = null) {
+
+        // jeśli socket już istnieje i jest połączony, rozłącz go najpierw
+        if (isInitialized && socket.connected()) return
+        //socket.disconnect()
+
+
         val options = IO.Options().apply {
             reconnection = true
             forceNew = true
+            //transports = arrayOf(WebSocket.NAME)
+            transports = arrayOf("websocket")
             if (token != null) {
-                auth = mapOf("token" to token) // Dodajemy token, jeśli istnieje
+                //mapOf("token" to token) // Dodajemy token, jeśli istnieje
+                query = "token=$token"
             }
         }
 
@@ -31,15 +43,28 @@ object SocketClient {
 
         socket.on(Socket.EVENT_CONNECT) {
             Log.d("Socket", "✅ Connected to server")
+            isConnected = true
 
         }
 
         socket.on(Socket.EVENT_DISCONNECT) {
             Log.d("Socket", "❌ Disconnected from server")
+            isConnected = false
+        }
+
+        socket.on(Socket.EVENT_CONNECT_ERROR) { args ->
+            Log.e("Socket", "❌ Connection error: ${args.joinToString()}")
+            isConnected = false
         }
 
         socket.connect()
+        isInitialized = true
+
+        Log.d("Socket", "🔄 Attempting to connect to $SERVER_URL")
     }
+
+    fun isConnected(): Boolean = ::socket.isInitialized && socket.connected()
+
     //LISTENERY CO CZEKAJA AKTYWNIE NA WIADOMOSC Z SERWERA
     fun initSocketListeners(messages: MutableList<Message>, username: String) {
         socket.on("receive_message") { args ->
@@ -119,12 +144,15 @@ object SocketClient {
             // Sortowanie wiadomości po czasie
             messages.sortBy { it.timestamp }
         }
+
     }
 
     fun disconnectSocket() {
-        socket.disconnect()
-        socket.close()
-        Log.d("Socket", "Disconnected from server")
+        if (::socket.isInitialized && socket.connected()) {
+            socket.disconnect()
+            socket.close()
+            Log.d("SocketClient", "Socket disconnected")
+        }
     }
 
 }

@@ -49,7 +49,16 @@ dependencies {
     kapt(libs.room.compiler)
     implementation(libs.room.ktx)
     implementation(libs.gson)
-    implementation("io.socket:socket.io-client:2.1.0") {
+    implementation("io.socket:socket.io-client:1.0.0") {
         exclude(group = "org.json", module = "json")
     }
+    // Retrofit (REST client)
+    implementation ("com.squareup.retrofit2:retrofit:2.9.0")
+
+// Konwerter JSON (Gson)
+    implementation ("com.squareup.retrofit2:converter-gson:2.9.0")
+
+// OkHttp (Retrofit używa pod spodem, ale można dodać logging)
+    implementation ("com.squareup.okhttp3:okhttp:4.10.0")
+    implementation ("com.squareup.okhttp3:logging-interceptor:4.10.0")
 }

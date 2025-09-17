@@ -9,6 +9,7 @@ data class UserData(
     val name: String,
     val avatar: String,
     val publicKey: String,
-    val passwordHash: String,
+    val password: String = "",
+    //val passwordHash: String,
     val darkLightMode: Boolean
 )

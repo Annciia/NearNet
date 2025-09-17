@@ -10,7 +10,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
-
+//w trakcie tworzenia
 class MessageUtils (private val messages: MutableList<Message>){
 
 

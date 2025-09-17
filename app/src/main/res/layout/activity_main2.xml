@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <!-- Dodawanie pokoju -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Dodaj pokój"
+            android:textStyle="bold"
+            android:textSize="18sp"
+            android:paddingBottom="8dp" />
+
+        <EditText
+            android:id="@+id/editRoomName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Nazwa pokoju" />
+
+        <EditText
+            android:id="@+id/editRoomPassword"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Hasło (opcjonalnie)" />
+
+        <Button
+            android:id="@+id/btnAddRoom"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Dodaj pokój"
+            android:layout_marginTop="8dp" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#CCCCCC"
+            android:layout_marginVertical="16dp" />
+
+        <!--Usuwanie pokoju -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Usuń pokój"
+            android:textStyle="bold"
+            android:textSize="18sp"
+            android:paddingBottom="8dp"/>
+
+        <EditText
+            android:id="@+id/editRoomId"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="ID pokoju do usunięcia"/>
+
+        <Button
+            android:id="@+id/btnDeleteRoom"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Usuń pokój"
+            android:layout_marginTop="8dp"/>
+
+        <!--  Aktualizacja pokoju -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Edytuj pokój"
+            android:textStyle="bold"
+            android:textSize="18sp"
+            android:paddingBottom="8dp" />
+
+        <EditText
+            android:id="@+id/editUpdateRoomId"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="ID pokoju" />
+
+        <EditText
+            android:id="@+id/editUpdateRoomName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Nowa nazwa pokoju" />
+
+        <EditText
+            android:id="@+id/editUpdateRoomAvatar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Nowy avatar URL" />
+
+        <EditText
+            android:id="@+id/editUpdateRoomPassword"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Nowe hasło (opcjonalnie)" />
+
+        <CheckBox
+            android:id="@+id/checkUpdatePrivate"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Prywatny" />
+
+        <CheckBox
+            android:id="@+id/checkUpdateVisible"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Widoczny" />
+
+        <Button
+            android:id="@+id/btnUpdateRoom"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Aktualizuj pokój"
+            android:layout_marginTop="8dp" />
+
+        <Button
+            android:id="@+id/btnShowMyRooms"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Pokaż moje pokoje"
+            android:layout_marginTop="16dp"/>
+
+        <Button
+            android:id="@+id/btnShowAllRooms"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Pokaż wszystkie pokoje"
+            android:layout_marginTop="16dp"/>
+
+
+    </LinearLayout>
+</ScrollView>
+
