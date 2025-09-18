@@ -25,7 +25,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.twotone.PlayArrow
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Button
@@ -42,6 +44,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,13 +56,16 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.nearnet.ui.component.ConversationPanel
 import com.nearnet.ui.component.MessageItem
+import com.nearnet.ui.component.PlainTextField
 import com.nearnet.ui.component.RoomItem
+import com.nearnet.ui.component.ScreenTitle
 import com.nearnet.ui.component.SearchField
 import com.nearnet.ui.model.LocalViewModel
 import com.nearnet.ui.model.NearNetViewModel
@@ -83,12 +92,12 @@ class MainActivity : ComponentActivity() {
                     content = { padding ->
                         Column(modifier = Modifier.padding(padding).padding(horizontal = 16.dp)) {
                             ContentArea(navController)
-                            Text("Kotek")
+                            /*Text("Kotek")
                             Text("Miau miau")
                             Button(onClick = {}) {
                                 Text("MIAU")
 
-                            }
+                            }*/
 
                         }
                     }
@@ -199,16 +208,17 @@ class MainActivity : ComponentActivity() {
         NavHost(navController, startDestination = "recentScreen") {
             composable("recentScreen") { RecentScreen() }
             composable("roomsScreen") { RoomsScreen(navController) }
-            composable("discoverScreen") { DiscoverScreen() }
+            composable("discoverScreen") { DiscoverScreen(navController) }
             composable("userProfileScreen") { UserProfileScreen() }
             composable("roomConversationScreen") { RoomConversationScreen() }
+            composable("createRoomScreen") { CreateRoomScreen(navController) }
         }
     }
 
     @Preview
     @Composable
     fun RecentScreen() : Unit {
-        Text("RECENT")
+        ScreenTitle("Recent activity")
     }
 
     private var roomNames: List<String> = listOf("Kot", "Axolotl", "Tukan", "Pomidor")
@@ -224,15 +234,11 @@ class MainActivity : ComponentActivity() {
     )*/
     @Composable
     fun RoomsScreen(navController: NavHostController) : Unit {
-        LocalViewModel.current.loadRooms()
+        LocalViewModel.current.loadMyRooms()
         val rooms = LocalViewModel.current.rooms.collectAsState().value
         val vm = LocalViewModel.current
         Column {
-            Text(
-                text = "My rooms",
-                style = MaterialTheme.typography.headlineLarge,
-                modifier = Modifier.padding(vertical = 20.dp)
-            )
+            ScreenTitle("My rooms")
             SearchField(placeholderText = "Search rooms...", onSearch = {
                 searchText -> //TODO filtrowanie po grupach
                 Log.e("SEARCHED ROOM", searchText)
@@ -244,7 +250,7 @@ class MainActivity : ComponentActivity() {
             )
             Spacer(Modifier.height(8.dp).fillMaxWidth())
             LazyColumn(
-                Modifier.height(400.dp).fillMaxWidth()
+                Modifier.weight(1f).fillMaxWidth()
             ) {
                 items(rooms) { room ->
                     RoomItem(room, onClick = { room ->
@@ -276,16 +282,98 @@ class MainActivity : ComponentActivity() {
 
     }
 
-    @Preview
     @Composable
-    fun DiscoverScreen() : Unit {
-        Text("DISCOVER")
+    fun DiscoverScreen(navController: NavController) : Unit {
+        LocalViewModel.current.loadDiscoverRooms()
+        val vm = LocalViewModel.current
+        val rooms = vm.rooms.collectAsState().value
+        Column {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                ScreenTitle("Discover")
+                Button(onClick = {
+                    navController.navigate("createRoomScreen")
+                }) {
+                    Text("Create room")
+                }
+            }
+            SearchField(placeholderText = "Search rooms...")
+            Spacer(Modifier.height(8.dp).fillMaxWidth())
+            Text(
+                text = "Found "+ rooms.size +" rooms"
+            )
+            Spacer(Modifier.height(8.dp).fillMaxWidth())
+            LazyColumn(
+                Modifier.weight(1f).fillMaxWidth()
+            ) {
+                items(rooms) { room ->
+                    RoomItem(room, onClick = {
+                        //TODO Dołączanie do pokoju
+                        //vm.selectRoom(room)
+                        //navController.navigate("roomConversationScreen")
+                    })
+                }
+            }
+        }
+    }
+
+    @Composable
+    fun CreateRoomScreen(navController: NavController){
+        val vm = LocalViewModel.current
+        var roomName by rememberSaveable { mutableStateOf("") }
+        var roomDescription by rememberSaveable { mutableStateOf("") }
+        Column {
+            ScreenTitle("Create new room")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.AccountCircle,
+                    contentDescription = "Room icon",
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(100.dp).background(color = MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(6.dp))
+                )
+                Spacer(Modifier.width(10.dp))
+                PlainTextField(
+                    value = roomName,
+                    onValueChange = { text -> roomName = text },
+                    placeholderText = "room name",
+                    singleLine = true,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            Spacer(Modifier.height(10.dp))
+            PlainTextField(
+                value = roomDescription,
+                onValueChange = { text -> roomDescription = text },
+                placeholderText = "description",
+                singleLine = false,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(20.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                Button(onClick = {
+                    vm.createRoom(roomName, roomDescription)
+                    navController.navigate("roomConversationScreen")
+                }) {
+                    Text("Create")
+                }
+            }
+        }
+
     }
 
     @Preview
     @Composable
     fun UserProfileScreen() : Unit {
-        Text("USER PROFILE")
+        ScreenTitle("User profile")
     }
 
     @Composable

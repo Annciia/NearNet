@@ -9,6 +9,29 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
+var myRoomsList = listOf(
+    Room(0, "Stormvik games", "Witaj! Jestem wikingiem.", true),
+    Room(1, "You cat", "Meeeeeeeeeeeeeeeow!", false),
+    Room(2, "虫籠のカガステル", "No comment needed. Just join!", false),
+    Room(3, "Biohazard", "Be careful.", false),
+    Room(4, "Mibik game server", "Mi mi mi! It's me.", false),
+    Room(5, "Fallout", null, true),
+    Room(6, "My new world", "Don't join. It's private", true),
+    Room(7, "The Lord of the Rings: The Battle for the Middle Earth", "Elen", false),
+)
+var discoverRoomsList = listOf(
+    Room(0, "Adventure cat games", "Dołącz do kociej przygody.", true),
+    Room(1, "You cat", "Meeeeeeeeeeeeeeeow!", false),
+    Room(2, "虫籠のカガステル", "No comment needed. Just join!", false),
+    Room(3, "Mibik game server", "Mi mi mi! It's me.", false),
+    Room(4, "My new world", "Don't join. It's private", true),
+    Room(5, "Here is the best place.", "We need you.", false),
+    Room(6, "Untitled room", "Join to title this room! ;)", false),
+    Room(7, "Stormvik games", "Witaj! Jestem wikingiem.", true),
+    Room(8, "Biohazard", "Be careful.", false),
+    Room(9, "Fallout", null, true),
+)
+
 //zawiera zmienne przechowujące stan aplikacji
 class NearNetViewModel: ViewModel() {
 
@@ -30,22 +53,31 @@ class NearNetViewModel: ViewModel() {
 
     }
 
-    fun loadRooms() {
+    fun loadMyRooms() {
         viewModelScope.launch {
-            // TODO Call asynchronous function to fetch rooms here.
+            // TODO Call asynchronous function to fetch my rooms here.
             //roomsMutable.value = getUserRoomList(idUser)
-            roomsMutable.value = listOf(
-                Room(0, "Stormvik games", "Witaj! Jestem wikingiem.", true),
-                Room(1, "You cat", "Meeeeeeeeeeeeeeeow!", false),
-                Room(2, "虫籠のカガステル", "No comment needed. Just join!", false),
-                Room(3, "Biohazard", "Be careful.", false),
-                Room(4, "Mibik game server", "Mi mi mi! It's me.", false),
-                Room(5, "Fallout", null, true),
-                Room(7, "My new world", "Don't join. It's private", true),
-                Room(8, "The Lord of the Rings: The Battle for the Middle Earth", "Elen", false),
-            )
+            roomsMutable.value = myRoomsList
         }
     }
+    fun loadDiscoverRooms() {
+        viewModelScope.launch {
+            // TODO Call asynchronous function to fetch discover rooms here.
+            //roomsMutable.value = getRoomList()
+            roomsMutable.value = discoverRoomsList
+        }
+    }
+    fun createRoom(roomName : String, roomDescription : String){
+        viewModelScope.launch {
+            val createdRoom = Room(id = -1, name = roomName, description = roomDescription, isPrivate = false)
+            // TODO Call asynchronous function to create room.
+            // createdRoom.id = createRoom(createdRoom)
+            myRoomsList += createdRoom
+            discoverRoomsList += createdRoom
+            selectRoom(createdRoom)
+        }
+    }
+
     fun selectRoom(room : Room) {
         loadMessages(room)
         selectedRoomMutable.value = room
@@ -63,7 +95,6 @@ class NearNetViewModel: ViewModel() {
     }
     fun sendMessage(messageText : String, room : Room){
         viewModelScope.launch{
-            //sendMessage(idRoom, Message)
             val message = Message (id = -1, userNameSender = "Orci Kätter", content = messageText)
             // TODO Call asynchronous function to send messages
             //sendMessage(room.id, message)
