@@ -67,7 +67,7 @@ class MainActivity2 : AppCompatActivity() {
             }
         }
 
-        val roomIdField = findViewById<EditText>(R.id.editRoomId) // pole do wpisania ID pokoju
+        val roomIdField = findViewById<EditText>(R.id.editRoomId)
         val btnDeleteRoom = findViewById<Button>(R.id.btnDeleteRoom)
 
         btnDeleteRoom.setOnClickListener {
@@ -92,7 +92,6 @@ class MainActivity2 : AppCompatActivity() {
             }
         }
 
-        val editUpdateRoomId = findViewById<EditText>(R.id.editUpdateRoomId)
         val editUpdateRoomName = findViewById<EditText>(R.id.editUpdateRoomName)
         val editUpdateRoomAvatar = findViewById<EditText>(R.id.editUpdateRoomAvatar)
         val editUpdateRoomPassword = findViewById<EditText>(R.id.editUpdateRoomPassword)
@@ -101,13 +100,12 @@ class MainActivity2 : AppCompatActivity() {
         val btnUpdateRoom = findViewById<Button>(R.id.btnUpdateRoom)
 
         btnUpdateRoom.setOnClickListener {
-            val idRoom = editUpdateRoomId.text.toString().trim()
-            if (idRoom.isEmpty()) {
-                Toast.makeText(this, "Podaj ID pokoju", Toast.LENGTH_SHORT).show()
+            val name = editUpdateRoomName.text.toString().trim()
+            if (name.isEmpty()) {
+                Toast.makeText(this, "Podaj nazwę pokoju", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
-            val name = editUpdateRoomName.text.toString().trim()
             val avatar = editUpdateRoomAvatar.text.toString().trim()
             val password = editUpdateRoomPassword.text.toString().trim()
             val isPrivate = checkUpdatePrivate.isChecked
@@ -116,7 +114,6 @@ class MainActivity2 : AppCompatActivity() {
             lifecycleScope.launch {
                 try {
                     val room = RoomData(
-                        idRoom = idRoom,
                         name = name,
                         avatar = avatar.ifEmpty { "https://example.com/default-avatar.png" },
                         password = password,
@@ -136,6 +133,7 @@ class MainActivity2 : AppCompatActivity() {
                 }
             }
         }
+
 
         val btnShowMyRooms = findViewById<Button>(R.id.btnShowMyRooms)
 
@@ -174,6 +172,98 @@ class MainActivity2 : AppCompatActivity() {
                 }
             }
         }
+
+        val editGetRoomId = findViewById<EditText>(R.id.editGetRoomId)
+        val btnGetRoomAndUsers = findViewById<Button>(R.id.btnGetRoomAndUsers)
+
+        btnGetRoomAndUsers.setOnClickListener {
+            val roomId = editGetRoomId.text.toString().trim()
+            if (roomId.isEmpty()) {
+                Toast.makeText(this, "Podaj ID pokoju", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            lifecycleScope.launch {
+                try {
+                    val result = repository.getRoomAndUsers(roomId)
+                    if (result != null) {
+                        val (roomData, users) = result
+
+                        // Wyciągamy loginy
+                        val userLogins = users.joinToString(", ") { it.name }
+
+                        Toast.makeText(
+                            this@MainActivity2,
+                            "Pokój: ${roomData.name}\nUżytkownicy: $userLogins",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    } else {
+                        Toast.makeText(this@MainActivity2, "❌ Brak danych dla tego pokoju", Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    Toast.makeText(this@MainActivity2, "❌ Błąd pobierania danych pokoju", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+
+        val btnAddUserToRoom = findViewById<Button>(R.id.btnAddUserToRoom)
+        val editAddUserRoomId = findViewById<EditText>(R.id.editAddUserRoomId)
+        val editAddUserLogin = findViewById<EditText>(R.id.editAddUserLogin)
+
+        btnAddUserToRoom.setOnClickListener {
+
+            val roomId = editAddUserRoomId.text.toString().trim()
+            val login = editAddUserLogin.text.toString().trim()
+            if (roomId.isEmpty() || login.isEmpty()) {
+                Toast.makeText(this, "Podaj ID pokoju i login użytkownika", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            lifecycleScope.launch {
+                try {
+                    val success = repository.addUserToRoom(roomId, login)
+                    if (success) {
+                        Toast.makeText(this@MainActivity2, "✅ Dodano $login do pokoju", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(this@MainActivity2, "❌ Nie udało się dodać użytkownika", Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    Toast.makeText(this@MainActivity2, "❌ Błąd dodawania użytkownika", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+
+        val btnJoinRoom = findViewById<Button>(R.id.btnJoinRoom)
+        val editJoinRoomId = findViewById<EditText>(R.id.editJoinRoomId)
+        val editJoinRoomPassword = findViewById<EditText>(R.id.editJoinRoomPassword)
+
+        btnJoinRoom.setOnClickListener {
+            val roomId = editJoinRoomId.text.toString().trim()
+            val password = editJoinRoomPassword.text.toString().trim()
+
+            if (roomId.isEmpty()) {
+                Toast.makeText(this, "Podaj ID pokoju", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            lifecycleScope.launch {
+                try {
+                    val success = repository.addMyselfToRoom(roomId, password)
+                    if (success) {
+                        Toast.makeText(this@MainActivity2, "✅ Dołączono do pokoju", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(this@MainActivity2, "❌ Nie udało się dołączyć", Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    Toast.makeText(this@MainActivity2, "❌ Błąd dołączania do pokoju", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+
+
 
     }
 }

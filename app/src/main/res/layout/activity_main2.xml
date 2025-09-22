@@ -75,11 +75,6 @@
             android:textSize="18sp"
             android:paddingBottom="8dp" />
 
-        <EditText
-            android:id="@+id/editUpdateRoomId"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="ID pokoju" />
 
         <EditText
             android:id="@+id/editUpdateRoomName"
@@ -131,6 +126,92 @@
             android:layout_height="wrap_content"
             android:text="Pokaż wszystkie pokoje"
             android:layout_marginTop="16dp"/>
+
+        <!-- Pobierz pokój + użytkowników -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Pobierz pokój i użytkowników"
+            android:textStyle="bold"
+            android:textSize="18sp"
+            android:paddingTop="16dp"
+            android:paddingBottom="8dp" />
+
+        <EditText
+            android:id="@+id/editGetRoomId"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="ID pokoju" />
+
+        <Button
+            android:id="@+id/btnGetRoomAndUsers"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Pobierz dane pokoju"
+            android:layout_marginTop="8dp" />
+
+        <!-- Dodaj użytkownika do pokoju -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Dodaj użytkownika do pokoju"
+            android:textStyle="bold"
+            android:textSize="18sp"
+            android:paddingTop="16dp"
+            android:paddingBottom="8dp" />
+
+        <EditText
+            android:id="@+id/editAddUserRoomId"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="ID pokoju"
+            android:inputType="text" />
+
+        <EditText
+            android:id="@+id/editAddUserLogin"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Login użytkownika"
+            android:inputType="textPersonName" />
+
+        <Button
+            android:id="@+id/btnAddUserToRoom"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Dodaj użytkownika"
+            android:layout_marginTop="8dp" />
+
+        <!-- Dołącz do pokoju -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Dołącz do pokoju"
+            android:textStyle="bold"
+            android:textSize="18sp"
+            android:paddingTop="16dp"
+            android:paddingBottom="8dp" />
+
+        <EditText
+            android:id="@+id/editJoinRoomId"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="ID pokoju" />
+
+        <EditText
+            android:id="@+id/editJoinRoomPassword"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Hasło (opcjonalne)"
+            android:inputType="textPassword" />
+
+        <Button
+            android:id="@+id/btnJoinRoom"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Dołącz"
+            android:layout_marginTop="8dp" />
+
+
 
 
     </LinearLayout>
