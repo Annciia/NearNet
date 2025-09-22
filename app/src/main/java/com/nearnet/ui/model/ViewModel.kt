@@ -6,7 +6,11 @@ import androidx.lifecycle.viewModelScope
 import com.nearnet.Message
 import com.nearnet.Room
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 var myRoomsList = listOf(
@@ -38,6 +42,26 @@ class NearNetViewModel: ViewModel() {
     //Rooms
     private val roomsMutable = MutableStateFlow(listOf<Room>())
     val rooms = roomsMutable.asStateFlow()
+
+    //Filtered rooms
+    private val searchRoomTextMutable = MutableStateFlow("")
+    val searchRoomText = searchRoomTextMutable.asStateFlow()
+    //private var myFilteredRoomsListMutable : MutableStateFlow<List<Room>> = MutableStateFlow(myRoomsList)
+    //val myFilteredRoomsList = myFilteredRoomsListMutable.asStateFlow()
+    val filteredMyRoomsList : StateFlow<List<Room>> = combine(rooms, searchRoomText) { rooms, searchText ->
+        if (searchText.isEmpty()) rooms
+        else rooms.filter { it.name.contains(searchText, ignoreCase = true) }
+    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
+
+    //Filtered discover rooms
+    private val searchDiscoverTextMutable = MutableStateFlow("")
+    val searchDiscoverText = searchDiscoverTextMutable.asStateFlow()
+    var filteredDiscoverList : StateFlow<List<Room>> = combine(rooms, searchDiscoverText) { rooms, searchText ->
+        if (searchText.isEmpty()) rooms
+        else rooms.filter { it.name.contains(searchText, ignoreCase = true) }
+    }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
 
     //Selected room
     private val selectedRoomMutable = MutableStateFlow<Room?>(null)
@@ -77,7 +101,27 @@ class NearNetViewModel: ViewModel() {
             selectRoom(createdRoom)
         }
     }
-
+    /*fun filterRoom(filterText: String){
+        searchRoomTextMutable.value = filterText
+    }*/
+    /*fun filterMyRooms(filterText: String) : StateFlow<List<Room>> {
+        //filterRoom(filterText)
+        searchRoomTextMutable.value = filterText
+        if(searchRoomText.value != "") {
+            myFilteredRoomsListMutable.value = myRoomsList.filter { it.name.contains(searchRoomText.value, ignoreCase = true) }
+            return myFilteredRoomsList
+        }
+        else {
+            myFilteredRoomsListMutable.value = myRoomsList
+            return myFilteredRoomsList
+        }
+    }*/
+    fun filterMyRooms(filterText: String){
+        searchRoomTextMutable.value = filterText
+    }
+    fun filterDiscoverRooms(filterText: String){
+        searchDiscoverTextMutable.value = filterText
+    }
     fun selectRoom(room : Room) {
         loadMessages(room)
         selectedRoomMutable.value = room

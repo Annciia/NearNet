@@ -235,14 +235,18 @@ class MainActivity : ComponentActivity() {
     @Composable
     fun RoomsScreen(navController: NavHostController) : Unit {
         LocalViewModel.current.loadMyRooms()
-        val rooms = LocalViewModel.current.rooms.collectAsState().value
+        //val rooms = LocalViewModel.current.rooms.collectAsState().value
         val vm = LocalViewModel.current
+        val rooms = vm.filteredMyRoomsList.collectAsState().value
+        val searchText = vm.searchRoomText.collectAsState().value
         Column {
             ScreenTitle("My rooms")
-            SearchField(placeholderText = "Search rooms...", onSearch = {
-                searchText -> //TODO filtrowanie po grupach
-                Log.e("SEARCHED ROOM", searchText)
-                Toast.makeText(this@MainActivity, searchText, Toast.LENGTH_SHORT).show()
+            SearchField(placeholderText = "Search rooms...", searchText=searchText, onSearch = {
+                searchText ->
+                    //vm.filterRoom(searchText)
+                    vm.filterMyRooms(searchText) //DONE filtrowanie po grupach
+                    //Log.e("SEARCHED ROOM", searchText)
+                    //Toast.makeText(this@MainActivity, searchText, Toast.LENGTH_SHORT).show()
             })
             Spacer(Modifier.height(8.dp).fillMaxWidth())
             Text(
@@ -286,7 +290,8 @@ class MainActivity : ComponentActivity() {
     fun DiscoverScreen(navController: NavController) : Unit {
         LocalViewModel.current.loadDiscoverRooms()
         val vm = LocalViewModel.current
-        val rooms = vm.rooms.collectAsState().value
+        val rooms = vm.filteredDiscoverList.collectAsState().value
+        val searchText = vm.searchDiscoverText.collectAsState().value
         Column {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -300,7 +305,10 @@ class MainActivity : ComponentActivity() {
                     Text("Create room")
                 }
             }
-            SearchField(placeholderText = "Search rooms...")
+            SearchField(placeholderText = "Search rooms...", searchText = searchText, onSearch = {
+                searchText ->
+                    vm.filterDiscoverRooms(searchText)
+            })
             Spacer(Modifier.height(8.dp).fillMaxWidth())
             Text(
                 text = "Found "+ rooms.size +" rooms"

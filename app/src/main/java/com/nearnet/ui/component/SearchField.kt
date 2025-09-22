@@ -1,5 +1,6 @@
 package com.nearnet.ui.component
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -17,13 +18,10 @@ import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -32,12 +30,17 @@ import com.nearnet.ui.theme.standardIconStyle
 @Composable
 fun SearchField(modifier: Modifier = Modifier,
                 placeholderText: String = "",
-                onSearch: (String) -> Unit = {}
+                searchText: String,
+                onSearch: (String) -> Unit
                 ) {
-    var searchText by remember { mutableStateOf("") }
+    //var searchText by rememberSaveable { mutableStateOf("") }
+    var context = LocalContext.current
     BasicTextField(
         value = searchText,
-        onValueChange = { searchText = it }, //{ chars -> searchText = chars }
+        onValueChange = {
+            //searchText = it
+            onSearch(it)
+                        }, //{ chars -> searchText = chars }
         modifier = modifier.fillMaxWidth(),
         singleLine = true,
         textStyle = LocalTextStyle.current.copy(
@@ -52,6 +55,7 @@ fun SearchField(modifier: Modifier = Modifier,
         keyboardActions = KeyboardActions(
             onSearch = {
                 onSearch(searchText) // akcja przy Enter/Szukaj
+                Toast.makeText(context, searchText, Toast.LENGTH_SHORT).show()
             }
         ),
         decorationBox = { innerTextField ->
