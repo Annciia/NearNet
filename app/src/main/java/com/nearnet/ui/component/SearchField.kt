@@ -33,14 +33,10 @@ fun SearchField(modifier: Modifier = Modifier,
                 searchText: String,
                 onSearch: (String) -> Unit
                 ) {
-    //var searchText by rememberSaveable { mutableStateOf("") }
     var context = LocalContext.current
     BasicTextField(
         value = searchText,
-        onValueChange = {
-            //searchText = it
-            onSearch(it)
-                        }, //{ chars -> searchText = chars }
+        onValueChange = { onSearch(it) }, //{ chars -> onSearch(chars) }
         modifier = modifier.fillMaxWidth(),
         singleLine = true,
         textStyle = LocalTextStyle.current.copy(

@@ -46,13 +46,10 @@ class NearNetViewModel: ViewModel() {
     //Filtered rooms
     private val searchRoomTextMutable = MutableStateFlow("")
     val searchRoomText = searchRoomTextMutable.asStateFlow()
-    //private var myFilteredRoomsListMutable : MutableStateFlow<List<Room>> = MutableStateFlow(myRoomsList)
-    //val myFilteredRoomsList = myFilteredRoomsListMutable.asStateFlow()
     val filteredMyRoomsList : StateFlow<List<Room>> = combine(rooms, searchRoomText) { rooms, searchText ->
         if (searchText.isEmpty()) rooms
         else rooms.filter { it.name.contains(searchText, ignoreCase = true) }
     }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
-
 
     //Filtered discover rooms
     private val searchDiscoverTextMutable = MutableStateFlow("")
@@ -61,7 +58,6 @@ class NearNetViewModel: ViewModel() {
         if (searchText.isEmpty()) rooms
         else rooms.filter { it.name.contains(searchText, ignoreCase = true) }
     }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
-
 
     //Selected room
     private val selectedRoomMutable = MutableStateFlow<Room?>(null)
@@ -101,21 +97,6 @@ class NearNetViewModel: ViewModel() {
             selectRoom(createdRoom)
         }
     }
-    /*fun filterRoom(filterText: String){
-        searchRoomTextMutable.value = filterText
-    }*/
-    /*fun filterMyRooms(filterText: String) : StateFlow<List<Room>> {
-        //filterRoom(filterText)
-        searchRoomTextMutable.value = filterText
-        if(searchRoomText.value != "") {
-            myFilteredRoomsListMutable.value = myRoomsList.filter { it.name.contains(searchRoomText.value, ignoreCase = true) }
-            return myFilteredRoomsList
-        }
-        else {
-            myFilteredRoomsListMutable.value = myRoomsList
-            return myFilteredRoomsList
-        }
-    }*/
     fun filterMyRooms(filterText: String){
         searchRoomTextMutable.value = filterText
     }

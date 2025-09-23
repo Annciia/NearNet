@@ -81,7 +81,6 @@ class MainActivity : ComponentActivity() {
     @Preview
     @Composable
     fun App(){
-        //var x: @Composable ()->Unit = { Text("...doc")}
         val navController = rememberNavController()
         val vm : NearNetViewModel = viewModel()
         NearNetTheme {
@@ -92,11 +91,8 @@ class MainActivity : ComponentActivity() {
                     content = { padding ->
                         Column(modifier = Modifier.padding(padding).padding(horizontal = 16.dp)) {
                             ContentArea(navController)
-                            /*Text("Kotek")
-                            Text("Miau miau")
-                            Button(onClick = {}) {
+                            /*Button(onClick = {}) {
                                 Text("MIAU")
-
                             }*/
 
                         }
@@ -200,8 +196,7 @@ class MainActivity : ComponentActivity() {
         }
 
     }
-    //Text("Bottom kitten bar.")
-    //Text("Kitten bar.")
+
 
     @Composable
     fun ContentArea(navController: NavHostController) :Unit {
@@ -215,27 +210,14 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    @Preview
     @Composable
     fun RecentScreen() : Unit {
         ScreenTitle("Recent activity")
     }
 
-    private var roomNames: List<String> = listOf("Kot", "Axolotl", "Tukan", "Pomidor")
-    /*private var rooms: List<Room> = listOf(
-        Room(0, "Stormvik games", "Witaj! Jestem wikingiem.", true),
-        Room(1, "You cat", "Meeeeeeeeeeeeeeeow!", false),
-        Room(2, "虫籠のカガステル", "No comment needed. Just join!", false),
-        Room(3, "Biohazard", "Be careful.", false),
-        Room(4, "Mibik game server", "Mi mi mi! It's me.", false),
-        Room(5, "Fallout", null, true),
-        Room(7, "My new world", "Don't join. It's private", true),
-        Room(8, "The Lord of the Rings: The Battle for the Middle Earth", "Elen", false),
-    )*/
     @Composable
     fun RoomsScreen(navController: NavHostController) : Unit {
         LocalViewModel.current.loadMyRooms()
-        //val rooms = LocalViewModel.current.rooms.collectAsState().value
         val vm = LocalViewModel.current
         val rooms = vm.filteredMyRoomsList.collectAsState().value
         val searchText = vm.searchRoomText.collectAsState().value
@@ -243,8 +225,7 @@ class MainActivity : ComponentActivity() {
             ScreenTitle("My rooms")
             SearchField(placeholderText = "Search rooms...", searchText=searchText, onSearch = {
                 searchText ->
-                    //vm.filterRoom(searchText)
-                    vm.filterMyRooms(searchText) //DONE filtrowanie po grupach
+                    vm.filterMyRooms(searchText)
                     //Log.e("SEARCHED ROOM", searchText)
                     //Toast.makeText(this@MainActivity, searchText, Toast.LENGTH_SHORT).show()
             })
@@ -262,25 +243,6 @@ class MainActivity : ComponentActivity() {
                         navController.navigate("roomConversationScreen")
                     })
                 }
-                /*item {
-                    Text("Bla bla bla")
-                }
-                item {
-                    Text(text = "Bla bla bla", modifier = Modifier.padding(vertical=4.dp).background(color = MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(6.dp)).padding(5.dp).fillMaxWidth()
-                    )
-                }
-                items(20) { index ->
-                    Text(
-                        text = index.toString(),
-                        modifier = Modifier.padding(vertical=4.dp).background(color = MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(6.dp)).padding(5.dp).fillMaxWidth()
-                    )
-                }
-                items(roomNames) { roomName ->
-                    Text(
-                        text = roomName,
-                        modifier = Modifier.padding(vertical=4.dp).background(color = MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(6.dp)).padding(5.dp).fillMaxWidth()
-                    )
-                }*/
             }
         }
 
