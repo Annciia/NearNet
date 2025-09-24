@@ -188,33 +188,7 @@ class RoomRepository(private val context: Context) {
             null
         }
     }
-    //to samo co nizej
-//    suspend fun updateRoom(room: RoomData): RoomData? = withContext(Dispatchers.IO) {
-//        val token = getToken() ?: return@withContext null
-//
-//        val avatarUrl = room.avatar.ifEmpty { "https://example.com/default-avatar.png" }
-//
-//        val body = UpdateRoomRequest(
-//            name = room.name,
-//            avatar = avatarUrl,
-//            password = room.password,
-//            isPrivate = room.isPrivate,
-//            isVisible = room.isVisible
-//        )
-//
-//        try {
-//            val response = api.updateRoom(token, room.idRoom, body)
-//            if (response.isSuccessful) {
-//                response.body()
-//            } else {
-//                Log.e("ROOM", "❌ updateRoom failed: ${response.code()} ${response.errorBody()?.string()}")
-//                null
-//            }
-//        } catch (e: Exception) {
-//            Log.e("ROOM", "❌ Exception in updateRoom", e)
-//            null
-//        }
-//    }
+
 
     suspend fun updateRoom(room: RoomData): RoomData? = withContext(Dispatchers.IO) {
         val token = getToken() ?: return@withContext null
@@ -352,13 +326,14 @@ class RoomRepository(private val context: Context) {
     suspend fun getRoomIdByName(name: String): String? = withContext(Dispatchers.IO) {
         val token = getToken() ?: return@withContext null
         try {
-            val response = api.getAllRooms(token)
-            if (response.isSuccessful) {
-                val rooms = response.body()?.rooms ?: emptyList()
+            // Pobranie tylko pokoi, w których jesteś członkiem
+            val myRooms = api.getMyRooms(token)
+            if (myRooms.isSuccessful) {
+                val rooms = myRooms.body()?.rooms ?: emptyList()
                 val room = rooms.find { it.name.equals(name, ignoreCase = true) }
                 room?.idRoom
             } else {
-                Log.e("ROOM", "❌ getRoomIdByName failed: ${response.code()} ${response.errorBody()?.string()}")
+                Log.e("ROOM", "❌ getRoomIdByName failed: ${myRooms.code()} ${myRooms.errorBody()?.string()}")
                 null
             }
         } catch (e: Exception) {

@@ -1,5 +1,6 @@
 package com.nearnet
 
+import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
 import android.widget.CheckBox
@@ -261,6 +262,12 @@ class MainActivity2 : AppCompatActivity() {
                     Toast.makeText(this@MainActivity2, "❌ Błąd dołączania do pokoju", Toast.LENGTH_SHORT).show()
                 }
             }
+        }
+
+        val btnOpenChat = findViewById<Button>(R.id.btnOpenChat)
+        btnOpenChat.setOnClickListener {
+            val intent = Intent(this, MainActivity3::class.java)
+            startActivity(intent)
         }
 
 
