@@ -6,13 +6,11 @@ import com.nearnet.sessionlayer.data.db.AppDatabase
 import com.nearnet.sessionlayer.data.model.UserData
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.json.JSONObject
 import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.*
-import java.util.*
 
 data class RegisterResponse(
     val Succes: Boolean? = null,
@@ -47,7 +45,7 @@ interface ApiService {
 }
 
 class UserRepository(private val context: Context) {
-    private val db = AppDatabase.getDatabase(context)
+    //private val db = AppDatabase.getDatabase(context)
 
     private val retrofit = Retrofit.Builder()
         .baseUrl("http://95.108.77.201:3001")
