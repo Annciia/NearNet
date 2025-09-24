@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.nearnet.Message
 import com.nearnet.Room
 import com.nearnet.User
+import com.nearnet.sessionlayer.logic.UserRepository
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -46,7 +47,8 @@ sealed class ProcessEvent<out T> {
 }
 
 //zawiera zmienne przechowujące stan aplikacji
-class NearNetViewModel: ViewModel() {
+class NearNetViewModel(): ViewModel() {
+    lateinit var repository: UserRepository
 
     //Selected user
     private val selectedUserMutable = MutableStateFlow<User?>(null)
@@ -111,8 +113,8 @@ class NearNetViewModel: ViewModel() {
     fun registerUser(login: String, password: String){
         viewModelScope.launch {
             // TODO Call asynchronous function to register user.
-            //val status : Boolean = registerUser(login, password)
-            val status : Boolean = true
+            val status : Boolean = repository.registerUser(login, password)
+            //val status : Boolean = true
             if (status == true){
                 registerUserEventMutable.emit(ProcessEvent.Success(Unit))
             }

@@ -54,7 +54,7 @@ class UserRepository(private val context: Context) {
 
     private val api = retrofit.create(ApiService::class.java)
 
-    suspend fun registerUser(login: String, password: String, avatar: String): Boolean = withContext(Dispatchers.IO) {
+    suspend fun registerUser(login: String, password: String): Boolean = withContext(Dispatchers.IO) {
         val body = mapOf("login" to login, "password" to password)
         val response = api.register(body)
 

@@ -66,6 +66,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.nearnet.sessionlayer.logic.UserRepository
 import com.nearnet.ui.component.ConversationPanel
 import com.nearnet.ui.component.MessageItem
 import com.nearnet.ui.component.PlainTextField
@@ -90,6 +91,7 @@ class MainActivity : ComponentActivity() {
     fun App(){
         val navController = rememberNavController()
         val vm : NearNetViewModel = viewModel()
+        vm.repository = UserRepository(this)
         NearNetTheme {
             CompositionLocalProvider(LocalViewModel provides vm) {
                 Scaffold(
