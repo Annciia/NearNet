@@ -48,6 +48,16 @@ sealed class ProcessEvent<out T> {
 //zawiera zmienne przechowujące stan aplikacji
 class NearNetViewModel: ViewModel() {
 
+    //Selected user
+    private val selectedUserMutable = MutableStateFlow<User?>(null)
+    val selectedUser = selectedUserMutable.asStateFlow()
+    private val selectedUserEventMutable = MutableSharedFlow<ProcessEvent<User>>()
+    val selectedUserEvent = selectedUserEventMutable.asSharedFlow()
+
+    //Register user
+    private val registerUserEventMutable = MutableSharedFlow<ProcessEvent<Unit>>()
+    val registerUserEvent = registerUserEventMutable.asSharedFlow()
+
     //Rooms
     private val roomsMutable = MutableStateFlow(listOf<Room>())
     val rooms = roomsMutable.asStateFlow()
@@ -76,12 +86,6 @@ class NearNetViewModel: ViewModel() {
     private val messagesMutable = MutableStateFlow(listOf<Message>())
     val messages = messagesMutable.asStateFlow()
 
-    //Selected user
-    private val selectedUserMutable = MutableStateFlow<User?>(null)
-    val selectedUser = selectedUserMutable.asStateFlow()
-    private val selectedUserEventMutable = MutableSharedFlow<ProcessEvent<User>>()
-    val selectedUserEvent = selectedUserEventMutable.asSharedFlow()
-
 
     //constructor to VievModel
     init {
@@ -101,6 +105,19 @@ class NearNetViewModel: ViewModel() {
             }
             else {
                 selectedUserEventMutable.emit(ProcessEvent.Error("Login failed. Incorrect login or password."))
+            }
+        }
+    }
+    fun registerUser(login: String, password: String){
+        viewModelScope.launch {
+            // TODO Call asynchronous function to register user.
+            //val status : Boolean = registerUser(login, password)
+            val status : Boolean = true
+            if (status == true){
+                registerUserEventMutable.emit(ProcessEvent.Success(Unit))
+            }
+            else {
+                registerUserEventMutable.emit(ProcessEvent.Error("Failed to create account. Please try again."))
             }
         }
     }

@@ -59,6 +59,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavHostController
@@ -75,6 +76,7 @@ import com.nearnet.ui.model.LocalViewModel
 import com.nearnet.ui.model.NearNetViewModel
 import com.nearnet.ui.model.ProcessEvent
 import com.nearnet.ui.theme.NearNetTheme
+import kotlinx.coroutines.launch
 
 data class Room(val id: Int, var name: String, var description: String?, var isPrivate: Boolean)
 data class Message(val id: Int, val userNameSender: String, val content: String)
@@ -207,6 +209,7 @@ class MainActivity : ComponentActivity() {
     fun ContentArea(navController: NavHostController) :Unit {
         NavHost(navController, startDestination = "loginScreen") {
             composable("loginScreen") { LoginScreen(navController) }
+            composable("registerScreen") { RegisterScreen(navController) }
             composable("recentScreen") { RecentScreen() }
             composable("roomsScreen") { RoomsScreen(navController) }
             composable("discoverScreen") { DiscoverScreen(navController) }
@@ -268,7 +271,9 @@ class MainActivity : ComponentActivity() {
             )
             Spacer(Modifier.height(10.dp))
             Button(
-                onClick = {},
+                onClick = {
+                    navController.navigate("registerScreen")
+                },
                 modifier = Modifier.widthIn(max = 200.dp).fillMaxWidth()
             ) {
                 Text(text= "Create account")
@@ -290,7 +295,121 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
 
+    @Composable
+    fun RegisterScreen(navController: NavController) : Unit {
+        val context = LocalContext.current
+        val vm = LocalViewModel.current
+        val login = remember { mutableStateOf("") }
+        val password = remember { mutableStateOf("") }
+        val passwordConfirmation = remember { mutableStateOf("") }
+
+        ScreenTitle("Create your new account!")
+        Column(
+            modifier = Modifier.fillMaxSize().padding(40.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.AccountCircle,
+                contentDescription = "Application logo",
+                tint = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier.size(200.dp).background(
+                    color = MaterialTheme.colorScheme.primary,
+                    shape = RoundedCornerShape(6.dp)
+                )
+            )
+            Spacer(Modifier.height(40.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Start
+            ) {
+                Text(
+                    text = "Get your chat on",
+                    style = LocalTextStyle.current.copy(
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        fontSize = 24.sp
+                    )
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                Text(
+                    text = "sign up and start connecting!",
+                    style = LocalTextStyle.current.copy(
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        //fontSize = 16.sp //default value
+                    )
+                )
+            }
+            Spacer(Modifier.height(20.dp))
+            PlainTextField(
+                placeholderText = "login",
+                singleLine = true,
+                value = login.value,
+                onValueChange = { login.value = it }
+            )
+            Spacer(Modifier.height(10.dp))
+            PlainTextField(
+                placeholderText = "password",
+                singleLine = true,
+                value = password.value,
+                onValueChange = { password.value = it }
+            )
+            Spacer(Modifier.height(10.dp))
+            PlainTextField(
+                placeholderText = "confirm password",
+                singleLine = true,
+                value = passwordConfirmation.value,
+                onValueChange = { passwordConfirmation.value = it }
+            )
+            Spacer(Modifier.height(20.dp))
+            Button(
+                onClick = {
+                    vm.registerUser(login.value, password.value)
+                    //tu animacja czekania na logowanie w postaci kota biegającego w kółko
+                },
+                modifier = Modifier.widthIn(max = 200.dp).fillMaxWidth()
+            ) {
+                Text(text= "Let's go!")
+            }
+            Spacer(Modifier.height(30.dp))
+        }
+        LaunchedEffect(Unit) {
+            launch {
+                vm.registerUserEvent.collect { event ->
+                    when (event) {
+                        is ProcessEvent.Success -> {
+                            vm.logInUser(login.value, password.value)
+                        }
+                        is ProcessEvent.Error -> {
+                            Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            }
+            launch {
+                vm.selectedUserEvent.collect { event ->
+                    when (event) {
+                        is ProcessEvent.Success -> {
+                            navController.navigate("userProfileScreen") {
+                                popUpTo("registerScreen") { inclusive = true }
+                            }
+                            Toast.makeText(context, event.data.name, Toast.LENGTH_SHORT).show()
+                        }
+                        is ProcessEvent.Error -> {
+                            Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
+                            navController.navigate("loginScreen") {
+                                popUpTo("registerScreen") { inclusive = true }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     @Composable
