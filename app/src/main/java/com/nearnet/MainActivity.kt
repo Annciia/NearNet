@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -35,6 +36,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonColors
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -46,12 +48,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -69,11 +73,12 @@ import com.nearnet.ui.component.ScreenTitle
 import com.nearnet.ui.component.SearchField
 import com.nearnet.ui.model.LocalViewModel
 import com.nearnet.ui.model.NearNetViewModel
+import com.nearnet.ui.model.ProcessEvent
 import com.nearnet.ui.theme.NearNetTheme
 
 data class Room(val id: Int, var name: String, var description: String?, var isPrivate: Boolean)
 data class Message(val id: Int, val userNameSender: String, val content: String)
-
+data class User(val id: Int, val login: String, val password: String, val name: String)
 
 class MainActivity : ComponentActivity() {
 
@@ -200,7 +205,8 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     fun ContentArea(navController: NavHostController) :Unit {
-        NavHost(navController, startDestination = "recentScreen") {
+        NavHost(navController, startDestination = "loginScreen") {
+            composable("loginScreen") { LoginScreen(navController) }
             composable("recentScreen") { RecentScreen() }
             composable("roomsScreen") { RoomsScreen(navController) }
             composable("discoverScreen") { DiscoverScreen(navController) }
@@ -211,12 +217,89 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
+    fun LoginScreen(navController: NavController) : Unit {
+        val context = LocalContext.current
+        val vm = LocalViewModel.current
+        val login = remember { mutableStateOf("") }
+        val password = remember { mutableStateOf("") }
+
+        ScreenTitle("Log in or create account!")
+        Column(
+            modifier = Modifier.fillMaxSize().padding(40.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.AccountCircle,
+                contentDescription = "Application logo",
+                tint = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier.size(200.dp).background(color = MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(6.dp))
+            )
+            Spacer(Modifier.height(40.dp))
+            PlainTextField(
+                placeholderText = "login",
+                singleLine = true,
+                value = login.value,
+                onValueChange = { login.value = it } // {x -> login.value = x }
+            )
+            Spacer(Modifier.height(10.dp))
+            PlainTextField(
+                placeholderText = "password",
+                singleLine = true,
+                value = password.value,
+                onValueChange = { password.value = it }
+            )
+            Spacer(Modifier.height(10.dp))
+            Button(
+                onClick = {
+                    vm.logInUser(login.value, password.value)
+                    //tu animacja czekania na logowanie w postaci kota biegającego w kółko
+                },
+                modifier = Modifier.widthIn(max = 200.dp).fillMaxWidth()
+            ) {
+                Text(text= "Sign in")
+            }
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = "or",
+                style = LocalTextStyle.current.copy(
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
+            )
+            Spacer(Modifier.height(10.dp))
+            Button(
+                onClick = {},
+                modifier = Modifier.widthIn(max = 200.dp).fillMaxWidth()
+            ) {
+                Text(text= "Create account")
+            }
+            Spacer(Modifier.height(30.dp))
+        }
+        LaunchedEffect(Unit) {
+            vm.selectedUserEvent.collect { event ->
+                when (event) {
+                    is ProcessEvent.Success -> {
+                        navController.navigate("recentScreen") {
+                            popUpTo("loginScreen") { inclusive = true }
+                        }
+                        Toast.makeText(context, event.data.name, Toast.LENGTH_SHORT).show()
+                    }
+                    is ProcessEvent.Error -> {
+                        Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        }
+
+    }
+
+    @Composable
     fun RecentScreen() : Unit {
         ScreenTitle("Recent activity")
     }
 
     @Composable
-    fun RoomsScreen(navController: NavHostController) : Unit {
+    fun RoomsScreen(navController: NavController) : Unit {
         LocalViewModel.current.loadMyRooms()
         val vm = LocalViewModel.current
         val rooms = vm.filteredMyRoomsList.collectAsState().value
