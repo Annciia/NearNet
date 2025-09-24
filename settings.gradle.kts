@@ -23,3 +23,4 @@ rootProject.name = "NearNet"
 include(":app")
 include(":SessionLayer")
 include(":InfrastructureLayer")
+
