@@ -231,56 +231,62 @@ class MainActivity : ComponentActivity() {
         ScreenTitle("Log in or create account!")
         Column(
             modifier = Modifier.fillMaxSize().padding(40.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Icon(
-                imageVector = Icons.Default.AccountCircle,
-                contentDescription = "Application logo",
-                tint = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.size(200.dp).background(color = MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(6.dp))
-            )
-            Spacer(Modifier.height(40.dp))
-            PlainTextField(
-                placeholderText = "login",
-                singleLine = true,
-                value = login.value,
-                onValueChange = { login.value = it } // {x -> login.value = x }
-            )
-            Spacer(Modifier.height(10.dp))
-            PlainTextField(
-                placeholderText = "password",
-                singleLine = true,
-                value = password.value,
-                onValueChange = { password.value = it }
-            )
-            Spacer(Modifier.height(10.dp))
-            Button(
-                onClick = {
-                    vm.logInUser(login.value, password.value)
-                    //tu animacja czekania na logowanie w postaci kota biegającego w kółko
-                },
-                modifier = Modifier.widthIn(max = 200.dp).fillMaxWidth()
+            Column(
+                modifier = Modifier.fillMaxWidth().height(520.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(text= "Sign in")
-            }
-            Spacer(Modifier.height(10.dp))
-            Text(
-                text = "or",
-                style = LocalTextStyle.current.copy(
-                    color = MaterialTheme.colorScheme.onPrimary
+                Icon(
+                    imageVector = Icons.Default.AccountCircle,
+                    contentDescription = "Application logo",
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(200.dp).background(
+                        color = MaterialTheme.colorScheme.primary,
+                        shape = RoundedCornerShape(6.dp)
+                    )
                 )
-            )
-            Spacer(Modifier.height(10.dp))
-            Button(
-                onClick = {
-                    navController.navigate("registerScreen")
-                },
-                modifier = Modifier.widthIn(max = 200.dp).fillMaxWidth()
-            ) {
-                Text(text= "Create account")
+                Spacer(Modifier.height(40.dp))
+                PlainTextField(
+                    placeholderText = "login",
+                    singleLine = true,
+                    value = login.value,
+                    onValueChange = { login.value = it } // {x -> login.value = x }
+                )
+                Spacer(Modifier.height(10.dp))
+                PlainTextField(
+                    placeholderText = "password",
+                    singleLine = true,
+                    value = password.value,
+                    onValueChange = { password.value = it }
+                )
+                Spacer(Modifier.height(10.dp))
+                Button(
+                    onClick = {
+                        vm.logInUser(login.value, password.value)
+                        //tu animacja czekania na logowanie w postaci kota biegającego w kółko
+                    },
+                    modifier = Modifier.widthIn(max = 200.dp).fillMaxWidth()
+                ) {
+                    Text(text = "Sign in")
+                }
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    text = "or",
+                    style = LocalTextStyle.current.copy(
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                )
+                Spacer(Modifier.height(10.dp))
+                Button(
+                    onClick = {
+                        navController.navigate("registerScreen")
+                    },
+                    modifier = Modifier.widthIn(max = 200.dp).fillMaxWidth()
+                ) {
+                    Text(text = "Create account")
+                }
             }
-            Spacer(Modifier.height(30.dp))
         }
         LaunchedEffect(Unit) {
             vm.selectedUserEvent.collect { event ->
@@ -313,72 +319,76 @@ class MainActivity : ComponentActivity() {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Icon(
-                imageVector = Icons.Default.AccountCircle,
-                contentDescription = "Application logo",
-                tint = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.size(200.dp).background(
-                    color = MaterialTheme.colorScheme.primary,
-                    shape = RoundedCornerShape(6.dp)
-                )
-            )
-            Spacer(Modifier.height(40.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Start
+            Column(
+                modifier = Modifier.fillMaxWidth().height(520.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(
-                    text = "Get your chat on",
-                    style = LocalTextStyle.current.copy(
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        fontSize = 24.sp
+                Icon(
+                    imageVector = Icons.Default.AccountCircle,
+                    contentDescription = "Application logo",
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(200.dp).background(
+                        color = MaterialTheme.colorScheme.primary,
+                        shape = RoundedCornerShape(6.dp)
                     )
                 )
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-            ) {
-                Text(
-                    text = "sign up and start connecting!",
-                    style = LocalTextStyle.current.copy(
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        //fontSize = 16.sp //default value
+                Spacer(Modifier.height(40.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Start
+                ) {
+                    Text(
+                        text = "Get your chat on",
+                        style = LocalTextStyle.current.copy(
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            fontSize = 24.sp
+                        )
                     )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Text(
+                        text = "sign up and start connecting!",
+                        style = LocalTextStyle.current.copy(
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            //fontSize = 16.sp //default value
+                        )
+                    )
+                }
+                Spacer(Modifier.height(20.dp))
+                PlainTextField(
+                    placeholderText = "login",
+                    singleLine = true,
+                    value = login.value,
+                    onValueChange = { login.value = it }
                 )
+                Spacer(Modifier.height(10.dp))
+                PlainTextField(
+                    placeholderText = "password",
+                    singleLine = true,
+                    value = password.value,
+                    onValueChange = { password.value = it }
+                )
+                Spacer(Modifier.height(10.dp))
+                PlainTextField(
+                    placeholderText = "confirm password",
+                    singleLine = true,
+                    value = passwordConfirmation.value,
+                    onValueChange = { passwordConfirmation.value = it }
+                )
+                Spacer(Modifier.height(20.dp))
+                Button(
+                    onClick = {
+                        vm.registerUser(login.value, password.value)
+                        //tu animacja czekania na logowanie w postaci kota biegającego w kółko
+                    },
+                    modifier = Modifier.widthIn(max = 200.dp).fillMaxWidth()
+                ) {
+                    Text(text = "Let's go!")
+                }
             }
-            Spacer(Modifier.height(20.dp))
-            PlainTextField(
-                placeholderText = "login",
-                singleLine = true,
-                value = login.value,
-                onValueChange = { login.value = it }
-            )
-            Spacer(Modifier.height(10.dp))
-            PlainTextField(
-                placeholderText = "password",
-                singleLine = true,
-                value = password.value,
-                onValueChange = { password.value = it }
-            )
-            Spacer(Modifier.height(10.dp))
-            PlainTextField(
-                placeholderText = "confirm password",
-                singleLine = true,
-                value = passwordConfirmation.value,
-                onValueChange = { passwordConfirmation.value = it }
-            )
-            Spacer(Modifier.height(20.dp))
-            Button(
-                onClick = {
-                    vm.registerUser(login.value, password.value)
-                    //tu animacja czekania na logowanie w postaci kota biegającego w kółko
-                },
-                modifier = Modifier.widthIn(max = 200.dp).fillMaxWidth()
-            ) {
-                Text(text= "Let's go!")
-            }
-            Spacer(Modifier.height(30.dp))
         }
         LaunchedEffect(Unit) {
             launch {
@@ -421,10 +431,9 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     fun RoomsScreen(navController: NavController) : Unit {
-        LocalViewModel.current.loadMyRooms()
         val vm = LocalViewModel.current
         val rooms = vm.filteredMyRoomsList.collectAsState().value
-        val searchText = vm.searchRoomText.collectAsState().value
+        val searchText = vm.searchMyRoomsText.collectAsState().value
         Column {
             ScreenTitle("My rooms")
             SearchField(placeholderText = "Search rooms...", searchText=searchText, onSearch = {
@@ -449,12 +458,13 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
-
+        LaunchedEffect(Unit) {
+            vm.loadMyRooms()
+        }
     }
 
     @Composable
     fun DiscoverScreen(navController: NavController) : Unit {
-        LocalViewModel.current.loadDiscoverRooms()
         val vm = LocalViewModel.current
         val rooms = vm.filteredDiscoverList.collectAsState().value
         val searchText = vm.searchDiscoverText.collectAsState().value
@@ -491,6 +501,9 @@ class MainActivity : ComponentActivity() {
                     })
                 }
             }
+        }
+        LaunchedEffect(Unit) {
+            vm.loadDiscoverRooms()
         }
     }
 

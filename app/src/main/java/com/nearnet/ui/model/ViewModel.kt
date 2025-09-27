@@ -61,13 +61,17 @@ class NearNetViewModel(): ViewModel() {
     val registerUserEvent = registerUserEventMutable.asSharedFlow()
 
     //Rooms
-    private val roomsMutable = MutableStateFlow(listOf<Room>())
-    val rooms = roomsMutable.asStateFlow()
+    private val myRoomsMutable = MutableStateFlow(listOf<Room>())
+    val myRooms = myRoomsMutable.asStateFlow()
 
-    //Filtered rooms
-    private val searchRoomTextMutable = MutableStateFlow("")
-    val searchRoomText = searchRoomTextMutable.asStateFlow()
-    val filteredMyRoomsList : StateFlow<List<Room>> = combine(rooms, searchRoomText) { rooms, searchText ->
+    //Discover rooms
+    private val discoverRoomsMutable = MutableStateFlow(listOf<Room>())
+    val discoverRooms = discoverRoomsMutable.asStateFlow()
+
+    //Filtered my rooms
+    private val searchMyRoomsTextMutable = MutableStateFlow("")
+    val searchMyRoomsText = searchMyRoomsTextMutable.asStateFlow()
+    val filteredMyRoomsList : StateFlow<List<Room>> = combine(myRooms, searchMyRoomsText) { rooms, searchText ->
         if (searchText.isEmpty()) rooms
         else rooms.filter { it.name.contains(searchText, ignoreCase = true) }
     }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
@@ -75,7 +79,7 @@ class NearNetViewModel(): ViewModel() {
     //Filtered discover rooms
     private val searchDiscoverTextMutable = MutableStateFlow("")
     val searchDiscoverText = searchDiscoverTextMutable.asStateFlow()
-    var filteredDiscoverList : StateFlow<List<Room>> = combine(rooms, searchDiscoverText) { rooms, searchText ->
+    var filteredDiscoverList : StateFlow<List<Room>> = combine(discoverRooms, searchDiscoverText) { rooms, searchText ->
         if (searchText.isEmpty()) rooms
         else rooms.filter { it.name.contains(searchText, ignoreCase = true) }
     }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
@@ -127,14 +131,14 @@ class NearNetViewModel(): ViewModel() {
         viewModelScope.launch {
             // TODO Call asynchronous function to fetch my rooms here.
             //roomsMutable.value = getUserRoomList(idUser)
-            roomsMutable.value = myRoomsList
+            myRoomsMutable.value = myRoomsList
         }
     }
     fun loadDiscoverRooms() {
         viewModelScope.launch {
             // TODO Call asynchronous function to fetch discover rooms here.
-            //roomsMutable.value = getRoomList()
-            roomsMutable.value = discoverRoomsList
+            //discoverRoomsMutable.value = getRoomList()
+            discoverRoomsMutable.value = discoverRoomsList
         }
     }
     fun createRoom(roomName : String, roomDescription : String){
@@ -148,7 +152,7 @@ class NearNetViewModel(): ViewModel() {
         }
     }
     fun filterMyRooms(filterText: String){
-        searchRoomTextMutable.value = filterText
+        searchMyRoomsTextMutable.value = filterText
     }
     fun filterDiscoverRooms(filterText: String){
         searchDiscoverTextMutable.value = filterText
