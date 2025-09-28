@@ -80,8 +80,9 @@ import com.nearnet.ui.theme.NearNetTheme
 import kotlinx.coroutines.launch
 
 data class Room(val id: Int, var name: String, var description: String?, var isPrivate: Boolean)
-data class Message(val id: Int, val userNameSender: String, val content: String)
+data class Message(val id: Int, val idRoom: Int, val userNameSender: String, val content: String, val timestamp: String)
 data class User(val id: Int, val login: String, val password: String, val name: String)
+data class Recent(val message: Message, val room: Room?, val username: String)
 
 class MainActivity : ComponentActivity() {
 
@@ -212,7 +213,7 @@ class MainActivity : ComponentActivity() {
         NavHost(navController, startDestination = "loginScreen") {
             composable("loginScreen") { LoginScreen(navController) }
             composable("registerScreen") { RegisterScreen(navController) }
-            composable("recentScreen") { RecentScreen() }
+            composable("recentScreen") { RecentScreen(navController) }
             composable("roomsScreen") { RoomsScreen(navController) }
             composable("discoverScreen") { DiscoverScreen(navController) }
             composable("userProfileScreen") { UserProfileScreen() }
@@ -425,8 +426,30 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    fun RecentScreen() : Unit {
-        ScreenTitle("Recent activity")
+    fun RecentScreen(navController: NavController) : Unit {
+        val vm = LocalViewModel.current
+        val recent = vm.recent.collectAsState().value
+        Column {
+            ScreenTitle("Recent activity")
+            LazyColumn(
+                Modifier.weight(1f).fillMaxWidth()
+            ) {
+                items(recent) { recent ->
+                    MessageItem(recent.message, recent.room, ellipse = true, onClick = { message, room ->
+                        if(room != null) {
+                            vm.selectRoom(room)
+                            navController.navigate("roomConversationScreen")
+                        }
+                        else{
+                            throw Error("MessageItem has null room.")
+                        }
+                    })
+                }
+            }
+        }
+        LaunchedEffect(Unit) {
+            vm.loadRecentMessages()
+        }
     }
 
     @Composable

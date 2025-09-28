@@ -4,6 +4,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nearnet.Message
+import com.nearnet.Recent
 import com.nearnet.Room
 import com.nearnet.User
 import com.nearnet.sessionlayer.logic.UserRepository
@@ -16,6 +17,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 var myRoomsList = listOf(
     Room(0, "Stormvik games", "Witaj! Jestem wikingiem.", true),
@@ -38,6 +41,14 @@ var discoverRoomsList = listOf(
     Room(7, "Stormvik games", "Witaj! Jestem wikingiem.", true),
     Room(8, "Biohazard", "Be careful.", false),
     Room(9, "Fallout", null, true),
+)
+
+var messagesList = listOf(
+    Message(0, 0, "Orci Kätter", "Lorem ipsum dolor sit amet, consectetur adipiscing elit.", timestamp = "2025-09-28 15:42:17.123"),
+    Message(1, 0, "Mauris ", "Proin a eros quam. Ut sit amet ultrices nisi. Pellentesque ac tristique nisl, id imperdiet est. Integer scelerisque leo at blandit blandit.", timestamp = "2025-09-28 10:15:32.849"),
+    Message(2, 0, "Orci Kätter", "Fusce sed ligula turpis. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Curabitur ac consequat nisi. Phasellus libero nibh, finibus non egestas in, egestas in lorem. Pellentesque nec facilisis erat, in pulvinar ipsum. Morbi congue viverra lectus quis fermentum. Duis sagittis est dapibus venenatis vestibulum.", timestamp = "2025-09-28 14:42:01.102"),
+    Message(0, 1, "Orci Kätter", "Curabitur ac consequat nisi. Phasellus libero nibh, finibus non egestas in, egestas in lorem.", timestamp = "2025-09-28 18:03:44.565"),
+    Message(0, 7, "Orci Kätter", "Duis sagittis est dapibus venenatis vestibulum. Non egestas in.", timestamp = "2025-09-28 18:03:44.565"),
 )
 
 //event dotyczący wyniku przetwarzania jakiejś operacji asynchronicznej
@@ -92,6 +103,9 @@ class NearNetViewModel(): ViewModel() {
     private val messagesMutable = MutableStateFlow(listOf<Message>())
     val messages = messagesMutable.asStateFlow()
 
+    //Recent
+    private val recentMutable = MutableStateFlow(listOf<Recent>())
+    val recent = recentMutable.asStateFlow()
 
     //constructor to VievModel
     init {
@@ -165,19 +179,31 @@ class NearNetViewModel(): ViewModel() {
         viewModelScope.launch {
             // TODO Call asynchronous function to fetch messages here.
             //messagesMutable.value = getMessageHistory(idRoom = room.id, offset = 0, numberOfMessages = -1)
-            messagesMutable.value = listOf(
-                Message(0, "Orci Kätter", "Lorem ipsum dolor sit amet, consectetur adipiscing elit."),
-                Message(1, "Mauris ", "Proin a eros quam. Ut sit amet ultrices nisi. Pellentesque ac tristique nisl, id imperdiet est. Integer scelerisque leo at blandit blandit."),
-                Message(2, "Orci Kätter", "Fusce sed ligula turpis. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Curabitur ac consequat nisi. Phasellus libero nibh, finibus non egestas in, egestas in lorem. Pellentesque nec facilisis erat, in pulvinar ipsum. Morbi congue viverra lectus quis fermentum. Duis sagittis est dapibus venenatis vestibulum.")
-            )
+            messagesMutable.value = messagesList.filter { message -> message.idRoom == room.id }.sortedBy { message -> message.timestamp }
         }
     }
     fun sendMessage(messageText : String, room : Room){
         viewModelScope.launch{
-            val message = Message (id = -1, userNameSender = "Orci Kätter", content = messageText)
+            val message = Message (id = -1, room.id, userNameSender = "Orci Kätter", content = messageText, timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")))
+            messagesMutable.value += message
             // TODO Call asynchronous function to send messages
             //sendMessage(room.id, message)
-            messagesMutable.value += message
+            messagesList += message
+        }
+    }
+    fun loadRecentMessages() {
+        viewModelScope.launch {
+            // TODO Call asynchronous function to fetch recent messages here.
+            //recentMutable.value = getRecentMessages(idUser) //zwraca listę trójek (Room, lastMessage,username)
+            recentMutable.value = messagesList
+                .groupBy { message -> message.idRoom }
+                .mapValues { roomMessages ->
+                    val message = roomMessages.value.maxBy { message -> message.timestamp }
+                    val room = myRoomsList.find { room -> room.id == message.idRoom }
+                    Recent(message = message, room = room, username = message.userNameSender)
+                 }.values
+                .toList()
+                .sortedByDescending { recent -> recent.message.timestamp }
         }
     }
 
