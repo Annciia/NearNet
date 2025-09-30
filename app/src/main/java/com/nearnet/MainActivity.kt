@@ -66,6 +66,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.nearnet.sessionlayer.logic.RoomRepository
 import com.nearnet.sessionlayer.logic.UserRepository
 import com.nearnet.ui.component.ConversationPanel
 import com.nearnet.ui.component.MessageItem
@@ -81,7 +82,7 @@ import kotlinx.coroutines.launch
 
 data class Room(val id: Int, var name: String, var description: String?, var isPrivate: Boolean)
 data class Message(val id: Int, val userNameSender: String, val content: String)
-data class User(val id: Int, val login: String, val password: String, val name: String)
+data class User(val id: String, val login: String, val password: String, val name: String)
 
 class MainActivity : ComponentActivity() {
 
@@ -92,6 +93,7 @@ class MainActivity : ComponentActivity() {
         val navController = rememberNavController()
         val vm : NearNetViewModel = viewModel()
         vm.repository = UserRepository(this)
+        vm.roomRepository = RoomRepository(this)
         NearNetTheme {
             CompositionLocalProvider(LocalViewModel provides vm) {
                 Scaffold(

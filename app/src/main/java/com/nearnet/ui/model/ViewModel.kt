@@ -1,11 +1,14 @@
 package com.nearnet.ui.model
 
+import android.util.Log
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nearnet.Message
 import com.nearnet.Room
 import com.nearnet.User
+import com.nearnet.sessionlayer.logic.MessageUtils
+import com.nearnet.sessionlayer.logic.RoomRepository
 import com.nearnet.sessionlayer.logic.UserRepository
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,6 +19,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+
+
 
 var myRoomsList = listOf(
     Room(0, "Stormvik games", "Witaj! Jestem wikingiem.", true),
@@ -49,6 +54,8 @@ sealed class ProcessEvent<out T> {
 //zawiera zmienne przechowujące stan aplikacji
 class NearNetViewModel(): ViewModel() {
     lateinit var repository: UserRepository
+    lateinit var roomRepository: RoomRepository
+    lateinit var messageUtils: MessageUtils
 
     //Selected user
     private val selectedUserMutable = MutableStateFlow<User?>(null)
@@ -99,17 +106,28 @@ class NearNetViewModel(): ViewModel() {
             // TODO Call asynchronous function to log user.
             //val user = logInUser(login, password)
             //selectedUserMutable.value = user
-            val user = User(id = -1, login = "orci99", password = "abcd1234", name = "Orci Kätter")
-            selectedUserMutable.value = user
-
-            if (selectedUserMutable.value != null) {
-                selectedUserEventMutable.emit(ProcessEvent.Success(user))
-            }
-            else {
-                selectedUserEventMutable.emit(ProcessEvent.Error("Login failed. Incorrect login or password."))
+            // val user = User(id = -1, login = "orci99", password = "abcd1234", name = "Orci Kätter")
+            try {
+                val repoUser = repository.loginUser(login, password)
+                if (repoUser != null) {
+                    val uiUser = User(
+                        id = repoUser.id,
+                        login = repoUser.login,
+                        password = repoUser.password,
+                        name = repoUser.name
+                    )
+                    selectedUserMutable.value = uiUser
+                    selectedUserEventMutable.emit(ProcessEvent.Success(uiUser))
+                } else {
+                    selectedUserEventMutable.emit(ProcessEvent.Error("Login failed"))
+                }
+            } catch (e: Exception) {
+                Log.e("LoginError", "Failed to log in", e)
+                selectedUserEventMutable.emit(ProcessEvent.Error("Login failed: ${e.message}"))
             }
         }
     }
+
     fun registerUser(login: String, password: String){
         viewModelScope.launch {
             // TODO Call asynchronous function to register user.
@@ -127,24 +145,75 @@ class NearNetViewModel(): ViewModel() {
         viewModelScope.launch {
             // TODO Call asynchronous function to fetch my rooms here.
             //roomsMutable.value = getUserRoomList(idUser)
-            roomsMutable.value = myRoomsList
+            if (::roomRepository.isInitialized) {
+                val roomsFromApi = roomRepository.getMyRooms()
+                // Konwersja RoomData -> Room
+                val mappedRooms = roomsFromApi.map { rd ->
+                    Room(
+                        id = rd.idRoom.hashCode(), // jeśli UI wymaga Int, inaczej użyj rd.idRoom jako String w Room
+                        name = rd.name,
+                        description = null, // lub rd.avatar jeśli chcesz
+                        isPrivate = rd.isPrivate
+                    )
+                }
+                roomsMutable.value = mappedRooms
+            } else {
+                Log.e("ViewModel", "RoomRepository is not initialized!")
+            }
+            //roomsMutable.value = myRoomsList
         }
     }
     fun loadDiscoverRooms() {
         viewModelScope.launch {
             // TODO Call asynchronous function to fetch discover rooms here.
             //roomsMutable.value = getRoomList()
-            roomsMutable.value = discoverRoomsList
+            //roomsMutable.value = discoverRoomsList
+            if (::roomRepository.isInitialized) {
+                val roomsFromApi = roomRepository.getAllRooms()
+                val mappedRooms = roomsFromApi.map { rd ->
+                    Room(
+                        id = rd.idRoom.hashCode(),  // jeśli UI wymaga Int
+                        name = rd.name,
+                        description = rd.avatar,    // np. avatar jako opis
+                        isPrivate = rd.isPrivate
+                    )
+                }
+                roomsMutable.value = mappedRooms
+            } else {
+                Log.e("ViewModel", "RoomRepository is not initialized!")
+            }
         }
     }
     fun createRoom(roomName : String, roomDescription : String){
         viewModelScope.launch {
-            val createdRoom = Room(id = -1, name = roomName, description = roomDescription, isPrivate = false)
-            // TODO Call asynchronous function to create room.
-            // createdRoom.id = createRoom(createdRoom)
-            myRoomsList += createdRoom
-            discoverRoomsList += createdRoom
-            selectRoom(createdRoom)
+//            val createdRoom = Room(id = -1, name = roomName, description = roomDescription, isPrivate = false)
+//            // TODO Call asynchronous function to create room.
+//            // createdRoom.id = createRoom(createdRoom)
+//            myRoomsList += createdRoom
+//            discoverRoomsList += createdRoom
+//            selectRoom(createdRoom)
+            if (::roomRepository.isInitialized) {
+                val createdRoomData = roomRepository.addRoom(roomName, roomDescription)
+
+                if (createdRoomData != null) {
+                    val createdRoom = Room(
+                        id = createdRoomData.idRoom.hashCode(),
+                        name = createdRoomData.name,
+                        description = createdRoomData.avatar, //tutaj dalem to co mamy jako avatar bo nie mamy opisu na serwie a mamy avatar
+                        isPrivate = createdRoomData.isPrivate
+                    )
+
+                    myRoomsList += createdRoom
+                    discoverRoomsList += createdRoom
+
+                    //wybranie nowego pokoju od razu przelacza do wiadomosci, po utworzeniu
+                    selectRoom(createdRoom)
+                } else {
+                    Log.e("ViewModel", "❌ Nie udało się utworzyć pokoju na serwerze")
+                }
+            } else {
+                Log.e("ViewModel", "❌ RoomRepository nie jest zainicjalizowane!")
+            }
         }
     }
     fun filterMyRooms(filterText: String){
@@ -161,11 +230,12 @@ class NearNetViewModel(): ViewModel() {
         viewModelScope.launch {
             // TODO Call asynchronous function to fetch messages here.
             //messagesMutable.value = getMessageHistory(idRoom = room.id, offset = 0, numberOfMessages = -1)
-            messagesMutable.value = listOf(
-                Message(0, "Orci Kätter", "Lorem ipsum dolor sit amet, consectetur adipiscing elit."),
-                Message(1, "Mauris ", "Proin a eros quam. Ut sit amet ultrices nisi. Pellentesque ac tristique nisl, id imperdiet est. Integer scelerisque leo at blandit blandit."),
-                Message(2, "Orci Kätter", "Fusce sed ligula turpis. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Curabitur ac consequat nisi. Phasellus libero nibh, finibus non egestas in, egestas in lorem. Pellentesque nec facilisis erat, in pulvinar ipsum. Morbi congue viverra lectus quis fermentum. Duis sagittis est dapibus venenatis vestibulum.")
-            )
+//            messagesMutable.value = listOf(
+//                Message(0, "Orci Kätter", "Lorem ipsum dolor sit amet, consectetur adipiscing elit."),
+//                Message(1, "Mauris ", "Proin a eros quam. Ut sit amet ultrices nisi. Pellentesque ac tristique nisl, id imperdiet est. Integer scelerisque leo at blandit blandit."),
+//                Message(2, "Orci Kätter", "Fusce sed ligula turpis. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Curabitur ac consequat nisi. Phasellus libero nibh, finibus non egestas in, egestas in lorem. Pellentesque nec facilisis erat, in pulvinar ipsum. Morbi congue viverra lectus quis fermentum. Duis sagittis est dapibus venenatis vestibulum.")
+//            )
+
         }
     }
     fun sendMessage(messageText : String, room : Room){
