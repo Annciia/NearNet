@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.twotone.PlayArrow
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -65,6 +66,7 @@ import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.nearnet.sessionlayer.logic.UserRepository
 import com.nearnet.ui.component.ConversationPanel
@@ -80,7 +82,7 @@ import com.nearnet.ui.theme.NearNetTheme
 import kotlinx.coroutines.launch
 
 data class Room(var id: Int, var name: String, var description: String?, var isPrivate: Boolean)
-data class Message(val id: Int, val idRoom: Int, val userNameSender: String, val content: String, val timestamp: String)
+data class Message(val id: String, val idRoom: Int, val userNameSender: String, val content: String, val timestamp: String)
 data class User(val id: Int, val login: String, val password: String, val name: String)
 data class Recent(val message: Message, val room: Room?, val username: String)
 
@@ -115,6 +117,7 @@ class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     fun TopBar(navController: NavHostController) :Unit {
+        val navState = navController.currentBackStackEntryAsState().value
         TopAppBar(
             navigationIcon = {IconButton(
                 onClick = {navController.popBackStack()},
@@ -131,8 +134,71 @@ class MainActivity : ComponentActivity() {
                 )
             )},
             title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { navController.navigate("userProfileScreen") }, content = {
+                if (navState != null && navState.destination.route =="roomConversationScreen"){
+                    RoomTopBar(navController)
+                }
+                else {
+                    UserTopBar(navController)
+                }
+            },
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                titleContentColor = MaterialTheme.colorScheme.onPrimary
+            )
+        )
+    }
+
+    @Composable
+    fun UserTopBar(navController: NavController) {
+        val navState = navController.currentBackStackEntryAsState().value
+        val selectedUser = LocalViewModel.current.selectedUser.collectAsState().value
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = { navController.navigate("userProfileScreen") }, content = {
+                    Image(
+                        painter = painterResource((R.drawable.ic_launcher_foreground)),
+                        contentDescription = "Avatar",
+                        modifier = Modifier.size(80.dp).clip(CircleShape)
+                            .border(2.dp, MaterialTheme.colorScheme.onPrimary, CircleShape)
+                    )
+                })
+                Spacer(Modifier.width(5.dp))
+                Text(
+                    text = selectedUser?.name ?: "Top kitten bar",
+                    style = MaterialTheme.typography.titleLarge
+                )
+            }
+            if (navState != null && navState.destination.route == "userProfileScreen") {
+                StandardButton(
+                    image = R.drawable.logout,
+                    onClick = { /*logOut user*/ }
+                )
+            }
+        }
+    }
+
+    @Composable
+    fun RoomTopBar(navController: NavController) {
+        val selectedRoom = LocalViewModel.current.selectedRoom.collectAsState().value
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = { /*navController.navigate("userProfileScreen") */ },
+                    content = {
                         Image(
                             painter = painterResource((R.drawable.ic_launcher_foreground)),
                             contentDescription = "Avatar",
@@ -140,17 +206,37 @@ class MainActivity : ComponentActivity() {
                                 .border(2.dp, MaterialTheme.colorScheme.onPrimary, CircleShape)
                         )
                     })
-                    Spacer(Modifier.width(5.dp))
-                    Text(
-                        "Top kitten bar.",
-                        style = MaterialTheme.typography.titleLarge
-                    )
-                }
-            },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                titleContentColor = MaterialTheme.colorScheme.onPrimary
+                Spacer(Modifier.width(5.dp))
+                Text(
+                    text = selectedRoom?.name ?: "Top kitten bar",
+                    style = MaterialTheme.typography.titleLarge
+                )
+            }
+            StandardButton(
+                image=R.drawable.printer,
+                onClick = { /*navController.navigate("printerScreen") or simply print messages */ }
             )
+        }
+    }
+
+    @Composable
+    fun StandardButton(image :Int, onClick: ()->Unit){
+        Button(
+            onClick = onClick,
+            shape = RoundedCornerShape(6.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.secondary),
+            contentPadding = PaddingValues(0.dp),
+            modifier = Modifier.size(36.dp),
+            content = {
+                Image(
+                    painter = painterResource(image),
+                    contentDescription = "Print conversation",
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(6.dp)
+                )
+            }
         )
     }
 
@@ -633,7 +719,7 @@ class MainActivity : ComponentActivity() {
     @Preview
     @Composable
     fun UserProfileScreen() : Unit {
-        ScreenTitle("User profile")
+        ScreenTitle("User profile settings")
     }
 
     @Composable
@@ -643,7 +729,6 @@ class MainActivity : ComponentActivity() {
 
         val messages = LocalViewModel.current.messages.collectAsState().value
         Column {
-            Text("ROOM CONVERSATION " + selectedRoom?.name)
             LazyColumn(
                 state = listState,
                 modifier = Modifier.weight(1f).fillMaxWidth()

@@ -44,11 +44,11 @@ var discoverRoomsList = listOf(
 )
 
 var messagesList = listOf(
-    Message(0, 0, "Orci Kätter", "Lorem ipsum dolor sit amet, consectetur adipiscing elit.", timestamp = "2025-09-28 15:42:17.123"),
-    Message(1, 0, "Mauris ", "Proin a eros quam. Ut sit amet ultrices nisi. Pellentesque ac tristique nisl, id imperdiet est. Integer scelerisque leo at blandit blandit.", timestamp = "2025-09-28 10:15:32.849"),
-    Message(2, 0, "Orci Kätter", "Fusce sed ligula turpis. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Curabitur ac consequat nisi. Phasellus libero nibh, finibus non egestas in, egestas in lorem. Pellentesque nec facilisis erat, in pulvinar ipsum. Morbi congue viverra lectus quis fermentum. Duis sagittis est dapibus venenatis vestibulum.", timestamp = "2025-09-28 14:42:01.102"),
-    Message(0, 1, "Orci Kätter", "Curabitur ac consequat nisi. Phasellus libero nibh, finibus non egestas in, egestas in lorem.", timestamp = "2025-09-28 18:03:44.565"),
-    Message(0, 7, "Orci Kätter", "Duis sagittis est dapibus venenatis vestibulum. Non egestas in.", timestamp = "2025-09-28 18:03:44.565"),
+    Message("0", 0, "Orci Kätter", "Lorem ipsum dolor sit amet, consectetur adipiscing elit.", timestamp = "2025-09-28 15:42:17.123"),
+    Message("1", 0, "Mauris ", "Proin a eros quam. Ut sit amet ultrices nisi. Pellentesque ac tristique nisl, id imperdiet est. Integer scelerisque leo at blandit blandit.", timestamp = "2025-09-28 10:15:32.849"),
+    Message("2", 0, "Orci Kätter", "Fusce sed ligula turpis. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Curabitur ac consequat nisi. Phasellus libero nibh, finibus non egestas in, egestas in lorem. Pellentesque nec facilisis erat, in pulvinar ipsum. Morbi congue viverra lectus quis fermentum. Duis sagittis est dapibus venenatis vestibulum.", timestamp = "2025-09-28 14:42:01.102"),
+    Message("0", 1, "Orci Kätter", "Curabitur ac consequat nisi. Phasellus libero nibh, finibus non egestas in, egestas in lorem.", timestamp = "2025-09-28 18:03:44.565"),
+    Message("0", 7, "Orci Kätter", "Duis sagittis est dapibus venenatis vestibulum. Non egestas in.", timestamp = "2025-09-28 18:03:44.565"),
 )
 
 //event dotyczący wyniku przetwarzania jakiejś operacji asynchronicznej
@@ -206,7 +206,7 @@ class NearNetViewModel(): ViewModel() {
     }
     fun sendMessage(messageText : String, room : Room){
         viewModelScope.launch{
-            val message = Message (id = -1, room.id, userNameSender = "Orci Kätter", content = messageText, timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")))
+            val message = Message (id = "-1", room.id, userNameSender = "Orci Kätter", content = messageText, timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")))
             messagesMutable.value += message
             // TODO Call asynchronous function to send messages
             //sendMessage(room.id, message)
