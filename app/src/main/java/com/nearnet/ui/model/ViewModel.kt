@@ -98,6 +98,12 @@ class NearNetViewModel(): ViewModel() {
     //Selected room
     private val selectedRoomMutable = MutableStateFlow<Room?>(null)
     val selectedRoom = selectedRoomMutable.asStateFlow()
+    private val selectedRoomEventMutable = MutableSharedFlow<ProcessEvent<Room>>()
+    val selectedRoomEvent = selectedRoomEventMutable.asSharedFlow()
+
+    //Register room
+    private val registerRoomEventMutable = MutableSharedFlow<ProcessEvent<Room>>()
+    val registerRoomEvent = registerRoomEventMutable.asSharedFlow()
 
     //Messages
     private val messagesMutable = MutableStateFlow(listOf<Message>())
@@ -117,8 +123,8 @@ class NearNetViewModel(): ViewModel() {
             // TODO Call asynchronous function to log user.
             //val user = logInUser(login, password)
             //selectedUserMutable.value = user
-            val user = User(id = -1, login = "orci99", password = "abcd1234", name = "Orci Kätter")
-            selectedUserMutable.value = user
+            val user = User(id = -1, login = "orci99", password = "abcd1234", name = "Orci Kätter") //
+            selectedUserMutable.value = user //
 
             if (selectedUserMutable.value != null) {
                 selectedUserEventMutable.emit(ProcessEvent.Success(user))
@@ -130,9 +136,9 @@ class NearNetViewModel(): ViewModel() {
     }
     fun registerUser(login: String, password: String){
         viewModelScope.launch {
-            // TODO Call asynchronous function to register user.
+            // TODO Call asynchronous function to register user. //DONE
             val status : Boolean = repository.registerUser(login, password)
-            //val status : Boolean = true
+            //val status : Boolean = true //
             if (status == true){
                 registerUserEventMutable.emit(ProcessEvent.Success(Unit))
             }
@@ -145,24 +151,32 @@ class NearNetViewModel(): ViewModel() {
         viewModelScope.launch {
             // TODO Call asynchronous function to fetch my rooms here.
             //roomsMutable.value = getUserRoomList(idUser)
-            myRoomsMutable.value = myRoomsList
+            myRoomsMutable.value = myRoomsList //
         }
     }
     fun loadDiscoverRooms() {
         viewModelScope.launch {
             // TODO Call asynchronous function to fetch discover rooms here.
             //discoverRoomsMutable.value = getRoomList()
-            discoverRoomsMutable.value = discoverRoomsList
+            discoverRoomsMutable.value = discoverRoomsList //
         }
     }
     fun createRoom(roomName : String, roomDescription : String){
         viewModelScope.launch {
+            var roomId : Int? = null
             val createdRoom = Room(id = -1, name = roomName, description = roomDescription, isPrivate = false)
             // TODO Call asynchronous function to create room.
-            // createdRoom.id = createRoom(createdRoom)
-            myRoomsList += createdRoom
-            discoverRoomsList += createdRoom
-            selectRoom(createdRoom)
+            // roomId = createRoom(createdRoom)
+            roomId = -1 //
+
+            if (roomId != null) {
+                createdRoom.id = roomId
+                myRoomsList += createdRoom //
+                discoverRoomsList += createdRoom //
+                registerRoomEventMutable.emit(ProcessEvent.Success(createdRoom))
+            } else {
+                registerRoomEventMutable.emit(ProcessEvent.Error("Something went wrong while creating the room."))
+            }
         }
     }
     fun filterMyRooms(filterText: String){
@@ -172,14 +186,22 @@ class NearNetViewModel(): ViewModel() {
         searchDiscoverTextMutable.value = filterText
     }
     fun selectRoom(room : Room) {
-        loadMessages(room)
-        selectedRoomMutable.value = room
+        viewModelScope.launch {
+            loadMessages(room)
+            selectedRoomMutable.value = room
+
+            if (selectedRoomMutable.value != null) {
+                selectedRoomEventMutable.emit(ProcessEvent.Success(room))
+            } else {
+                selectedRoomEventMutable.emit(ProcessEvent.Error("Failed to enter the room."))
+            }
+        }
     }
     fun loadMessages(room: Room){
         viewModelScope.launch {
-            // TODO Call asynchronous function to fetch messages here.
+            // TODO Call asynchronous function to fetch messages here. Przefiltrowana i posortowana lista potrzebna.
             //messagesMutable.value = getMessageHistory(idRoom = room.id, offset = 0, numberOfMessages = -1)
-            messagesMutable.value = messagesList.filter { message -> message.idRoom == room.id }.sortedBy { message -> message.timestamp }
+            messagesMutable.value = messagesList.filter { message -> message.idRoom == room.id }.sortedBy { message -> message.timestamp } //
         }
     }
     fun sendMessage(messageText : String, room : Room){
@@ -188,14 +210,17 @@ class NearNetViewModel(): ViewModel() {
             messagesMutable.value += message
             // TODO Call asynchronous function to send messages
             //sendMessage(room.id, message)
-            messagesList += message
+            messagesList += message //
         }
     }
     fun loadRecentMessages() {
         viewModelScope.launch {
             // TODO Call asynchronous function to fetch recent messages here.
             //recentMutable.value = getRecentMessages(idUser) //zwraca listę trójek (Room, lastMessage,username)
-            recentMutable.value = messagesList
+            //funkcja: grupuje wiadomości po pokojach, dla każdej grupy uzyskuje dane pokoju, a następnie tworzy trójki
+            //typu (wiadomość, pokój, nazwa użytkownika), w SQL join pokoju do wiadomości i do usera, i groupby po pokojach ,
+            //a potem select na te trójki
+            recentMutable.value = messagesList //
                 .groupBy { message -> message.idRoom }
                 .mapValues { roomMessages ->
                     val message = roomMessages.value.maxBy { message -> message.timestamp }

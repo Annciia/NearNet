@@ -79,7 +79,7 @@ import com.nearnet.ui.model.ProcessEvent
 import com.nearnet.ui.theme.NearNetTheme
 import kotlinx.coroutines.launch
 
-data class Room(val id: Int, var name: String, var description: String?, var isPrivate: Boolean)
+data class Room(var id: Int, var name: String, var description: String?, var isPrivate: Boolean)
 data class Message(val id: Int, val idRoom: Int, val userNameSender: String, val content: String, val timestamp: String)
 data class User(val id: Int, val login: String, val password: String, val name: String)
 data class Recent(val message: Message, val room: Room?, val username: String)
@@ -454,6 +454,7 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     fun RoomsScreen(navController: NavController) : Unit {
+        val context = LocalContext.current
         val vm = LocalViewModel.current
         val rooms = vm.filteredMyRoomsList.collectAsState().value
         val searchText = vm.searchMyRoomsText.collectAsState().value
@@ -476,18 +477,30 @@ class MainActivity : ComponentActivity() {
                 items(rooms) { room ->
                     RoomItem(room, onClick = { room ->
                         vm.selectRoom(room)
-                        navController.navigate("roomConversationScreen")
+                        //tu animacja czekania na wejście do pokoju w postaci kota biegającego w kółko
                     })
                 }
             }
         }
         LaunchedEffect(Unit) {
             vm.loadMyRooms()
+
+            vm.selectedRoomEvent.collect { event ->
+                when (event) {
+                    is ProcessEvent.Success -> {
+                        navController.navigate("roomConversationScreen")
+                    }
+                    is ProcessEvent.Error -> {
+                        Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
         }
     }
 
     @Composable
     fun DiscoverScreen(navController: NavController) : Unit {
+        val context = LocalContext.current
         val vm = LocalViewModel.current
         val rooms = vm.filteredDiscoverList.collectAsState().value
         val searchText = vm.searchDiscoverText.collectAsState().value
@@ -520,18 +533,29 @@ class MainActivity : ComponentActivity() {
                     RoomItem(room, onClick = {
                         //TODO Dołączanie do pokoju
                         //vm.selectRoom(room)
-                        //navController.navigate("roomConversationScreen")
                     })
                 }
             }
         }
         LaunchedEffect(Unit) {
             vm.loadDiscoverRooms()
+
+            vm.selectedRoomEvent.collect { event ->
+                when (event) {
+                    is ProcessEvent.Success -> {
+                        navController.navigate("roomConversationScreen")
+                    }
+                    is ProcessEvent.Error -> {
+                        Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
         }
     }
 
     @Composable
     fun CreateRoomScreen(navController: NavController){
+        val context = LocalContext.current
         val vm = LocalViewModel.current
         var roomName by rememberSaveable { mutableStateOf("") }
         var roomDescription by rememberSaveable { mutableStateOf("") }
@@ -571,13 +595,39 @@ class MainActivity : ComponentActivity() {
             ) {
                 Button(onClick = {
                     vm.createRoom(roomName, roomDescription)
-                    navController.navigate("roomConversationScreen")
+                    //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
                 }) {
                     Text("Create")
                 }
             }
         }
-
+        LaunchedEffect(Unit) {
+            launch {
+                vm.registerRoomEvent.collect { event ->
+                    when (event) {
+                        is ProcessEvent.Success -> {
+                            val createdRoom = event.data
+                            vm.selectRoom(createdRoom)
+                        }
+                        is ProcessEvent.Error -> {
+                            Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            }
+            launch {
+                vm.selectedRoomEvent.collect { event ->
+                    when (event) {
+                        is ProcessEvent.Success -> {
+                            navController.navigate("roomConversationScreen")
+                        }
+                        is ProcessEvent.Error -> {
+                            Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            }
+        }
     }
 
     @Preview
