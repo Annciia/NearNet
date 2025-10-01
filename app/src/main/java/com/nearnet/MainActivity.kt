@@ -8,6 +8,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -150,15 +151,16 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     fun UserTopBar(navController: NavController) {
+        val vm = LocalViewModel.current
         val navState = navController.currentBackStackEntryAsState().value
-        val selectedUser = LocalViewModel.current.selectedUser.collectAsState().value
+        val selectedUser = vm.selectedUser.collectAsState().value
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).clip(shape = RoundedCornerShape(6.dp)).clickable { navController.navigate("userProfileScreen") },
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = { navController.navigate("userProfileScreen") }, content = {
@@ -178,7 +180,7 @@ class MainActivity : ComponentActivity() {
             if (navState != null && navState.destination.route == "userProfileScreen") {
                 StandardButton(
                     image = R.drawable.logout,
-                    onClick = { /*logOut user*/ }
+                    onClick = { vm.logOutUser() }
                 )
             }
         }
@@ -193,11 +195,11 @@ class MainActivity : ComponentActivity() {
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).clip(shape = RoundedCornerShape(6.dp)).clickable { /*navController.navigate("roomSettingsScreen") */ },
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(
-                    onClick = { /*navController.navigate("userProfileScreen") */ },
+                    onClick = { /*navController.navigate("roomSettingsScreen") */ },
                     content = {
                         Image(
                             painter = painterResource((R.drawable.ic_launcher_foreground)),
@@ -295,14 +297,14 @@ class MainActivity : ComponentActivity() {
 
 
     @Composable
-    fun ContentArea(navController: NavHostController) :Unit {
+    fun ContentArea(navController: NavHostController) : Unit {
         NavHost(navController, startDestination = "loginScreen") {
             composable("loginScreen") { LoginScreen(navController) }
             composable("registerScreen") { RegisterScreen(navController) }
             composable("recentScreen") { RecentScreen(navController) }
             composable("roomsScreen") { RoomsScreen(navController) }
             composable("discoverScreen") { DiscoverScreen(navController) }
-            composable("userProfileScreen") { UserProfileScreen() }
+            composable("userProfileScreen") { UserProfileScreen(navController) }
             composable("roomConversationScreen") { RoomConversationScreen() }
             composable("createRoomScreen") { CreateRoomScreen(navController) }
         }
@@ -379,10 +381,14 @@ class MainActivity : ComponentActivity() {
             vm.selectedUserEvent.collect { event ->
                 when (event) {
                     is ProcessEvent.Success -> {
-                        navController.navigate("recentScreen") {
-                            popUpTo("loginScreen") { inclusive = true }
+                        if (event.data !== null) {
+                            navController.navigate("recentScreen") {
+                                popUpTo("loginScreen") { inclusive = true }
+                            }
+                            Toast.makeText(context, event.data.name, Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(context, "Failed to log in.", Toast.LENGTH_SHORT).show()
                         }
-                        Toast.makeText(context, event.data.name, Toast.LENGTH_SHORT).show()
                     }
                     is ProcessEvent.Error -> {
                         Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
@@ -494,10 +500,17 @@ class MainActivity : ComponentActivity() {
                 vm.selectedUserEvent.collect { event ->
                     when (event) {
                         is ProcessEvent.Success -> {
-                            navController.navigate("userProfileScreen") {
-                                popUpTo("registerScreen") { inclusive = true }
+                            if (event.data != null) {
+                                navController.navigate("userProfileScreen") {
+                                    popUpTo("registerScreen") { inclusive = true }
+                                }
+                                Toast.makeText(context, event.data.name, Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(context, "Failed to log in.", Toast.LENGTH_SHORT).show()
+                                navController.navigate("loginScreen") {
+                                    popUpTo("registerScreen") { inclusive = true }
+                                }
                             }
-                            Toast.makeText(context, event.data.name, Toast.LENGTH_SHORT).show()
                         }
                         is ProcessEvent.Error -> {
                             Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
@@ -716,10 +729,26 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    @Preview
     @Composable
-    fun UserProfileScreen() : Unit {
+    fun UserProfileScreen(navController: NavController) : Unit {
+        val context = LocalContext.current
+        val vm = LocalViewModel.current
         ScreenTitle("User profile settings")
+        //Wygląd ekranu
+
+        LaunchedEffect(Unit) {
+            vm.selectedUserEvent.collect { event ->
+                when (event) {
+                    is ProcessEvent.Success -> {
+                        navController.navigate("loginScreen")
+                    }
+                    is ProcessEvent.Error -> {
+                        Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
+                        navController.navigate("loginScreen")
+                    }
+                }
+            }
+        }
     }
 
     @Composable

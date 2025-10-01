@@ -64,7 +64,7 @@ class NearNetViewModel(): ViewModel() {
     //Selected user
     private val selectedUserMutable = MutableStateFlow<User?>(null)
     val selectedUser = selectedUserMutable.asStateFlow()
-    private val selectedUserEventMutable = MutableSharedFlow<ProcessEvent<User>>()
+    private val selectedUserEventMutable = MutableSharedFlow<ProcessEvent<User?>>()
     val selectedUserEvent = selectedUserEventMutable.asSharedFlow()
 
     //Register user
@@ -144,6 +144,23 @@ class NearNetViewModel(): ViewModel() {
             }
             else {
                 registerUserEventMutable.emit(ProcessEvent.Error("Failed to create account. Please try again."))
+            }
+        }
+    }
+    fun logOutUser(){ //wylogowuje nawet jak coś poszło nie tak z internetem/serwerem
+        viewModelScope.launch{
+            val user = selectedUser.value
+            var status : Boolean = false
+            if (user != null) {
+                //status = repository.logOutUser(user.id) //SL
+                status = true //
+            }
+            selectedUserMutable.value = null
+            if (status == true){
+                selectedUserEventMutable.emit(ProcessEvent.Success(null))
+            }
+            else {
+                selectedUserEventMutable.emit(ProcessEvent.Error("Something went wrong while logging out."))
             }
         }
     }
