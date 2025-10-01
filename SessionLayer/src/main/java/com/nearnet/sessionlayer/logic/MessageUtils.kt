@@ -76,7 +76,6 @@ interface MessageApiService {
     ): Response<AckLastMessagesResponse>
 }
 
-// --- Repository / Utils ---
 class MessageUtils(private val tokenProvider: () -> String?) {
 
     private val retrofit = Retrofit.Builder()
@@ -88,10 +87,10 @@ class MessageUtils(private val tokenProvider: () -> String?) {
 
     suspend fun sendMessage(roomId: String, message: Message): Boolean = withContext(Dispatchers.IO) {
         val token = tokenProvider() ?: return@withContext false
-        val userId = ""
+        val userId = message.username
 
         val payload = MessagePayload(
-            userId = "inny",
+            userId = userId,
             timestamp = message.timestamp.toString(),
             data = message.message
         )
@@ -102,39 +101,48 @@ class MessageUtils(private val tokenProvider: () -> String?) {
         )
 
         try {
-            val response = api.sendMessage(token, request)
+            val response = api.sendMessage("Bearer $token", request)
             if (response.isSuccessful) {
                 response.body()?.Succes == true
             } else {
-                Log.e("MESSAGE", "❌ sendMessage failed: ${response.code()} ${response.errorBody()?.string()}")
+                Log.e("MESSAGE", "sendMessage failed: ${response.code()} ${response.errorBody()?.string()}")
                 false
             }
         } catch (e: Exception) {
-            Log.e("MESSAGE", "❌ Exception in sendMessage", e)
+            Log.e("MESSAGE", "Exception in sendMessage", e)
             false
         }
     }
 
-    // --- Pobranie ostatnich wiadomości ---
+    //Pobranie ostatnich wiadomości
     suspend fun requestLastMessages(roomId: String): RequestLastMessagesResponse? = withContext(Dispatchers.IO) {
         val token = tokenProvider() ?: return@withContext null
         try {
-            val response = api.requestLastMessages(token, RequestLastMessagesRequest(roomId))
-            if (response.isSuccessful) response.body() else null
+            val response = api.requestLastMessages("Bearer $token", RequestLastMessagesRequest(roomId))
+            Log.d("MessageUtils", "Raw response: code=${response.code()}, success=${response.isSuccessful}")
+
+            if (response.isSuccessful) {
+                val body = response.body()
+                Log.d("MessageUtils", "Response body: $body")
+                body
+            } else {
+                Log.e("MessageUtils", "Error body: ${response.errorBody()?.string()}")
+                null
+            }
         } catch (e: Exception) {
-            Log.e("MESSAGE", "❌ Exception in requestLastMessages", e)
+            Log.e("MessageUtils", "Exception in requestLastMessages", e)
             null
         }
     }
 
-    // --- Potwierdzenie odbioru ---
+    // --- potwierdzenie odbioru ---
     suspend fun ackLastMessages(): Boolean = withContext(Dispatchers.IO) {
         val token = tokenProvider() ?: return@withContext false
         try {
             val response = api.ackLastMessages(token)
             response.isSuccessful && (response.body()?.Succes == true)
         } catch (e: Exception) {
-            Log.e("MESSAGE", "❌ Exception in ackLastMessages", e)
+            Log.e("MESSAGE", "Exception in ackLastMessages", e)
             false
         }
     }
@@ -150,7 +158,7 @@ class MessageUtils(private val tokenProvider: () -> String?) {
             try {
                 client.newCall(request).execute().use { response ->
                     if (!response.isSuccessful) {
-                        Log.e("MESSAGE", "❌ SSE connection failed: ${response.code}")
+                        Log.e("MESSAGE", "SSE connection failed: ${response.code}")
                         return@use
                     }
                     val source = response.body?.source() ?: return@use
@@ -163,7 +171,7 @@ class MessageUtils(private val tokenProvider: () -> String?) {
                     }
                 }
             } catch (e: Exception) {
-                Log.e("MESSAGE", "❌ Exception in SSE stream", e)
+                Log.e("MESSAGE", "Exception in SSE stream", e)
             }
         }.start()
     }

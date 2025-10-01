@@ -150,21 +150,59 @@ class RoomRepository(private val context: Context) {
         }
     }
 
-    suspend fun addRoom(room: RoomData): RoomData? = withContext(Dispatchers.IO) {
+//    suspend fun addRoom(room: RoomData): RoomData? = withContext(Dispatchers.IO) {
+//        val token = getToken()
+//        if (token == null) {
+//            Log.e("ROOM", "❌ Token jest null! Nie można dodać pokoju")
+//            return@withContext null
+//        }
+//
+//        val avatarUrl = room.avatar.ifEmpty { "https://example.com/default-avatar.png" }
+//
+//        val request = AddRoomRequest(
+//            name = room.name,
+//            avatar = avatarUrl,
+//            password = room.password,
+//            isPrivate = room.isPrivate,
+//            isVisible = room.isVisible
+//        )
+//
+//        Log.d("ROOM", "➡️ Sending addRoom request with body: $request")
+//
+//        try {
+//            val response = api.addRoom(token, request)
+//
+//            Log.d("ROOM", "⬅️ Response code: ${response.code()}")
+//            Log.d("ROOM", "⬅️ Response error body: ${response.errorBody()?.string()}")
+//            Log.d("ROOM", "⬅️ Response success body: ${response.body()}")
+//
+//            if (response.isSuccessful) {
+//                response.body()
+//            } else {
+//                Log.e("ROOM", "❌ addRoom failed: ${response.code()} ${response.errorBody()?.string()}")
+//                null
+//            }
+//
+//        } catch (e: Exception) {
+//            Log.e("ROOM", "❌ Exception in addRoom", e)
+//            null
+//        }
+//    }
+
+    suspend fun addRoom(roomName: String, roomDescription: String): RoomData? = withContext(Dispatchers.IO) {
         val token = getToken()
         if (token == null) {
             Log.e("ROOM", "❌ Token jest null! Nie można dodać pokoju")
             return@withContext null
         }
 
-        val avatarUrl = room.avatar.ifEmpty { "https://example.com/default-avatar.png" }
-
+        // Tworzymy request, używając parametrów z ViewModelu
         val request = AddRoomRequest(
-            name = room.name,
-            avatar = avatarUrl,
-            password = room.password,
-            isPrivate = room.isPrivate,
-            isVisible = room.isVisible
+            name = roomName,
+            avatar = roomDescription.ifEmpty { "https://example.com/default-avatar.png" },
+            password = "",
+            isPrivate = false,
+            isVisible = true
         )
 
         Log.d("ROOM", "➡️ Sending addRoom request with body: $request")
@@ -188,6 +226,9 @@ class RoomRepository(private val context: Context) {
             null
         }
     }
+
+
+
 
 
     suspend fun updateRoom(room: RoomData): RoomData? = withContext(Dispatchers.IO) {

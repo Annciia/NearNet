@@ -23,6 +23,8 @@ data class LoginResponse(
     val UserData: UserData? = null
 )
 
+data class User(val id: String, val login: String, val password: String, val name: String)
+
 interface ApiService {
     @POST("/api/register")
     suspend fun register(@Body body: Map<String, String>): Response<RegisterResponse>
@@ -72,24 +74,34 @@ class UserRepository(private val context: Context) {
         return@withContext false
     }
 
-    suspend fun loginUser(login: String, password: String): Boolean = withContext(Dispatchers.IO) {
+    suspend fun loginUser(login: String, password: String): User? = withContext(Dispatchers.IO) {
         val body = mapOf("login" to login, "password" to password)
         val response = api.login(body)
 
         if (response.isSuccessful) {
             val res = response.body()
-            if (res?.Succes == true && res.Token != null) {
+            if (res?.Succes == true && res.Token != null && res.UserData != null) {
                 saveTokenToPreferences(res.Token)
-                Log.d("REST", "✅ Login success! Token: ${res.Token}")
-                return@withContext true
+
+                val userData = res.UserData
+
+                // mapowanie UserData -> User (trzeba jakos ogarnac zeby takie same userData byly bo jebanie z mapowaniem jest)
+                return@withContext User(
+                    id = userData.idUser,
+                    login = login,
+                    password = password,
+                    name = userData.name
+                )
             } else {
-                Log.d("REST", "❌ Login failed")
+                throw Exception("❌ Login failed: invalid credentials")
             }
         } else {
-            Log.e("REST", "❌ Błąd logowania: ${response.code()}")
+            throw Exception("❌ Login failed: ${response.code()}")
         }
-        return@withContext false
     }
+
+
+
 
     suspend fun updateUser(user: UserData) = withContext(Dispatchers.IO) {
         val token = getTokenFromPreferences(context) ?: return@withContext
