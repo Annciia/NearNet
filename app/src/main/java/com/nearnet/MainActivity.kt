@@ -66,6 +66,7 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.nearnet.sessionlayer.logic.MessageUtils
 import com.nearnet.sessionlayer.logic.RoomRepository
 import com.nearnet.sessionlayer.logic.UserRepository
 import com.nearnet.ui.component.ConversationPanel
@@ -80,8 +81,8 @@ import com.nearnet.ui.model.ProcessEvent
 import com.nearnet.ui.theme.NearNetTheme
 import kotlinx.coroutines.launch
 
-data class Room(val id: Int, var name: String, var description: String?, var isPrivate: Boolean)
-data class Message(val id: Int, val userNameSender: String, val content: String)
+data class Room(val id: String, var name: String, var description: String?, var isPrivate: Boolean)
+data class Message(val id: String, val userNameSender: String, val content: String)
 data class User(val id: String, val login: String, val password: String, val name: String)
 
 class MainActivity : ComponentActivity() {
@@ -92,8 +93,15 @@ class MainActivity : ComponentActivity() {
     fun App(){
         val navController = rememberNavController()
         val vm : NearNetViewModel = viewModel()
+        //dla wiadomosci
+        val context = LocalContext.current
+        LaunchedEffect(Unit) {
+            vm.initMessageUtils(context)
+        }
         vm.repository = UserRepository(this)
         vm.roomRepository = RoomRepository(this)
+
+
         NearNetTheme {
             CompositionLocalProvider(LocalViewModel provides vm) {
                 Scaffold(
@@ -554,10 +562,24 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     fun RoomConversationScreen() : Unit {
-        val selectedRoom = LocalViewModel.current.selectedRoom.collectAsState().value
+        val vm = LocalViewModel.current
+
+        val selectedRoom = vm.selectedRoom.collectAsState().value
+        val messages = vm.messages.collectAsState().value
+        //val selectedRoom = LocalViewModel.current.selectedRoom.collectAsState().value
         val listState = rememberLazyListState()
 
-        val messages = LocalViewModel.current.messages.collectAsState().value
+        //val messages = LocalViewModel.current.messages.collectAsState().value
+
+        // pobieranie historii wiadomości przy wejściu na ekran lub zmianie pokoju
+        LaunchedEffect(vm.selectedRoom.collectAsState().value) {
+            val room = vm.selectedRoom.value
+            if (room != null) {
+                Log.d("RoomConversation", "Loading messages for room: ${room.name}")
+                vm.loadMessages(room)
+            }
+        }
+
         Column {
             Text("ROOM CONVERSATION " + selectedRoom?.name)
             LazyColumn(

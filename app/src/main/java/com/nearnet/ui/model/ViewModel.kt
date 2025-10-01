@@ -1,5 +1,6 @@
 package com.nearnet.ui.model
 
+import android.content.Context
 import android.util.Log
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.lifecycle.ViewModel
@@ -22,28 +23,36 @@ import kotlinx.coroutines.launch
 
 
 
-var myRoomsList = listOf(
-    Room(0, "Stormvik games", "Witaj! Jestem wikingiem.", true),
-    Room(1, "You cat", "Meeeeeeeeeeeeeeeow!", false),
-    Room(2, "虫籠のカガステル", "No comment needed. Just join!", false),
-    Room(3, "Biohazard", "Be careful.", false),
-    Room(4, "Mibik game server", "Mi mi mi! It's me.", false),
-    Room(5, "Fallout", null, true),
-    Room(6, "My new world", "Don't join. It's private", true),
-    Room(7, "The Lord of the Rings: The Battle for the Middle Earth", "Elen", false),
-)
-var discoverRoomsList = listOf(
-    Room(0, "Adventure cat games", "Dołącz do kociej przygody.", true),
-    Room(1, "You cat", "Meeeeeeeeeeeeeeeow!", false),
-    Room(2, "虫籠のカガステル", "No comment needed. Just join!", false),
-    Room(3, "Mibik game server", "Mi mi mi! It's me.", false),
-    Room(4, "My new world", "Don't join. It's private", true),
-    Room(5, "Here is the best place.", "We need you.", false),
-    Room(6, "Untitled room", "Join to title this room! ;)", false),
-    Room(7, "Stormvik games", "Witaj! Jestem wikingiem.", true),
-    Room(8, "Biohazard", "Be careful.", false),
-    Room(9, "Fallout", null, true),
-)
+//var myRoomsList = listOf(
+//    Room(0, "Stormvik games", "Witaj! Jestem wikingiem.", true),
+//    Room(1, "You cat", "Meeeeeeeeeeeeeeeow!", false),
+//    Room(2, "虫籠のカガステル", "No comment needed. Just join!", false),
+//    Room(3, "Biohazard", "Be careful.", false),
+//    Room(4, "Mibik game server", "Mi mi mi! It's me.", false),
+//    Room(5, "Fallout", null, true),
+//    Room(6, "My new world", "Don't join. It's private", true),
+//    Room(7, "The Lord of the Rings: The Battle for the Middle Earth", "Elen", false),
+//)
+//var discoverRoomsList = listOf(
+//    Room(0, "Adventure cat games", "Dołącz do kociej przygody.", true),
+//    Room(1, "You cat", "Meeeeeeeeeeeeeeeow!", false),
+//    Room(2, "虫籠のカガステル", "No comment needed. Just join!", false),
+//    Room(3, "Mibik game server", "Mi mi mi! It's me.", false),
+//    Room(4, "My new world", "Don't join. It's private", true),
+//    Room(5, "Here is the best place.", "We need you.", false),
+//    Room(6, "Untitled room", "Join to title this room! ;)", false),
+//    Room(7, "Stormvik games", "Witaj! Jestem wikingiem.", true),
+//    Room(8, "Biohazard", "Be careful.", false),
+//    Room(9, "Fallout", null, true),
+//)
+
+private val myRoomsListMutable = MutableStateFlow(listOf<Room>())
+val myRoomsList = myRoomsListMutable.asStateFlow()
+
+private val discoverRoomsListMutable = MutableStateFlow(listOf<Room>())
+val discoverRoomsList = discoverRoomsListMutable.asStateFlow()
+
+
 
 //event dotyczący wyniku przetwarzania jakiejś operacji asynchronicznej
 sealed class ProcessEvent<out T> {
@@ -56,6 +65,13 @@ class NearNetViewModel(): ViewModel() {
     lateinit var repository: UserRepository
     lateinit var roomRepository: RoomRepository
     lateinit var messageUtils: MessageUtils
+
+    //pozwala uzywac messageUtils bez uzywania LocalContext.current w ViewModelu
+    fun initMessageUtils(context: Context) {
+        if (!::messageUtils.isInitialized) {
+            messageUtils = MessageUtils { UserRepository.getTokenFromPreferences(context) }
+        }
+    }
 
     //Selected user
     private val selectedUserMutable = MutableStateFlow<User?>(null)
@@ -100,6 +116,7 @@ class NearNetViewModel(): ViewModel() {
     init {
 
     }
+
 
     fun logInUser(login: String, password: String){
         viewModelScope.launch {
@@ -147,18 +164,18 @@ class NearNetViewModel(): ViewModel() {
             //roomsMutable.value = getUserRoomList(idUser)
             if (::roomRepository.isInitialized) {
                 val roomsFromApi = roomRepository.getMyRooms()
-                // Konwersja RoomData -> Room
+                // konwersja RoomData -> Room
                 val mappedRooms = roomsFromApi.map { rd ->
                     Room(
-                        id = rd.idRoom.hashCode(), // jeśli UI wymaga Int, inaczej użyj rd.idRoom jako String w Room
+                        id = rd.idRoom,
                         name = rd.name,
-                        description = null, // lub rd.avatar jeśli chcesz
+                        description = null, //jak nizej
                         isPrivate = rd.isPrivate
                     )
                 }
                 roomsMutable.value = mappedRooms
             } else {
-                Log.e("ViewModel", "RoomRepository is not initialized!")
+                Log.e("loadMyRooms", "RoomRepository is not initialized!")
             }
             //roomsMutable.value = myRoomsList
         }
@@ -172,15 +189,15 @@ class NearNetViewModel(): ViewModel() {
                 val roomsFromApi = roomRepository.getAllRooms()
                 val mappedRooms = roomsFromApi.map { rd ->
                     Room(
-                        id = rd.idRoom.hashCode(),  // jeśli UI wymaga Int
+                        id = rd.idRoom,
                         name = rd.name,
-                        description = rd.avatar,    // np. avatar jako opis
+                        description = rd.avatar,    // avatar jako opis, trzeba zrobic takie same klasy serw/ui
                         isPrivate = rd.isPrivate
                     )
                 }
                 roomsMutable.value = mappedRooms
             } else {
-                Log.e("ViewModel", "RoomRepository is not initialized!")
+                Log.e("loadDiscoverRooms", "RoomRepository is not initialized!")
             }
         }
     }
@@ -197,22 +214,24 @@ class NearNetViewModel(): ViewModel() {
 
                 if (createdRoomData != null) {
                     val createdRoom = Room(
-                        id = createdRoomData.idRoom.hashCode(),
+                        id = createdRoomData.idRoom,
                         name = createdRoomData.name,
                         description = createdRoomData.avatar, //tutaj dalem to co mamy jako avatar bo nie mamy opisu na serwie a mamy avatar
                         isPrivate = createdRoomData.isPrivate
                     )
 
-                    myRoomsList += createdRoom
-                    discoverRoomsList += createdRoom
+                    myRoomsListMutable.value = myRoomsListMutable.value + createdRoom
+                    discoverRoomsListMutable.value = discoverRoomsListMutable.value + createdRoom
+
+
 
                     //wybranie nowego pokoju od razu przelacza do wiadomosci, po utworzeniu
                     selectRoom(createdRoom)
                 } else {
-                    Log.e("ViewModel", "❌ Nie udało się utworzyć pokoju na serwerze")
+                    Log.e("createRoom", "❌ Nie udało się utworzyć pokoju na serwerze")
                 }
             } else {
-                Log.e("ViewModel", "❌ RoomRepository nie jest zainicjalizowane!")
+                Log.e("createRoom", "❌ RoomRepository nie jest zainicjalizowane!")
             }
         }
     }
@@ -236,14 +255,94 @@ class NearNetViewModel(): ViewModel() {
 //                Message(2, "Orci Kätter", "Fusce sed ligula turpis. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Curabitur ac consequat nisi. Phasellus libero nibh, finibus non egestas in, egestas in lorem. Pellentesque nec facilisis erat, in pulvinar ipsum. Morbi congue viverra lectus quis fermentum. Duis sagittis est dapibus venenatis vestibulum.")
 //            )
 
+            if (!::messageUtils.isInitialized) {
+                Log.e("loadMessages", "MessageUtils nie jest zainicjalizowany")
+                return@launch
+            } else {
+                Log.d("loadMessages", "MessageUtils jest zainicjalizowany")
+            }
+            //pobieranie wiadomosci
+            val response = try {
+                Log.d("loadMessages", "Pobieram wiadomości dla pokoju=${room.id}")
+                messageUtils.requestLastMessages(room.id)
+            } catch (e: Exception) {
+                Log.e("loadMessages", " Błąd podczas pobierania wiadomości dla pokoju=${room.id}", e)
+                null
+            }
+
+            //sprawdzenie odpowiedzi
+            if (response == null) {
+                Log.e("loadMessages", "Serwer zwrócił pustą odpowiedź dla pokoju=${room.id}")
+                return@launch
+            } else {
+                Log.d("loadMessages", "Otrzymano odpowiedź z serwera dla pokoju=${room.id}: $response")
+            }
+
+            // sprawdzenie listy wiadomosci
+            val messageList = response.`package`?.messageList
+            if (messageList.isNullOrEmpty()) {
+                Log.w("loadMessages", "Brak wiadomości w historii dla pokoju=${room.id}")
+            } else {
+                Log.d("loadMessages", "Serwer zwrócił ${messageList.size} wiadomości dla pokoju: ${room.id}")
+            }
+
+            // mapowanie do UI
+            val messagesFromApi = messageList?.map { payload ->
+                Message(
+                    id = payload.timestamp,
+                    userNameSender = payload.userId,
+                    content = payload.data
+                )
+            } ?: emptyList()
+
+            // aktualizacja stanu
+            messagesMutable.value = messagesFromApi
         }
+
     }
     fun sendMessage(messageText : String, room : Room){
         viewModelScope.launch{
-            val message = Message (id = -1, userNameSender = "Orci Kätter", content = messageText)
+            //val message = Message (id = -1, userNameSender = "Orci Kätter", content = messageText)
             // TODO Call asynchronous function to send messages
             //sendMessage(room.id, message)
-            messagesMutable.value += message
+            //messagesMutable.value += message
+            if (!::messageUtils.isInitialized) {
+                Log.e("sendMessage", "MessageUtils nie jest zainicjalizowane!")
+                return@launch
+            }
+
+            val userName = selectedUser.value?.name ?: "brak usera"
+            val timestamp = System.currentTimeMillis()
+
+            // UI message
+            val uiMessage = com.nearnet.Message(
+                id = timestamp.toString(),
+                userNameSender = userName,
+                content = messageText
+            )
+
+            // Backend message
+            val backendMessage = com.nearnet.sessionlayer.data.model.Message(
+                username = userName,
+                message = messageText,
+                timestamp = timestamp,
+                roomId = room.id
+            )
+
+            Log.d("sendMessage", "Wysyłam wiadomość na backend: $backendMessage")
+
+            try {
+                val success = messageUtils.sendMessage(room.id, backendMessage)
+
+                if (success) {
+                    Log.d("sendMessage", "Wiadomość wysłana poprawnie")
+                    messagesMutable.value += uiMessage
+                } else {
+                    Log.e("sendMessage", "Nie udało się wysłać wiadomości")
+                }
+            } catch (e: Exception) {
+                Log.e("sendMessage", "Exception w sendMessage", e)
+            }
         }
     }
 
