@@ -152,7 +152,7 @@ class NearNetViewModel(): ViewModel() {
             val user = selectedUser.value
             var status : Boolean = false
             if (user != null) {
-                //status = repository.logOutUser(user.id) //SL
+                //status = repository.logOutUser(user.id) //M
                 status = true //
             }
             selectedUserMutable.value = null
@@ -164,6 +164,28 @@ class NearNetViewModel(): ViewModel() {
             }
         }
     }
+    fun updateUser(){
+        viewModelScope.launch {
+
+        }
+    }
+    fun deleteUser(){
+        viewModelScope.launch {
+            val user = selectedUser.value
+            var status : Boolean = false
+            if (user != null) {
+                //status = repository.deleteUser(user.id) //M
+                status = true //
+            }
+            if (status == true) {
+                selectedUserMutable.value = null
+                //event Success
+            } else {
+                //event err
+            }
+        }
+    }
+
     fun loadMyRooms() {
         viewModelScope.launch {
             // TODO Call asynchronous function to fetch my rooms here.

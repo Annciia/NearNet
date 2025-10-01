@@ -733,8 +733,85 @@ class MainActivity : ComponentActivity() {
     fun UserProfileScreen(navController: NavController) : Unit {
         val context = LocalContext.current
         val vm = LocalViewModel.current
-        ScreenTitle("User profile settings")
+        var userName = rememberSaveable { mutableStateOf(vm.selectedUser.value?.name ?: "") }
+        val password = remember { mutableStateOf("") }
+        val passwordConfirmation = remember { mutableStateOf("") }
+
         //Wygląd ekranu
+        Column {
+            ScreenTitle("User profile settings")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.AccountCircle,
+                    contentDescription = "User icon",
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(100.dp).background(
+                        color = MaterialTheme.colorScheme.primary,
+                        shape = RoundedCornerShape(6.dp)
+                    )
+                )
+                Spacer(Modifier.width(10.dp))
+                PlainTextField(
+                    value = userName.value,
+                    onValueChange = { text -> userName.value = text },
+                    placeholderText = "user name",
+                    singleLine = true,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            Spacer(Modifier.height(10.dp))
+            PlainTextField(
+                value = password.value,
+                onValueChange = { text -> password.value = text },
+                placeholderText = "password",
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(10.dp))
+            PlainTextField(
+                value = passwordConfirmation.value,
+                onValueChange = { text -> passwordConfirmation.value = text },
+                placeholderText = "confirm password",
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(20.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                Button(onClick = {
+                    //vm.updateUser()
+                    navController.popBackStack()
+                }) {
+                    Text("Accept")
+                }
+                Spacer(Modifier.width(10.dp))
+                Button(onClick = {
+                    navController.popBackStack()
+                }) {
+                    Text("Cancel")
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            Column(
+                modifier = Modifier.weight(1f).padding(vertical = 5.dp),
+                verticalArrangement = Arrangement.Bottom
+            ) {
+                Button(onClick = {
+                    vm.deleteUser()
+                    //obsługa eventa , że dopiero jak skasowane konto
+                    navController.navigate("loginScreen")
+
+
+                }) {
+                    Text("Delete account")
+                }
+            }
+        }
 
         LaunchedEffect(Unit) {
             vm.selectedUserEvent.collect { event ->
