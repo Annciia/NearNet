@@ -8,6 +8,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,6 +33,7 @@ import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.twotone.PlayArrow
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -65,6 +67,7 @@ import androidx.navigation.NavController
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.nearnet.sessionlayer.logic.UserRepository
 import com.nearnet.ui.component.ConversationPanel
@@ -79,9 +82,10 @@ import com.nearnet.ui.model.ProcessEvent
 import com.nearnet.ui.theme.NearNetTheme
 import kotlinx.coroutines.launch
 
-data class Room(val id: Int, var name: String, var description: String?, var isPrivate: Boolean)
-data class Message(val id: Int, val userNameSender: String, val content: String)
+data class Room(var id: Int, var name: String, var description: String?, var isPrivate: Boolean)
+data class Message(val id: String, val idRoom: Int, val userNameSender: String, val content: String, val timestamp: String)
 data class User(val id: Int, val login: String, val password: String, val name: String)
+data class Recent(val message: Message, val room: Room?, val username: String)
 
 class MainActivity : ComponentActivity() {
 
@@ -114,6 +118,7 @@ class MainActivity : ComponentActivity() {
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     fun TopBar(navController: NavHostController) :Unit {
+        val navState = navController.currentBackStackEntryAsState().value
         TopAppBar(
             navigationIcon = {IconButton(
                 onClick = {navController.popBackStack()},
@@ -130,8 +135,72 @@ class MainActivity : ComponentActivity() {
                 )
             )},
             title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = { navController.navigate("userProfileScreen") }, content = {
+                if (navState != null && navState.destination.route =="roomConversationScreen"){
+                    RoomTopBar(navController)
+                }
+                else {
+                    UserTopBar(navController)
+                }
+            },
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                titleContentColor = MaterialTheme.colorScheme.onPrimary
+            )
+        )
+    }
+
+    @Composable
+    fun UserTopBar(navController: NavController) {
+        val vm = LocalViewModel.current
+        val navState = navController.currentBackStackEntryAsState().value
+        val selectedUser = vm.selectedUser.collectAsState().value
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                modifier = Modifier.weight(1f).clip(shape = RoundedCornerShape(6.dp)).clickable { navController.navigate("userProfileScreen") },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = { navController.navigate("userProfileScreen") }, content = {
+                    Image(
+                        painter = painterResource((R.drawable.ic_launcher_foreground)),
+                        contentDescription = "Avatar",
+                        modifier = Modifier.size(80.dp).clip(CircleShape)
+                            .border(2.dp, MaterialTheme.colorScheme.onPrimary, CircleShape)
+                    )
+                })
+                Spacer(Modifier.width(5.dp))
+                Text(
+                    text = selectedUser?.name ?: "Top kitten bar",
+                    style = MaterialTheme.typography.titleLarge
+                )
+            }
+            if (navState != null && navState.destination.route == "userProfileScreen") {
+                StandardButton(
+                    image = R.drawable.logout,
+                    onClick = { vm.logOutUser() }
+                )
+            }
+        }
+    }
+
+    @Composable
+    fun RoomTopBar(navController: NavController) {
+        val selectedRoom = LocalViewModel.current.selectedRoom.collectAsState().value
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                modifier = Modifier.weight(1f).clip(shape = RoundedCornerShape(6.dp)).clickable { /*navController.navigate("roomSettingsScreen") */ },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = { /*navController.navigate("roomSettingsScreen") */ },
+                    content = {
                         Image(
                             painter = painterResource((R.drawable.ic_launcher_foreground)),
                             contentDescription = "Avatar",
@@ -139,17 +208,37 @@ class MainActivity : ComponentActivity() {
                                 .border(2.dp, MaterialTheme.colorScheme.onPrimary, CircleShape)
                         )
                     })
-                    Spacer(Modifier.width(5.dp))
-                    Text(
-                        "Top kitten bar.",
-                        style = MaterialTheme.typography.titleLarge
-                    )
-                }
-            },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                titleContentColor = MaterialTheme.colorScheme.onPrimary
+                Spacer(Modifier.width(5.dp))
+                Text(
+                    text = selectedRoom?.name ?: "Top kitten bar",
+                    style = MaterialTheme.typography.titleLarge
+                )
+            }
+            StandardButton(
+                image=R.drawable.printer,
+                onClick = { /*navController.navigate("printerScreen") or simply print messages */ }
             )
+        }
+    }
+
+    @Composable
+    fun StandardButton(image :Int, onClick: ()->Unit){
+        Button(
+            onClick = onClick,
+            shape = RoundedCornerShape(6.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.secondary),
+            contentPadding = PaddingValues(0.dp),
+            modifier = Modifier.size(36.dp),
+            content = {
+                Image(
+                    painter = painterResource(image),
+                    contentDescription = "Print conversation",
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(6.dp)
+                )
+            }
         )
     }
 
@@ -208,14 +297,14 @@ class MainActivity : ComponentActivity() {
 
 
     @Composable
-    fun ContentArea(navController: NavHostController) :Unit {
+    fun ContentArea(navController: NavHostController) : Unit {
         NavHost(navController, startDestination = "loginScreen") {
             composable("loginScreen") { LoginScreen(navController) }
             composable("registerScreen") { RegisterScreen(navController) }
-            composable("recentScreen") { RecentScreen() }
+            composable("recentScreen") { RecentScreen(navController) }
             composable("roomsScreen") { RoomsScreen(navController) }
             composable("discoverScreen") { DiscoverScreen(navController) }
-            composable("userProfileScreen") { UserProfileScreen() }
+            composable("userProfileScreen") { UserProfileScreen(navController) }
             composable("roomConversationScreen") { RoomConversationScreen() }
             composable("createRoomScreen") { CreateRoomScreen(navController) }
         }
@@ -231,65 +320,75 @@ class MainActivity : ComponentActivity() {
         ScreenTitle("Log in or create account!")
         Column(
             modifier = Modifier.fillMaxSize().padding(40.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Icon(
-                imageVector = Icons.Default.AccountCircle,
-                contentDescription = "Application logo",
-                tint = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.size(200.dp).background(color = MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(6.dp))
-            )
-            Spacer(Modifier.height(40.dp))
-            PlainTextField(
-                placeholderText = "login",
-                singleLine = true,
-                value = login.value,
-                onValueChange = { login.value = it } // {x -> login.value = x }
-            )
-            Spacer(Modifier.height(10.dp))
-            PlainTextField(
-                placeholderText = "password",
-                singleLine = true,
-                value = password.value,
-                onValueChange = { password.value = it }
-            )
-            Spacer(Modifier.height(10.dp))
-            Button(
-                onClick = {
-                    vm.logInUser(login.value, password.value)
-                    //tu animacja czekania na logowanie w postaci kota biegającego w kółko
-                },
-                modifier = Modifier.widthIn(max = 200.dp).fillMaxWidth()
+            Column(
+                modifier = Modifier.fillMaxWidth().height(520.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(text= "Sign in")
-            }
-            Spacer(Modifier.height(10.dp))
-            Text(
-                text = "or",
-                style = LocalTextStyle.current.copy(
-                    color = MaterialTheme.colorScheme.onPrimary
+                Icon(
+                    imageVector = Icons.Default.AccountCircle,
+                    contentDescription = "Application logo",
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(200.dp).background(
+                        color = MaterialTheme.colorScheme.primary,
+                        shape = RoundedCornerShape(6.dp)
+                    )
                 )
-            )
-            Spacer(Modifier.height(10.dp))
-            Button(
-                onClick = {
-                    navController.navigate("registerScreen")
-                },
-                modifier = Modifier.widthIn(max = 200.dp).fillMaxWidth()
-            ) {
-                Text(text= "Create account")
+                Spacer(Modifier.height(40.dp))
+                PlainTextField(
+                    placeholderText = "login",
+                    singleLine = true,
+                    value = login.value,
+                    onValueChange = { login.value = it } // {x -> login.value = x }
+                )
+                Spacer(Modifier.height(10.dp))
+                PlainTextField(
+                    placeholderText = "password",
+                    singleLine = true,
+                    value = password.value,
+                    onValueChange = { password.value = it }
+                )
+                Spacer(Modifier.height(10.dp))
+                Button(
+                    onClick = {
+                        vm.logInUser(login.value, password.value)
+                        //tu animacja czekania na logowanie w postaci kota biegającego w kółko
+                    },
+                    modifier = Modifier.widthIn(max = 200.dp).fillMaxWidth()
+                ) {
+                    Text(text = "Sign in")
+                }
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    text = "or",
+                    style = LocalTextStyle.current.copy(
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                )
+                Spacer(Modifier.height(10.dp))
+                Button(
+                    onClick = {
+                        navController.navigate("registerScreen")
+                    },
+                    modifier = Modifier.widthIn(max = 200.dp).fillMaxWidth()
+                ) {
+                    Text(text = "Create account")
+                }
             }
-            Spacer(Modifier.height(30.dp))
         }
         LaunchedEffect(Unit) {
             vm.selectedUserEvent.collect { event ->
                 when (event) {
                     is ProcessEvent.Success -> {
-                        navController.navigate("recentScreen") {
-                            popUpTo("loginScreen") { inclusive = true }
+                        if (event.data !== null) {
+                            navController.navigate("recentScreen") {
+                                popUpTo("loginScreen") { inclusive = true }
+                            }
+                            Toast.makeText(context, event.data.name, Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(context, "Failed to log in.", Toast.LENGTH_SHORT).show()
                         }
-                        Toast.makeText(context, event.data.name, Toast.LENGTH_SHORT).show()
                     }
                     is ProcessEvent.Error -> {
                         Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
@@ -313,72 +412,76 @@ class MainActivity : ComponentActivity() {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Icon(
-                imageVector = Icons.Default.AccountCircle,
-                contentDescription = "Application logo",
-                tint = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.size(200.dp).background(
-                    color = MaterialTheme.colorScheme.primary,
-                    shape = RoundedCornerShape(6.dp)
-                )
-            )
-            Spacer(Modifier.height(40.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Start
+            Column(
+                modifier = Modifier.fillMaxWidth().height(520.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(
-                    text = "Get your chat on",
-                    style = LocalTextStyle.current.copy(
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        fontSize = 24.sp
+                Icon(
+                    imageVector = Icons.Default.AccountCircle,
+                    contentDescription = "Application logo",
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(200.dp).background(
+                        color = MaterialTheme.colorScheme.primary,
+                        shape = RoundedCornerShape(6.dp)
                     )
                 )
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-            ) {
-                Text(
-                    text = "sign up and start connecting!",
-                    style = LocalTextStyle.current.copy(
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        //fontSize = 16.sp //default value
+                Spacer(Modifier.height(40.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Start
+                ) {
+                    Text(
+                        text = "Get your chat on",
+                        style = LocalTextStyle.current.copy(
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            fontSize = 24.sp
+                        )
                     )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Text(
+                        text = "sign up and start connecting!",
+                        style = LocalTextStyle.current.copy(
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            //fontSize = 16.sp //default value
+                        )
+                    )
+                }
+                Spacer(Modifier.height(20.dp))
+                PlainTextField(
+                    placeholderText = "login",
+                    singleLine = true,
+                    value = login.value,
+                    onValueChange = { login.value = it }
                 )
+                Spacer(Modifier.height(10.dp))
+                PlainTextField(
+                    placeholderText = "password",
+                    singleLine = true,
+                    value = password.value,
+                    onValueChange = { password.value = it }
+                )
+                Spacer(Modifier.height(10.dp))
+                PlainTextField(
+                    placeholderText = "confirm password",
+                    singleLine = true,
+                    value = passwordConfirmation.value,
+                    onValueChange = { passwordConfirmation.value = it }
+                )
+                Spacer(Modifier.height(20.dp))
+                Button(
+                    onClick = {
+                        vm.registerUser(login.value, password.value)
+                        //tu animacja czekania na logowanie w postaci kota biegającego w kółko
+                    },
+                    modifier = Modifier.widthIn(max = 200.dp).fillMaxWidth()
+                ) {
+                    Text(text = "Let's go!")
+                }
             }
-            Spacer(Modifier.height(20.dp))
-            PlainTextField(
-                placeholderText = "login",
-                singleLine = true,
-                value = login.value,
-                onValueChange = { login.value = it }
-            )
-            Spacer(Modifier.height(10.dp))
-            PlainTextField(
-                placeholderText = "password",
-                singleLine = true,
-                value = password.value,
-                onValueChange = { password.value = it }
-            )
-            Spacer(Modifier.height(10.dp))
-            PlainTextField(
-                placeholderText = "confirm password",
-                singleLine = true,
-                value = passwordConfirmation.value,
-                onValueChange = { passwordConfirmation.value = it }
-            )
-            Spacer(Modifier.height(20.dp))
-            Button(
-                onClick = {
-                    vm.registerUser(login.value, password.value)
-                    //tu animacja czekania na logowanie w postaci kota biegającego w kółko
-                },
-                modifier = Modifier.widthIn(max = 200.dp).fillMaxWidth()
-            ) {
-                Text(text= "Let's go!")
-            }
-            Spacer(Modifier.height(30.dp))
         }
         LaunchedEffect(Unit) {
             launch {
@@ -397,10 +500,17 @@ class MainActivity : ComponentActivity() {
                 vm.selectedUserEvent.collect { event ->
                     when (event) {
                         is ProcessEvent.Success -> {
-                            navController.navigate("userProfileScreen") {
-                                popUpTo("registerScreen") { inclusive = true }
+                            if (event.data != null) {
+                                navController.navigate("userProfileScreen") {
+                                    popUpTo("registerScreen") { inclusive = true }
+                                }
+                                Toast.makeText(context, event.data.name, Toast.LENGTH_SHORT).show()
+                            } else {
+                                Toast.makeText(context, "Failed to log in.", Toast.LENGTH_SHORT).show()
+                                navController.navigate("loginScreen") {
+                                    popUpTo("registerScreen") { inclusive = true }
+                                }
                             }
-                            Toast.makeText(context, event.data.name, Toast.LENGTH_SHORT).show()
                         }
                         is ProcessEvent.Error -> {
                             Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
@@ -415,16 +525,38 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    fun RecentScreen() : Unit {
-        ScreenTitle("Recent activity")
+    fun RecentScreen(navController: NavController) : Unit {
+        val vm = LocalViewModel.current
+        val recent = vm.recent.collectAsState().value
+        Column {
+            ScreenTitle("Recent activity")
+            LazyColumn(
+                Modifier.weight(1f).fillMaxWidth()
+            ) {
+                items(recent) { recent ->
+                    MessageItem(recent.message, recent.room, ellipse = true, onClick = { message, room ->
+                        if(room != null) {
+                            vm.selectRoom(room)
+                            navController.navigate("roomConversationScreen")
+                        }
+                        else{
+                            throw Error("MessageItem has null room.")
+                        }
+                    })
+                }
+            }
+        }
+        LaunchedEffect(Unit) {
+            vm.loadRecentMessages()
+        }
     }
 
     @Composable
     fun RoomsScreen(navController: NavController) : Unit {
-        LocalViewModel.current.loadMyRooms()
+        val context = LocalContext.current
         val vm = LocalViewModel.current
         val rooms = vm.filteredMyRoomsList.collectAsState().value
-        val searchText = vm.searchRoomText.collectAsState().value
+        val searchText = vm.searchMyRoomsText.collectAsState().value
         Column {
             ScreenTitle("My rooms")
             SearchField(placeholderText = "Search rooms...", searchText=searchText, onSearch = {
@@ -444,17 +576,30 @@ class MainActivity : ComponentActivity() {
                 items(rooms) { room ->
                     RoomItem(room, onClick = { room ->
                         vm.selectRoom(room)
-                        navController.navigate("roomConversationScreen")
+                        //tu animacja czekania na wejście do pokoju w postaci kota biegającego w kółko
                     })
                 }
             }
         }
+        LaunchedEffect(Unit) {
+            vm.loadMyRooms()
 
+            vm.selectedRoomEvent.collect { event ->
+                when (event) {
+                    is ProcessEvent.Success -> {
+                        navController.navigate("roomConversationScreen")
+                    }
+                    is ProcessEvent.Error -> {
+                        Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        }
     }
 
     @Composable
     fun DiscoverScreen(navController: NavController) : Unit {
-        LocalViewModel.current.loadDiscoverRooms()
+        val context = LocalContext.current
         val vm = LocalViewModel.current
         val rooms = vm.filteredDiscoverList.collectAsState().value
         val searchText = vm.searchDiscoverText.collectAsState().value
@@ -487,8 +632,21 @@ class MainActivity : ComponentActivity() {
                     RoomItem(room, onClick = {
                         //TODO Dołączanie do pokoju
                         //vm.selectRoom(room)
-                        //navController.navigate("roomConversationScreen")
                     })
+                }
+            }
+        }
+        LaunchedEffect(Unit) {
+            vm.loadDiscoverRooms()
+
+            vm.selectedRoomEvent.collect { event ->
+                when (event) {
+                    is ProcessEvent.Success -> {
+                        navController.navigate("roomConversationScreen")
+                    }
+                    is ProcessEvent.Error -> {
+                        Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
+                    }
                 }
             }
         }
@@ -496,6 +654,7 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     fun CreateRoomScreen(navController: NavController){
+        val context = LocalContext.current
         val vm = LocalViewModel.current
         var roomName by rememberSaveable { mutableStateOf("") }
         var roomDescription by rememberSaveable { mutableStateOf("") }
@@ -535,19 +694,138 @@ class MainActivity : ComponentActivity() {
             ) {
                 Button(onClick = {
                     vm.createRoom(roomName, roomDescription)
-                    navController.navigate("roomConversationScreen")
+                    //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
                 }) {
                     Text("Create")
                 }
             }
         }
-
+        LaunchedEffect(Unit) {
+            launch {
+                vm.registerRoomEvent.collect { event ->
+                    when (event) {
+                        is ProcessEvent.Success -> {
+                            val createdRoom = event.data
+                            vm.selectRoom(createdRoom)
+                        }
+                        is ProcessEvent.Error -> {
+                            Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            }
+            launch {
+                vm.selectedRoomEvent.collect { event ->
+                    when (event) {
+                        is ProcessEvent.Success -> {
+                            navController.navigate("roomConversationScreen")
+                        }
+                        is ProcessEvent.Error -> {
+                            Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            }
+        }
     }
 
-    @Preview
     @Composable
-    fun UserProfileScreen() : Unit {
-        ScreenTitle("User profile")
+    fun UserProfileScreen(navController: NavController) : Unit {
+        val context = LocalContext.current
+        val vm = LocalViewModel.current
+        var userName = rememberSaveable { mutableStateOf(vm.selectedUser.value?.name ?: "") }
+        val password = remember { mutableStateOf("") }
+        val passwordConfirmation = remember { mutableStateOf("") }
+
+        //Wygląd ekranu
+        Column {
+            ScreenTitle("User profile settings")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.AccountCircle,
+                    contentDescription = "User icon",
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(100.dp).background(
+                        color = MaterialTheme.colorScheme.primary,
+                        shape = RoundedCornerShape(6.dp)
+                    )
+                )
+                Spacer(Modifier.width(10.dp))
+                PlainTextField(
+                    value = userName.value,
+                    onValueChange = { text -> userName.value = text },
+                    placeholderText = "user name",
+                    singleLine = true,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            Spacer(Modifier.height(10.dp))
+            PlainTextField(
+                value = password.value,
+                onValueChange = { text -> password.value = text },
+                placeholderText = "password",
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(10.dp))
+            PlainTextField(
+                value = passwordConfirmation.value,
+                onValueChange = { text -> passwordConfirmation.value = text },
+                placeholderText = "confirm password",
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(20.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                Button(onClick = {
+                    //vm.updateUser()
+                    navController.popBackStack()
+                }) {
+                    Text("Accept")
+                }
+                Spacer(Modifier.width(10.dp))
+                Button(onClick = {
+                    navController.popBackStack()
+                }) {
+                    Text("Cancel")
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            Column(
+                modifier = Modifier.weight(1f).padding(vertical = 5.dp),
+                verticalArrangement = Arrangement.Bottom
+            ) {
+                Button(onClick = {
+                    vm.deleteUser()
+                    //obsługa eventa , że dopiero jak skasowane konto
+                    navController.navigate("loginScreen")
+
+
+                }) {
+                    Text("Delete account")
+                }
+            }
+        }
+
+        LaunchedEffect(Unit) {
+            vm.selectedUserEvent.collect { event ->
+                when (event) {
+                    is ProcessEvent.Success -> {
+                        navController.navigate("loginScreen")
+                    }
+                    is ProcessEvent.Error -> {
+                        Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
+                        navController.navigate("loginScreen")
+                    }
+                }
+            }
+        }
     }
 
     @Composable
@@ -557,7 +835,6 @@ class MainActivity : ComponentActivity() {
 
         val messages = LocalViewModel.current.messages.collectAsState().value
         Column {
-            Text("ROOM CONVERSATION " + selectedRoom?.name)
             LazyColumn(
                 state = listState,
                 modifier = Modifier.weight(1f).fillMaxWidth()

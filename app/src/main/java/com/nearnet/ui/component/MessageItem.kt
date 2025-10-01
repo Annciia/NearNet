@@ -2,7 +2,11 @@ package com.nearnet.ui.component
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,17 +18,35 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.nearnet.Message
 import com.nearnet.R
+import com.nearnet.Room
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun MessageItem(message: Message) {
+fun MessageItem(message: Message, room: Room? = null, ellipse: Boolean = false, onClick: ((message: Message, room: Room?)->Unit)? = null) {
+    var date = ""
+    if (message.timestamp.isNotEmpty()) {
+        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
+        date = LocalDateTime.parse(message.timestamp, formatter).format(DateTimeFormatter.ofPattern("yyyy-MM-dd • HH:mm"))
+    }
     Row(
-        modifier = Modifier.padding(vertical = 10.dp),
+        modifier = Modifier.then(
+            if (onClick != null) {
+                Modifier.clickable { onClick(message, room) }
+            } else {
+                Modifier
+            }).padding(vertical = 10.dp),
     ) {
         Icon(
             modifier = Modifier
@@ -44,15 +66,43 @@ fun MessageItem(message: Message) {
                 .padding(5.dp)
                 .fillMaxWidth()
         ){
-            Text(
-                text = message.userNameSender,
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onPrimary
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                FlowRow(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    if (room != null) {
+                        Text(
+                            text = room.name + "\u00A0•\u00A0",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                    }
+                    Text(
+                        text = message.userNameSender,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                    )
+                }
+                Text(
+                    text = date,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontSize = 8.sp
+                    ),
+                    textAlign = TextAlign.End,
+                    maxLines = 1,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                )
+            }
             Text(
                 text = message.content,
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onPrimary
+                color = MaterialTheme.colorScheme.onPrimary,
+                maxLines = if (!ellipse) Int.MAX_VALUE else 1,
+                overflow = if (!ellipse) TextOverflow.Clip else TextOverflow.Ellipsis,
             )
         }
     }
