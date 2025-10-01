@@ -235,7 +235,7 @@ class NearNetViewModel(): ViewModel() {
                         isPrivate = rd.isPrivate
                     )
                 }
-                myRoomsListMutable.value = mappedRooms
+                myRoomsMutable.value = mappedRooms
             } else {
                 Log.e("loadMyRooms", "RoomRepository is not initialized!")
             }
@@ -257,7 +257,7 @@ class NearNetViewModel(): ViewModel() {
                         isPrivate = rd.isPrivate
                     )
                 }
-                discoverRoomsListMutable.value = mappedRooms
+                discoverRoomsMutable.value = mappedRooms
             } else {
                 Log.e("loadDiscoverRooms", "RoomRepository is not initialized!")
             }

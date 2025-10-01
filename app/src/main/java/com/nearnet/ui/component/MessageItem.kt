@@ -36,10 +36,10 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun MessageItem(message: Message, room: Room? = null, ellipse: Boolean = false, onClick: ((message: Message, room: Room?)->Unit)? = null) {
     var date = ""
-    if (message.timestamp.isNotEmpty()) {
-        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
-        date = LocalDateTime.parse(message.timestamp, formatter).format(DateTimeFormatter.ofPattern("yyyy-MM-dd • HH:mm"))
-    }
+//    if (message.timestamp.isNotEmpty()) {
+//        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
+//        date = LocalDateTime.parse(message.timestamp, formatter).format(DateTimeFormatter.ofPattern("yyyy-MM-dd • HH:mm"))
+//    }
     Row(
         modifier = Modifier.then(
             if (onClick != null) {
