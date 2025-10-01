@@ -49,22 +49,13 @@ import java.time.format.DateTimeFormatter
 //    Room(9, "Fallout", null, true),
 //)
 
-//////////////////////////////POCZ
-private val myRoomsListMutable = MutableStateFlow(listOf<Room>())
-val myRoomsList = myRoomsListMutable.asStateFlow()
-
-private val discoverRoomsListMutable = MutableStateFlow(listOf<Room>())
-val discoverRoomsList = discoverRoomsListMutable.asStateFlow()
-/////////////////////////////KON
-
-
-//var messagesList = listOf(
-//    Message("0", 0, "Orci Kätter", "Lorem ipsum dolor sit amet, consectetur adipiscing elit.", timestamp = "2025-09-28 15:42:17.123"),
-//    Message("1", 0, "Mauris ", "Proin a eros quam. Ut sit amet ultrices nisi. Pellentesque ac tristique nisl, id imperdiet est. Integer scelerisque leo at blandit blandit.", timestamp = "2025-09-28 10:15:32.849"),
-//    Message("2", 0, "Orci Kätter", "Fusce sed ligula turpis. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Curabitur ac consequat nisi. Phasellus libero nibh, finibus non egestas in, egestas in lorem. Pellentesque nec facilisis erat, in pulvinar ipsum. Morbi congue viverra lectus quis fermentum. Duis sagittis est dapibus venenatis vestibulum.", timestamp = "2025-09-28 14:42:01.102"),
-//    Message("0", 1, "Orci Kätter", "Curabitur ac consequat nisi. Phasellus libero nibh, finibus non egestas in, egestas in lorem.", timestamp = "2025-09-28 18:03:44.565"),
-//    Message("0", 7, "Orci Kätter", "Duis sagittis est dapibus venenatis vestibulum. Non egestas in.", timestamp = "2025-09-28 18:03:44.565"),
-//)
+var messagesList = listOf(
+    Message("0", "0", "Orci Kätter", "Lorem ipsum dolor sit amet, consectetur adipiscing elit.", timestamp = "2025-09-28 15:42:17.123"),
+    Message("1", "0", "Mauris ", "Proin a eros quam. Ut sit amet ultrices nisi. Pellentesque ac tristique nisl, id imperdiet est. Integer scelerisque leo at blandit blandit.", timestamp = "2025-09-28 10:15:32.849"),
+    Message("2", "0", "Orci Kätter", "Fusce sed ligula turpis. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Curabitur ac consequat nisi. Phasellus libero nibh, finibus non egestas in, egestas in lorem. Pellentesque nec facilisis erat, in pulvinar ipsum. Morbi congue viverra lectus quis fermentum. Duis sagittis est dapibus venenatis vestibulum.", timestamp = "2025-09-28 14:42:01.102"),
+    Message("0", "hNdyfw6w0pFiWf8vAEkhe", "Orci Kätter", "Curabitur ac consequat nisi. Phasellus libero nibh, finibus non egestas in, egestas in lorem.", timestamp = "2025-09-28 18:03:44.565"),
+    Message("0", "7", "Orci Kätter", "Duis sagittis est dapibus venenatis vestibulum. Non egestas in.", timestamp = "2025-09-28 18:03:44.565"),
+)
 
 //event dotyczący wyniku przetwarzania jakiejś operacji asynchronicznej
 sealed class ProcessEvent<out T> {
@@ -231,7 +222,7 @@ class NearNetViewModel(): ViewModel() {
                     Room(
                         id = rd.idRoom,
                         name = rd.name,
-                        description = null, //jak nizej
+                        description = rd.avatar,    // avatar jako opis, trzeba zrobic takie same klasy serw/ui
                         isPrivate = rd.isPrivate
                     )
                 }
@@ -272,7 +263,7 @@ class NearNetViewModel(): ViewModel() {
 //            discoverRoomsList += createdRoom
 //            selectRoom(createdRoom)
             if (::roomRepository.isInitialized) {
-                val createdRoomData = roomRepository.addRoom(roomName, roomDescription)
+                val createdRoomData = roomRepository.addRoom(roomName, roomDescription) //podać pozostałe argumenty
 
                 if (createdRoomData != null) {
                     val createdRoom = Room(
@@ -281,19 +272,15 @@ class NearNetViewModel(): ViewModel() {
                         description = createdRoomData.avatar, //tutaj dalem to co mamy jako avatar bo nie mamy opisu na serwie a mamy avatar
                         isPrivate = createdRoomData.isPrivate
                     )
-
-                    myRoomsListMutable.value = myRoomsListMutable.value + createdRoom
-                    discoverRoomsListMutable.value = discoverRoomsListMutable.value + createdRoom
-
-
-
                     //wybranie nowego pokoju od razu przelacza do wiadomosci, po utworzeniu
-                    selectRoom(createdRoom)
+                    registerRoomEventMutable.emit(ProcessEvent.Success(createdRoom))
                 } else {
                     Log.e("createRoom", "❌ Nie udało się utworzyć pokoju na serwerze")
+                    registerRoomEventMutable.emit(ProcessEvent.Error("Something went wrong while creating the room."))
                 }
             } else {
                 Log.e("createRoom", "❌ RoomRepository nie jest zainicjalizowane!")
+                registerRoomEventMutable.emit(ProcessEvent.Error("Something went wrong while creating the room."))
             }
         }
     }
@@ -319,12 +306,6 @@ class NearNetViewModel(): ViewModel() {
         viewModelScope.launch {
             // TODO Call asynchronous function to fetch messages here. Przefiltrowana i posortowana lista potrzebna.
             //messagesMutable.value = getMessageHistory(idRoom = room.id, offset = 0, numberOfMessages = -1)
-//            messagesMutable.value = listOf(
-//                Message(0, "Orci Kätter", "Lorem ipsum dolor sit amet, consectetur adipiscing elit."),
-//                Message(1, "Mauris ", "Proin a eros quam. Ut sit amet ultrices nisi. Pellentesque ac tristique nisl, id imperdiet est. Integer scelerisque leo at blandit blandit."),
-//                Message(2, "Orci Kätter", "Fusce sed ligula turpis. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Curabitur ac consequat nisi. Phasellus libero nibh, finibus non egestas in, egestas in lorem. Pellentesque nec facilisis erat, in pulvinar ipsum. Morbi congue viverra lectus quis fermentum. Duis sagittis est dapibus venenatis vestibulum.")
-//            )
-
             if (!::messageUtils.isInitialized) {
                 Log.e("loadMessages", "MessageUtils nie jest zainicjalizowany")
                 return@launch
@@ -360,8 +341,10 @@ class NearNetViewModel(): ViewModel() {
             val messagesFromApi = messageList?.map { payload ->
                 Message(
                     id = payload.timestamp,
+                    idRoom = "0", // TODO: Dane z serwera. Podany id pokoju, w którym te wiadomości wysyłane.
                     userNameSender = payload.userId,
-                    content = payload.data
+                    content = payload.data,
+                    timestamp = "2025-10-02 00:00.00.0000" // TODO: czas podany od 1970 roku
                 )
             } ?: emptyList()
 
@@ -372,9 +355,9 @@ class NearNetViewModel(): ViewModel() {
     fun sendMessage(messageText : String, room : Room){
         viewModelScope.launch{
             //val message = Message (id = -1, userNameSender = "Orci Kätter", content = messageText)
+            //messagesMutable.value += message
             // TODO Call asynchronous function to send messages
             //sendMessage(room.id, message)
-            //messagesMutable.value += message
             if (!::messageUtils.isInitialized) {
                 Log.e("sendMessage", "MessageUtils nie jest zainicjalizowane!")
                 return@launch
@@ -386,8 +369,10 @@ class NearNetViewModel(): ViewModel() {
             // UI message
             val uiMessage = com.nearnet.Message(
                 id = timestamp.toString(),
+                idRoom = "0", // TODO: Dane z serwera. Podany id pokoju, w którym te wiadomości wysyłane.
                 userNameSender = userName,
-                content = messageText
+                content = messageText,
+                timestamp = "2025-10-02 00:00.00.0000" // TODO: czas podany od 1970 roku
             )
 
             // Backend message
@@ -414,24 +399,24 @@ class NearNetViewModel(): ViewModel() {
             }
         }
     }
-//    fun loadRecentMessages() {
-//        viewModelScope.launch {
-//            // TODO Call asynchronous function to fetch recent messages here.
-//            //recentMutable.value = getRecentMessages(idUser) //zwraca listę trójek (Room, lastMessage,username)
-//            //funkcja: grupuje wiadomości po pokojach, dla każdej grupy uzyskuje dane pokoju, a następnie tworzy trójki
-//            //typu (wiadomość, pokój, nazwa użytkownika), w SQL join pokoju do wiadomości i do usera, i groupby po pokojach ,
-//            //a potem select na te trójki
-//            recentMutable.value = messagesList //
-//                .groupBy { message -> message.idRoom }
-//                .mapValues { roomMessages ->
-//                    val message = roomMessages.value.maxBy { message -> message.timestamp }
-//                    val room = myRoomsMutable.find { room -> room.id == message.idRoom }
-//                    Recent(message = message, room = room, username = message.userNameSender)
-//                }.values
-//                .toList()
-//                .sortedByDescending { recent -> recent.message.timestamp }
-//        }
-//    }
+    fun loadRecentMessages() {
+        viewModelScope.launch {
+            // TODO Call asynchronous function to fetch recent messages here.
+            //recentMutable.value = getRecentMessages(idUser) //zwraca listę trójek (Room, lastMessage,username)
+            //funkcja: grupuje wiadomości po pokojach, dla każdej grupy uzyskuje dane pokoju, a następnie tworzy trójki
+            //typu (wiadomość, pokój, nazwa użytkownika), w SQL join pokoju do wiadomości i do usera, i groupby po pokojach ,
+            //a potem select na te trójki
+            recentMutable.value = messagesList // ta funkcja na teraz bierze pokój o jakimś IdRoom z Twoich na serwerze, więc jeden się wyświetla z Twoich pokoi na sztywno, reszta co się wyświetla to te o ID 0 , bo null wziął za 0. Dasz swoją funkcję to powinno działać.
+                .groupBy { message -> message.idRoom }
+                .mapValues { roomMessages ->
+                    val message = roomMessages.value.maxBy { message -> message.timestamp }
+                    val room = myRooms.value.find { room -> room.id == message.idRoom }
+                    Recent(message = message, room = room, username = message.userNameSender)
+                }.values
+                .toList()
+                .sortedByDescending { recent -> recent.message.timestamp }
+        }
+    }
 
 }
 

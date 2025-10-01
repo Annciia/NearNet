@@ -84,10 +84,10 @@ import com.nearnet.ui.model.ProcessEvent
 import com.nearnet.ui.theme.NearNetTheme
 import kotlinx.coroutines.launch
 
-data class Recent(val message: Message, val room: Room?, val username: String)
 data class Room(val id: String, var name: String, var description: String?, var isPrivate: Boolean)
-data class Message(val id: String, val userNameSender: String, val content: String)
+data class Message(val id: String, val idRoom: String, val userNameSender: String, val content: String, val timestamp: String)
 data class User(val id: String, val login: String, val password: String, val name: String)
+data class Recent(val message: Message, val room: Room?, val username: String)
 
 class MainActivity : ComponentActivity() {
 
@@ -557,7 +557,7 @@ class MainActivity : ComponentActivity() {
             }
         }
         LaunchedEffect(Unit) {
-            //vm.loadRecentMessages()
+            vm.loadRecentMessages()
         }
     }
 
