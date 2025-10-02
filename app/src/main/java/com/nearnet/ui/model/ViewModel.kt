@@ -86,6 +86,14 @@ class NearNetViewModel(): ViewModel() {
     private val registerUserEventMutable = MutableSharedFlow<ProcessEvent<Unit>>()
     val registerUserEvent = registerUserEventMutable.asSharedFlow()
 
+    //Update user
+    private val updateUserEventMutable = MutableSharedFlow<ProcessEvent<Unit>>()
+    val updateUserEvent = updateUserEventMutable.asSharedFlow()
+
+    //Delete user
+    private val deleteUserEventMutable = MutableSharedFlow<ProcessEvent<User?>>()
+    val deleteUserEvent = deleteUserEventMutable.asSharedFlow()
+
     //Rooms
     private val myRoomsMutable = MutableStateFlow(listOf<Room>())
     val myRooms = myRoomsMutable.asStateFlow()
@@ -189,10 +197,41 @@ class NearNetViewModel(): ViewModel() {
             }
         }
     }
-    fun updateUser(){
+    fun updateUser(userName: String, password: String, passwordConfirmation: String, additionalSettings: String){
         viewModelScope.launch {
-
+            if (!validateUpdate(userName, password, passwordConfirmation, additionalSettings)) {
+                updateUserEventMutable.emit(ProcessEvent.Error("Failed to update account. Please try again."))
+                return@launch
+            }
+            // TODO Call asynchronous function to update user.
+            //val status : Boolean = repository.updateUser(userName, password, additionalSettings)
+            val status = true // Wykomentować, po aktywacji powyższej funkcji
+            if (status == true) {
+                updateUserEventMutable.emit(ProcessEvent.Success(Unit))
+            }
+            else {
+                updateUserEventMutable.emit(ProcessEvent.Error("Failed to update account. Please try again."))
+            }
         }
+    }
+    fun validateUpdate(userName: String, password: String, passwordConfirmation: String, additionalSettings: String): Boolean {
+        var result = true
+        val user = selectedUser.value
+        if (user == null) {
+            return false
+        }
+        val userNameChanged = userName != user.name;
+        val passwordChanged = password.isNotBlank() || passwordConfirmation.isNotBlank()
+        if (!userNameChanged && !passwordChanged) {
+            return false
+        }
+        if (userNameChanged) {
+            result = result && userName.isNotBlank()
+        }
+        if (passwordChanged) {
+            result = result && (password == passwordConfirmation)
+        }
+        return result
     }
     fun deleteUser(){
         viewModelScope.launch {
@@ -204,13 +243,12 @@ class NearNetViewModel(): ViewModel() {
             }
             if (status == true) {
                 selectedUserMutable.value = null
-                //event Success
+                deleteUserEventMutable.emit(ProcessEvent.Success(null))
             } else {
-                //event err
+                deleteUserEventMutable.emit(ProcessEvent.Error("Something went wrong while deleting account."))
             }
         }
     }
-
     fun loadMyRooms() {
         viewModelScope.launch {
             // TODO Call asynchronous function to fetch my rooms here.

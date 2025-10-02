@@ -793,10 +793,13 @@ class MainActivity : ComponentActivity() {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End
             ) {
-                Button(onClick = {
-                    //vm.updateUser()
-                    navController.popBackStack()
-                }) {
+                Button(
+                    onClick = {
+                        vm.updateUser(userName.value, password.value, passwordConfirmation.value, "")
+                        //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
+                    },
+                    enabled = vm.validateUpdate(userName.value, password.value, passwordConfirmation.value, "")
+                ) {
                     Text("Accept")
                 }
                 Spacer(Modifier.width(10.dp))
@@ -813,25 +816,54 @@ class MainActivity : ComponentActivity() {
             ) {
                 Button(onClick = {
                     vm.deleteUser()
-                    //obsługa eventa , że dopiero jak skasowane konto
-                    navController.navigate("loginScreen")
-
-
+                    //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
                 }) {
                     Text("Delete account")
                 }
             }
         }
-
         LaunchedEffect(Unit) {
-            vm.selectedUserEvent.collect { event ->
-                when (event) {
-                    is ProcessEvent.Success -> {
-                        navController.navigate("loginScreen")
+            launch { //logout
+                vm.selectedUserEvent.collect { event ->
+                    when (event) {
+                        is ProcessEvent.Success -> {
+                            navController.navigate("loginScreen") {
+                                popUpTo("userProfileScreen") { inclusive = true }
+                            }
+                        }
+                        is ProcessEvent.Error -> {
+                            Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
+                            navController.navigate("loginScreen") {
+                                popUpTo("userProfileScreen") { inclusive = true }
+                            }
+                        }
                     }
-                    is ProcessEvent.Error -> {
-                        Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
-                        navController.navigate("loginScreen")
+                }
+            }
+            launch { //delete
+                vm.deleteUserEvent.collect { event ->
+                    when (event) {
+                        is ProcessEvent.Success -> {
+                            navController.navigate("loginScreen") {
+                                popUpTo("userProfileScreen") { inclusive = true }
+                            }
+                        }
+                        is ProcessEvent.Error -> {
+                            Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            }
+            launch { //update
+                vm.updateUserEvent.collect { event ->
+                    when (event) {
+                        is ProcessEvent.Success -> {
+                            Toast.makeText(context, "Profile updated.", Toast.LENGTH_SHORT).show()
+                            navController.popBackStack()
+                        }
+                        is ProcessEvent.Error -> {
+                            Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
+                        }
                     }
                 }
             }
