@@ -73,6 +73,7 @@ import com.nearnet.sessionlayer.logic.MessageUtils
 import com.nearnet.sessionlayer.logic.RoomRepository
 import com.nearnet.sessionlayer.logic.UserRepository
 import com.nearnet.ui.component.ConversationPanel
+import com.nearnet.ui.component.LabeledSwitch
 import com.nearnet.ui.component.MessageItem
 import com.nearnet.ui.component.PlainTextField
 import com.nearnet.ui.component.RoomItem
@@ -668,6 +669,8 @@ class MainActivity : ComponentActivity() {
         val vm = LocalViewModel.current
         var roomName by rememberSaveable { mutableStateOf("") }
         var roomDescription by rememberSaveable { mutableStateOf("") }
+        var isCheckedPublic by rememberSaveable { mutableStateOf(false) }
+        var isCheckedVisible by rememberSaveable { mutableStateOf(false) }
         Column {
             ScreenTitle("Create new room")
             Row(
@@ -695,15 +698,29 @@ class MainActivity : ComponentActivity() {
                 onValueChange = { text -> roomDescription = text },
                 placeholderText = "description",
                 singleLine = false,
+                maxLines = 6,
                 modifier = Modifier.fillMaxWidth()
             )
+            Spacer(Modifier.height(20.dp))
+            //Switches
+            LabeledSwitch(
+                title = "Allow for public access",
+                description = "When enabled, everyone can join the room without your approval.",
+                isChecked = isCheckedPublic,
+                onCheckedChange = { switchState -> isCheckedPublic = switchState })
+            Spacer(Modifier.height(10.dp))
+            LabeledSwitch(
+                title="Visible only by name",
+                description="When enabled, the room can only be found by entering its full name.",
+                isChecked =isCheckedVisible,
+                onCheckedChange = { switchState -> isCheckedVisible = switchState  })
             Spacer(Modifier.height(20.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End
             ) {
                 Button(onClick = {
-                    vm.createRoom(roomName, roomDescription)
+                    vm.createRoom(roomName, roomDescription, !isCheckedPublic, isCheckedVisible, "")
                     //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
                 }) {
                     Text("Create")
@@ -830,13 +847,15 @@ class MainActivity : ComponentActivity() {
                     when (event) {
                         is ProcessEvent.Success -> {
                             navController.navigate("loginScreen") {
-                                popUpTo("userProfileScreen") { inclusive = true }
+                                popUpTo(0) { inclusive = true }
+                                launchSingleTop = true
                             }
                         }
                         is ProcessEvent.Error -> {
                             Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
                             navController.navigate("loginScreen") {
-                                popUpTo("userProfileScreen") { inclusive = true }
+                                popUpTo(0) { inclusive = true }
+                                launchSingleTop = true
                             }
                         }
                     }
@@ -847,7 +866,8 @@ class MainActivity : ComponentActivity() {
                     when (event) {
                         is ProcessEvent.Success -> {
                             navController.navigate("loginScreen") {
-                                popUpTo("userProfileScreen") { inclusive = true }
+                                popUpTo(0) { inclusive = true }
+                                launchSingleTop = true
                             }
                         }
                         is ProcessEvent.Error -> {
@@ -875,17 +895,13 @@ class MainActivity : ComponentActivity() {
     @Composable
     fun RoomConversationScreen() : Unit {
         val vm = LocalViewModel.current
-
         val selectedRoom = vm.selectedRoom.collectAsState().value
         val messages = vm.messages.collectAsState().value
-        //val selectedRoom = LocalViewModel.current.selectedRoom.collectAsState().value
         val listState = rememberLazyListState()
 
-        //val messages = LocalViewModel.current.messages.collectAsState().value
-
         // pobieranie historii wiadomości przy wejściu na ekran lub zmianie pokoju
-        LaunchedEffect(vm.selectedRoom.collectAsState().value) {
-            val room = vm.selectedRoom.value
+        LaunchedEffect(selectedRoom) {
+            val room = selectedRoom
             if (room != null) {
                 Log.d("RoomConversation", "Loading messages for room: ${room.name}")
                 vm.loadMessages(room)

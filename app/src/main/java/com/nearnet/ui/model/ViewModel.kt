@@ -317,7 +317,7 @@ class NearNetViewModel(): ViewModel() {
             }
         }
     }
-    fun createRoom(roomName : String, roomDescription : String){
+    fun createRoom(roomName : String, roomDescription : String, isPrivate : Boolean, isVisible : Boolean, additionalSettings: String =""){
         viewModelScope.launch {
 //            val createdRoom = Room(id = -1, name = roomName, description = roomDescription, isPrivate = false)
 //            // TODO Call asynchronous function to create room.
@@ -326,7 +326,7 @@ class NearNetViewModel(): ViewModel() {
 //            discoverRoomsList += createdRoom
 //            selectRoom(createdRoom)
             if (::roomRepository.isInitialized) {
-                val createdRoomData = roomRepository.addRoom(roomName, roomDescription) //podać pozostałe argumenty
+                val createdRoomData = roomRepository.addRoom(roomName, roomDescription) //podać pozostałe argumenty: isPrivate, isVisibility, additionalSettings
 
                 if (createdRoomData != null) {
                     val createdRoom = Room(

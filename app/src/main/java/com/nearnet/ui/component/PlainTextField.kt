@@ -23,6 +23,7 @@ fun PlainTextField(
     placeholderText: String = "",
     lineHeight: TextUnit = 18.sp,
     singleLine: Boolean = false,
+    maxLines: Int = Int.MAX_VALUE,
     value: String,
     onValueChange: ((String) -> Unit)
 ) {
@@ -35,6 +36,7 @@ fun PlainTextField(
             fontSize = 14.sp,
             lineHeight = lineHeight,
         ),
+        maxLines = maxLines,
         cursorBrush = SolidColor(MaterialTheme.colorScheme.onPrimary),
         decorationBox = { innerTextField ->
             Row(
