@@ -126,27 +126,36 @@ class UserRepository(private val context: Context) {
 
     }
 
-    suspend fun deleteUser(password: String) = withContext(Dispatchers.IO) {
-        val token = getTokenFromPreferences(context) ?: return@withContext
+    suspend fun deleteUser(password: String): Boolean = withContext(Dispatchers.IO) {
+        val token = getTokenFromPreferences(context) ?: return@withContext false
 
-        val response = api.deleteUser("Bearer $token", mapOf("password" to password))
-
-        if (response.isSuccessful) {
-            val res = response.body()
-            if (res?.Succes == true) {
-                Log.d("REST", "✅ User deleted")
-                clearToken()
+        return@withContext try {
+            val response = api.deleteUser("Bearer $token", mapOf("password" to password))
+            if (response.isSuccessful) {
+                val res = response.body()
+                if (res?.Succes == true) {
+                    Log.d("REST", "✅ User deleted")
+                    clearToken()
+                    true
+                } else {
+                    Log.d("REST", "❌ Delete failed: ${res?.error}")
+                    false
+                }
             } else {
-                Log.d("REST", "❌ Delete failed: ${res?.error}")
+                Log.e("REST", "❌ Delete error: ${response.code()} ${response.errorBody()?.string()}")
+                false
             }
-        } else {
-            Log.e("REST", "❌ Delete error: ${response.code()} ${response.errorBody()?.string()}")
+        } catch (e: Exception) {
+            Log.e("REST", "❌ Exception during delete: ${e.message}")
+            false
         }
     }
 
 
-    fun logOutUser() {
+
+    fun logOutUser(): Boolean {
         clearToken()
+        return true
     }
 
     private fun saveTokenToPreferences(token: String) {

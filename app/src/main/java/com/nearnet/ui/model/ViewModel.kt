@@ -180,13 +180,14 @@ class NearNetViewModel(): ViewModel() {
             }
         }
     }
+    //tutaj czysci po prostu token = wylogowuje
     fun logOutUser(){ //wylogowuje nawet jak coś poszło nie tak z internetem/serwerem
         viewModelScope.launch{
             val user = selectedUser.value
             var status : Boolean = false
             if (user != null) {
                 //status = repository.logOutUser(user.id) //M
-                status = true //
+                status = repository.logOutUser() //M - tu po prostu czyszcze token przez co juz nic nie dostanie od serwera
             }
             selectedUserMutable.value = null
             if (status == true){
@@ -197,23 +198,45 @@ class NearNetViewModel(): ViewModel() {
             }
         }
     }
+    // TODO ujednolicic userData z serwerem bo teraz inne + nie widzi w logach avataru, ale odbiera po prostu nie wyswietla na dev stronce
     fun updateUser(userName: String, password: String, passwordConfirmation: String, additionalSettings: String){
         viewModelScope.launch {
             if (!validateUpdate(userName, password, passwordConfirmation, additionalSettings)) {
                 updateUserEventMutable.emit(ProcessEvent.Error("Failed to update account. Please try again."))
                 return@launch
             }
+
             // TODO Call asynchronous function to update user.
-            //val status : Boolean = repository.updateUser(userName, password, additionalSettings)
-            val status = true // Wykomentować, po aktywacji powyższej funkcji
-            if (status == true) {
-                updateUserEventMutable.emit(ProcessEvent.Success(Unit))
+            val currentUser = selectedUser.value
+            if (currentUser == null) {
+                updateUserEventMutable.emit(ProcessEvent.Error("No user logged in."))
+                return@launch
             }
-            else {
-                updateUserEventMutable.emit(ProcessEvent.Error("Failed to update account. Please try again."))
+            //val status : Boolean = repository.updateUser(userName, password, additionalSettings)
+            try {
+                //tutaj znowu rozjechane wszystko, trzeba ujednolicic z serwerem
+                val userData = com.nearnet.sessionlayer.data.model.UserData(
+                    idUser = currentUser.id,
+                    name = if (userName.isNotBlank()) userName else currentUser.name,
+                    avatar = "updateAvatar",
+                    publicKey = "newPublicKey",
+                    darkLightMode = additionalSettings == "0"
+                )
+
+                repository.updateUser(userData)
+
+                // update lokalnego usera w stanie UI
+                val updatedUser = currentUser.copy(name = userData.name)
+                selectedUserMutable.value = updatedUser
+
+                updateUserEventMutable.emit(ProcessEvent.Success(Unit))
+            } catch (e: Exception) {
+                Log.e("UpdateUser", "Update failed", e)
+                updateUserEventMutable.emit(ProcessEvent.Error("Update failed: ${e.message}"))
             }
         }
     }
+
     fun validateUpdate(userName: String, password: String, passwordConfirmation: String, additionalSettings: String): Boolean {
         var result = true
         val user = selectedUser.value
@@ -233,15 +256,16 @@ class NearNetViewModel(): ViewModel() {
         }
         return result
     }
-    fun deleteUser(){
+    fun deleteUser(password: String){
         viewModelScope.launch {
             val user = selectedUser.value
-            var status : Boolean = false
-            if (user != null) {
-                //status = repository.deleteUser(user.id) //M
-                status = true //
+            if (user == null) {
+                deleteUserEventMutable.emit(ProcessEvent.Error("No user logged in."))
+                return@launch
             }
-            if (status == true) {
+            val status = repository.deleteUser(password)
+
+            if (status) {
                 selectedUserMutable.value = null
                 deleteUserEventMutable.emit(ProcessEvent.Success(null))
             } else {
@@ -249,6 +273,7 @@ class NearNetViewModel(): ViewModel() {
             }
         }
     }
+
     fun loadMyRooms() {
         viewModelScope.launch {
             // TODO Call asynchronous function to fetch my rooms here.
