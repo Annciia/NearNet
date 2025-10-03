@@ -640,8 +640,8 @@ class MainActivity : ComponentActivity() {
             ) {
                 items(rooms) { room ->
                     RoomItem(room, onClick = {
-                        //TODO Dołączanie do pokoju
-                        //vm.selectRoom(room)
+                        //TODO Dołączanie do pokoju - odkomentowalem(Marek)
+                        vm.selectRoom(room)
                     })
                 }
             }
@@ -815,7 +815,9 @@ class MainActivity : ComponentActivity() {
                 verticalArrangement = Arrangement.Bottom
             ) {
                 Button(onClick = {
-                    vm.deleteUser()
+                    //TODO dodalem vm.deleteUser(password.value) zamiast vm.deleteUser() - zczytuje w compose wartosc pola password
+                    //vm.deleteUser()
+                    vm.deleteUser(password.value)
                     //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
                 }) {
                     Text("Delete account")
