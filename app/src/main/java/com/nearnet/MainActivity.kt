@@ -30,6 +30,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.twotone.PlayArrow
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Button
@@ -73,6 +74,7 @@ import com.nearnet.sessionlayer.logic.MessageUtils
 import com.nearnet.sessionlayer.logic.RoomRepository
 import com.nearnet.sessionlayer.logic.UserRepository
 import com.nearnet.ui.component.ConversationPanel
+import com.nearnet.ui.component.LabeledSwitch
 import com.nearnet.ui.component.MessageItem
 import com.nearnet.ui.component.PlainTextField
 import com.nearnet.ui.component.RoomItem
@@ -81,10 +83,13 @@ import com.nearnet.ui.component.SearchField
 import com.nearnet.ui.model.LocalViewModel
 import com.nearnet.ui.model.NearNetViewModel
 import com.nearnet.ui.model.ProcessEvent
+import com.nearnet.ui.model.ROOM_DESCRIPTION_MAX_LENGTH
+import com.nearnet.ui.model.ROOM_DESCRIPTION_MAX_LINES
+import com.nearnet.ui.model.ROOM_NAME_MAX_LENGTH
 import com.nearnet.ui.theme.NearNetTheme
 import kotlinx.coroutines.launch
 
-data class Room(val id: String, var name: String, var description: String?, var isPrivate: Boolean)
+data class Room(val id: String, var name: String, var description: String?, var isPrivate: Boolean, var isVisible: Boolean, var idAdmin: String)
 data class Message(val id: String, val idRoom: String, val userNameSender: String, val content: String, val timestamp: String)
 data class User(val id: String, val login: String, val password: String, val name: String)
 data class Recent(val message: Message, val room: Room?, val username: String)
@@ -145,7 +150,7 @@ class MainActivity : ComponentActivity() {
                 )
             )},
             title = {
-                if (navState != null && navState.destination.route =="roomConversationScreen"){
+                if (navState != null && (navState.destination.route == "roomConversationScreen" || navState.destination.route == "roomSettingsScreen")){
                     RoomTopBar(navController)
                 }
                 else {
@@ -170,17 +175,28 @@ class MainActivity : ComponentActivity() {
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(
-                modifier = Modifier.weight(1f).clip(shape = RoundedCornerShape(6.dp)).clickable { navController.navigate("userProfileScreen") },
+                modifier = Modifier.weight(1f).clip(shape = RoundedCornerShape(6.dp)).clickable {
+                    navController.navigate("userProfileScreen") {
+                        launchSingleTop = true
+                    }
+                },
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = { navController.navigate("userProfileScreen") }, content = {
-                    Image(
-                        painter = painterResource((R.drawable.ic_launcher_foreground)),
-                        contentDescription = "Avatar",
-                        modifier = Modifier.size(80.dp).clip(CircleShape)
-                            .border(2.dp, MaterialTheme.colorScheme.onPrimary, CircleShape)
-                    )
-                })
+                IconButton(
+                    onClick = {
+                        navController.navigate("userProfileScreen") {
+                            launchSingleTop = true
+                        }
+                    },
+                    content = {
+                        Image(
+                            painter = painterResource((R.drawable.ic_launcher_foreground)),
+                            contentDescription = "Avatar",
+                            modifier = Modifier.size(80.dp).clip(CircleShape)
+                                .border(2.dp, MaterialTheme.colorScheme.onPrimary, CircleShape)
+                        )
+                    }
+                )
                 Spacer(Modifier.width(5.dp))
                 Text(
                     text = selectedUser?.name ?: "Top kitten bar",
@@ -205,11 +221,19 @@ class MainActivity : ComponentActivity() {
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Row(
-                modifier = Modifier.weight(1f).clip(shape = RoundedCornerShape(6.dp)).clickable { /*navController.navigate("roomSettingsScreen") */ },
+                modifier = Modifier.weight(1f).clip(shape = RoundedCornerShape(6.dp)).clickable {
+                    navController.navigate("roomSettingsScreen") {
+                        launchSingleTop = true
+                    }
+                },
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(
-                    onClick = { /*navController.navigate("roomSettingsScreen") */ },
+                    onClick = {
+                        navController.navigate("roomSettingsScreen") {
+                            launchSingleTop = true
+                        }
+                    },
                     content = {
                         Image(
                             painter = painterResource((R.drawable.ic_launcher_foreground)),
@@ -316,7 +340,8 @@ class MainActivity : ComponentActivity() {
             composable("discoverScreen") { DiscoverScreen(navController) }
             composable("userProfileScreen") { UserProfileScreen(navController) }
             composable("roomConversationScreen") { RoomConversationScreen() }
-            composable("createRoomScreen") { CreateRoomScreen(navController) }
+            composable("createRoomScreen") { CreateOrUpdateRoomScreen(navController) }
+            composable("roomSettingsScreen") { CreateOrUpdateRoomScreen(navController) }
         }
     }
 
@@ -545,11 +570,11 @@ class MainActivity : ComponentActivity() {
             ) {
                 items(recent) { recent ->
                     MessageItem(recent.message, recent.room, ellipse = true, onClick = { message, room ->
-                        if(room != null) {
+                        if (room != null) {
                             vm.selectRoom(room)
                             navController.navigate("roomConversationScreen")
                         }
-                        else{
+                        else {
                             throw Error("MessageItem has null room.")
                         }
                     })
@@ -663,19 +688,27 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    fun CreateRoomScreen(navController: NavController){
+    fun CreateOrUpdateRoomScreen(navController: NavController){
         val context = LocalContext.current
         val vm = LocalViewModel.current
-        var roomName by rememberSaveable { mutableStateOf("") }
-        var roomDescription by rememberSaveable { mutableStateOf("") }
+        val selectedRoom: Room? = if (navController.currentDestination?.route == "roomSettingsScreen") vm.selectedRoom.value else null
+        val selectedUser: User? = vm.selectedUser.value
+        var roomName by rememberSaveable { mutableStateOf(selectedRoom?.name ?: "") }
+        var roomDescription by rememberSaveable { mutableStateOf(selectedRoom?.description ?: "") }
+        var isCheckedPublic by rememberSaveable { mutableStateOf(if (selectedRoom != null) !selectedRoom.isPrivate else false) }
+        var isCheckedVisible by rememberSaveable { mutableStateOf(if (selectedRoom != null) !selectedRoom.isVisible else false) }
         Column {
-            ScreenTitle("Create new room")
+            if (selectedRoom != null) { //roomSettingsScreen
+                ScreenTitle("Room settings")
+            } else { //createRoomScreen
+                ScreenTitle("Create new room")
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    imageVector = Icons.Default.AccountCircle,
+                    imageVector = Icons.Default.Add,
                     contentDescription = "Room icon",
                     tint = MaterialTheme.colorScheme.onPrimary,
                     modifier = Modifier.size(100.dp).background(color = MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(6.dp))
@@ -686,6 +719,7 @@ class MainActivity : ComponentActivity() {
                     onValueChange = { text -> roomName = text },
                     placeholderText = "room name",
                     singleLine = true,
+                    maxChars = ROOM_NAME_MAX_LENGTH,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -695,18 +729,64 @@ class MainActivity : ComponentActivity() {
                 onValueChange = { text -> roomDescription = text },
                 placeholderText = "description",
                 singleLine = false,
+                maxLines = ROOM_DESCRIPTION_MAX_LINES,
+                maxChars = ROOM_DESCRIPTION_MAX_LENGTH,
                 modifier = Modifier.fillMaxWidth()
             )
+            Spacer(Modifier.height(20.dp))
+            //Switches
+            LabeledSwitch(
+                title = "Allow for public access",
+                description = "When enabled, everyone can join the room without your approval.",
+                isChecked = isCheckedPublic,
+                onCheckedChange = { switchState -> isCheckedPublic = switchState })
+            Spacer(Modifier.height(10.dp))
+            LabeledSwitch(
+                title="Visible only by name",
+                description="When enabled, the room can only be found by entering its full name.",
+                isChecked =isCheckedVisible,
+                onCheckedChange = { switchState -> isCheckedVisible = switchState  })
             Spacer(Modifier.height(20.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End
             ) {
+                Button(
+                    onClick = {
+                        if (selectedRoom != null) { //roomSettingsScreen
+                            vm.updateRoom(roomName, roomDescription, !isCheckedPublic, !isCheckedVisible)
+                        } else { //createRoomScreen
+                            vm.createRoom(roomName, roomDescription, !isCheckedPublic, !isCheckedVisible, "")
+                        }
+                        //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
+                    },
+                    enabled = vm.validateRoom(roomName, roomDescription)
+                ) {
+                    if (selectedRoom != null) { //roomSettingsScreen
+                        Text("Accept")
+                    } else { //createRoomScreen
+                        Text("Create")
+                    }
+                }
+                Spacer(Modifier.width(10.dp))
                 Button(onClick = {
-                    vm.createRoom(roomName, roomDescription)
-                    //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
+                    navController.popBackStack()
                 }) {
-                    Text("Create")
+                    Text("Cancel")
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            if (selectedRoom != null && selectedUser != null && selectedUser.id == selectedRoom.idAdmin) { //Only the admin can delete their room.
+                Column(
+                    modifier = Modifier.weight(1f).padding(vertical = 5.dp),
+                    verticalArrangement = Arrangement.Bottom
+                ) {
+                    Button(onClick = {
+                        vm.deleteRoom(selectedRoom)
+                        //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
+                    }) {
+                        Text("Delete room")
+                    }
                 }
             }
         }
@@ -729,6 +809,35 @@ class MainActivity : ComponentActivity() {
                     when (event) {
                         is ProcessEvent.Success -> {
                             navController.navigate("roomConversationScreen")
+                        }
+                        is ProcessEvent.Error -> {
+                            Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            }
+            launch { //update
+                vm.updateRoomEvent.collect { event ->
+                    when (event) {
+                        is ProcessEvent.Success -> {
+                            Toast.makeText(context, "Room updated.", Toast.LENGTH_SHORT).show()
+                            navController.popBackStack()
+                        }
+                        is ProcessEvent.Error -> {
+                            Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            }
+            launch { //delete
+                vm.deleteRoomEvent.collect { event ->
+                    when (event) {
+                        is ProcessEvent.Success -> {
+                            Toast.makeText(context, "Room deleted.", Toast.LENGTH_SHORT).show()
+                            navController.navigate("roomsScreen") {
+                                popUpTo(0) { inclusive = true }
+                                launchSingleTop = true
+                            }
                         }
                         is ProcessEvent.Error -> {
                             Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
@@ -830,13 +939,15 @@ class MainActivity : ComponentActivity() {
                     when (event) {
                         is ProcessEvent.Success -> {
                             navController.navigate("loginScreen") {
-                                popUpTo("userProfileScreen") { inclusive = true }
+                                popUpTo(0) { inclusive = true }
+                                launchSingleTop = true
                             }
                         }
                         is ProcessEvent.Error -> {
                             Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
                             navController.navigate("loginScreen") {
-                                popUpTo("userProfileScreen") { inclusive = true }
+                                popUpTo(0) { inclusive = true }
+                                launchSingleTop = true
                             }
                         }
                     }
@@ -847,7 +958,8 @@ class MainActivity : ComponentActivity() {
                     when (event) {
                         is ProcessEvent.Success -> {
                             navController.navigate("loginScreen") {
-                                popUpTo("userProfileScreen") { inclusive = true }
+                                popUpTo(0) { inclusive = true }
+                                launchSingleTop = true
                             }
                         }
                         is ProcessEvent.Error -> {
@@ -875,17 +987,13 @@ class MainActivity : ComponentActivity() {
     @Composable
     fun RoomConversationScreen() : Unit {
         val vm = LocalViewModel.current
-
         val selectedRoom = vm.selectedRoom.collectAsState().value
         val messages = vm.messages.collectAsState().value
-        //val selectedRoom = LocalViewModel.current.selectedRoom.collectAsState().value
         val listState = rememberLazyListState()
 
-        //val messages = LocalViewModel.current.messages.collectAsState().value
-
         // pobieranie historii wiadomości przy wejściu na ekran lub zmianie pokoju
-        LaunchedEffect(vm.selectedRoom.collectAsState().value) {
-            val room = vm.selectedRoom.value
+        LaunchedEffect(selectedRoom) {
+            val room = selectedRoom
             if (room != null) {
                 Log.d("RoomConversation", "Loading messages for room: ${room.name}")
                 vm.loadMessages(room)
