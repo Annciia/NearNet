@@ -214,6 +214,7 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     fun RoomTopBar(navController: NavController) {
+        val navState = navController.currentBackStackEntryAsState().value
         val selectedRoom = LocalViewModel.current.selectedRoom.collectAsState().value
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -248,10 +249,12 @@ class MainActivity : ComponentActivity() {
                     style = MaterialTheme.typography.titleLarge
                 )
             }
-            StandardButton(
-                image=R.drawable.printer,
-                onClick = { /*navController.navigate("printerScreen") or simply print messages */ }
-            )
+            if (navState != null && navState.destination.route == "roomConversationScreen") {
+                StandardButton(
+                    image=R.drawable.printer,
+                    onClick = { /*navController.navigate("printerScreen") or simply print messages */ }
+                )
+            }
         }
     }
 
@@ -697,6 +700,15 @@ class MainActivity : ComponentActivity() {
         var roomDescription by rememberSaveable { mutableStateOf(selectedRoom?.description ?: "") }
         var isCheckedPublic by rememberSaveable { mutableStateOf(if (selectedRoom != null) !selectedRoom.isPrivate else false) }
         var isCheckedVisible by rememberSaveable { mutableStateOf(if (selectedRoom != null) !selectedRoom.isVisible else false) }
+        val password = remember { mutableStateOf("") }
+        val passwordConfirmation = remember { mutableStateOf("") }
+        fun getPassword(): String? {
+            if (isCheckedPublic || (selectedRoom != null && password.value.isEmpty() && passwordConfirmation.value.isEmpty())) {
+                return null
+            } else {
+                return password.value
+            }
+        }
         Column {
             if (selectedRoom != null) { //roomSettingsScreen
                 ScreenTitle("Room settings")
@@ -733,6 +745,24 @@ class MainActivity : ComponentActivity() {
                 maxChars = ROOM_DESCRIPTION_MAX_LENGTH,
                 modifier = Modifier.fillMaxWidth()
             )
+            Spacer(Modifier.height(10.dp))
+            PlainTextField(
+                value = password.value,
+                onValueChange = { text -> password.value = text },
+                placeholderText = "password",
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                enable = !isCheckedPublic
+            )
+            Spacer(Modifier.height(10.dp))
+            PlainTextField(
+                value = passwordConfirmation.value,
+                onValueChange = { text -> passwordConfirmation.value = text },
+                placeholderText = "confirm password",
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                enable = !isCheckedPublic
+            )
             Spacer(Modifier.height(20.dp))
             //Switches
             LabeledSwitch(
@@ -754,13 +784,13 @@ class MainActivity : ComponentActivity() {
                 Button(
                     onClick = {
                         if (selectedRoom != null) { //roomSettingsScreen
-                            vm.updateRoom(roomName, roomDescription, !isCheckedPublic, !isCheckedVisible)
+                            vm.updateRoom(roomName, roomDescription, getPassword(), passwordConfirmation.value, !isCheckedPublic, !isCheckedVisible)
                         } else { //createRoomScreen
-                            vm.createRoom(roomName, roomDescription, !isCheckedPublic, !isCheckedVisible, "")
+                            vm.createRoom(roomName, roomDescription, getPassword(), passwordConfirmation.value, !isCheckedPublic, !isCheckedVisible, "")
                         }
                         //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
                     },
-                    enabled = vm.validateRoom(roomName, roomDescription)
+                    enabled = vm.validateRoom(roomName, roomDescription, getPassword(), passwordConfirmation.value)
                 ) {
                     if (selectedRoom != null) { //roomSettingsScreen
                         Text("Accept")

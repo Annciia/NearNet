@@ -328,9 +328,9 @@ class NearNetViewModel(): ViewModel() {
             }
         }
     }
-    fun createRoom(roomName : String, roomDescription : String, isPrivate : Boolean, isVisible : Boolean, additionalSettings: String =""){
+    fun createRoom(roomName : String, roomDescription : String, password: String?, passwordConfirmation: String?, isPrivate : Boolean, isVisible : Boolean, additionalSettings: String =""){
         viewModelScope.launch {
-            if (!validateRoom(roomName, roomDescription)) {
+            if (!validateRoom(roomName, roomDescription, password, passwordConfirmation)) {
                 registerRoomEventMutable.emit(ProcessEvent.Error("Something went wrong while creating the room."))
                 return@launch
             }
@@ -341,6 +341,7 @@ class NearNetViewModel(): ViewModel() {
 //            discoverRoomsList += createdRoom
 //            selectRoom(createdRoom)
             if (::roomRepository.isInitialized) {
+                // Jeśli pokój jest publiczny to hasło jest zawsze pustym stringiem
                 val createdRoomData = roomRepository.addRoom(roomName, roomDescription) //podać pozostałe argumenty: isPrivate, isVisibility, additionalSettings
                 if (createdRoomData != null) {
                     val createdRoom = Room(
@@ -363,9 +364,9 @@ class NearNetViewModel(): ViewModel() {
             }
         }
     }
-    fun updateRoom(name: String, description: String, isPrivate: Boolean, isVisible: Boolean) {
+    fun updateRoom(name: String, description: String, password: String?, passwordConfirmation: String?, isPrivate: Boolean, isVisible: Boolean) {
         viewModelScope.launch {
-            if (!validateRoom(name, description)) {
+            if (!validateRoom(name, description, password, passwordConfirmation)) {
                 updateRoomEventMutable.emit(ProcessEvent.Error("Failed to update room. Please try again."))
                 return@launch
             }
@@ -375,12 +376,13 @@ class NearNetViewModel(): ViewModel() {
                 return@launch
             }
             // TODO Call asynchronous function to update doom data.
+            // Jeśli hasło jest pustym stringiem, to oznacza, że nie zostało zmienione, tak więc w bazie zostaje stare!
             // updateRoom Marek
 
             updateRoomEventMutable.emit(ProcessEvent.Success(Unit))
         }
     }
-    fun validateRoom(name: String, description: String): Boolean {
+    fun validateRoom(name: String, description: String, password: String?, passwordConfirmation: String?): Boolean {
         if (name.isBlank()) {
             return false
         }
@@ -389,6 +391,14 @@ class NearNetViewModel(): ViewModel() {
         }
         if (description.length > ROOM_DESCRIPTION_MAX_LENGTH) {
             return false
+        }
+        if (password != null) {
+            if (password.isBlank()) {
+                return false
+            }
+            if (password != passwordConfirmation) {
+                return false
+            }
         }
         return true
     }
