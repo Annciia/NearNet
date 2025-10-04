@@ -1,0 +1,5 @@
+package com.nearnet.ui.model
+
+val ROOM_NAME_MAX_LENGTH = 64
+val ROOM_DESCRIPTION_MAX_LENGTH = 256
+val ROOM_DESCRIPTION_MAX_LINES = 6

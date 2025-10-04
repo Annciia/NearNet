@@ -128,6 +128,14 @@ class NearNetViewModel(): ViewModel() {
     private val registerRoomEventMutable = MutableSharedFlow<ProcessEvent<Room>>()
     val registerRoomEvent = registerRoomEventMutable.asSharedFlow()
 
+    //Update room
+    private val updateRoomEventMutable = MutableSharedFlow<ProcessEvent<Unit>>()
+    val updateRoomEvent = updateRoomEventMutable.asSharedFlow()
+
+    //Delete room
+    private val deleteRoomEventMutable = MutableSharedFlow<ProcessEvent<Room?>>()
+    val deleteRoomEvent = deleteRoomEventMutable.asSharedFlow()
+
     //Messages
     private val messagesMutable = MutableStateFlow(listOf<Message>())
     val messages = messagesMutable.asStateFlow()
@@ -273,7 +281,6 @@ class NearNetViewModel(): ViewModel() {
             }
         }
     }
-
     fun loadMyRooms() {
         viewModelScope.launch {
             // TODO Call asynchronous function to fetch my rooms here.
@@ -286,7 +293,9 @@ class NearNetViewModel(): ViewModel() {
                         id = rd.idRoom,
                         name = rd.name,
                         description = rd.avatar,    // avatar jako opis, trzeba zrobic takie same klasy serw/ui
-                        isPrivate = rd.isPrivate
+                        isPrivate = rd.isPrivate,
+                        isVisible = rd.isVisible,
+                        idAdmin = rd.idAdmin
                     )
                 }
                 myRoomsMutable.value = mappedRooms
@@ -308,7 +317,9 @@ class NearNetViewModel(): ViewModel() {
                         id = rd.idRoom,
                         name = rd.name,
                         description = rd.avatar,    // avatar jako opis, trzeba zrobic takie same klasy serw/ui
-                        isPrivate = rd.isPrivate
+                        isPrivate = rd.isPrivate,
+                        isVisible = rd.isVisible,
+                        idAdmin = rd.idAdmin
                     )
                 }
                 discoverRoomsMutable.value = mappedRooms
@@ -319,6 +330,10 @@ class NearNetViewModel(): ViewModel() {
     }
     fun createRoom(roomName : String, roomDescription : String, isPrivate : Boolean, isVisible : Boolean, additionalSettings: String =""){
         viewModelScope.launch {
+            if (!validateRoom(roomName, roomDescription)) {
+                registerRoomEventMutable.emit(ProcessEvent.Error("Something went wrong while creating the room."))
+                return@launch
+            }
 //            val createdRoom = Room(id = -1, name = roomName, description = roomDescription, isPrivate = false)
 //            // TODO Call asynchronous function to create room.
 //            // createdRoom.id = createRoom(createdRoom)
@@ -327,13 +342,14 @@ class NearNetViewModel(): ViewModel() {
 //            selectRoom(createdRoom)
             if (::roomRepository.isInitialized) {
                 val createdRoomData = roomRepository.addRoom(roomName, roomDescription) //podać pozostałe argumenty: isPrivate, isVisibility, additionalSettings
-
                 if (createdRoomData != null) {
                     val createdRoom = Room(
                         id = createdRoomData.idRoom,
                         name = createdRoomData.name,
                         description = createdRoomData.avatar, //tutaj dalem to co mamy jako avatar bo nie mamy opisu na serwie a mamy avatar
-                        isPrivate = createdRoomData.isPrivate
+                        isPrivate = createdRoomData.isPrivate,
+                        isVisible = createdRoomData.isVisible,
+                        idAdmin = createdRoomData.idAdmin
                     )
                     //wybranie nowego pokoju od razu przelacza do wiadomosci, po utworzeniu
                     registerRoomEventMutable.emit(ProcessEvent.Success(createdRoom))
@@ -344,6 +360,54 @@ class NearNetViewModel(): ViewModel() {
             } else {
                 Log.e("createRoom", "❌ RoomRepository nie jest zainicjalizowane!")
                 registerRoomEventMutable.emit(ProcessEvent.Error("Something went wrong while creating the room."))
+            }
+        }
+    }
+    fun updateRoom(name: String, description: String, isPrivate: Boolean, isVisible: Boolean) {
+        viewModelScope.launch {
+            if (!validateRoom(name, description)) {
+                updateRoomEventMutable.emit(ProcessEvent.Error("Failed to update room. Please try again."))
+                return@launch
+            }
+            val selectedRoom = selectedRoom.value
+            if (selectedRoom == null) {
+                updateRoomEventMutable.emit(ProcessEvent.Error("Failed to update room. Please try again."))
+                return@launch
+            }
+            // TODO Call asynchronous function to update doom data.
+            // updateRoom Marek
+
+            updateRoomEventMutable.emit(ProcessEvent.Success(Unit))
+        }
+    }
+    fun validateRoom(name: String, description: String): Boolean {
+        if (name.isBlank()) {
+            return false
+        }
+        if (name.length > ROOM_NAME_MAX_LENGTH) {
+            return false
+        }
+        if (description.length > ROOM_DESCRIPTION_MAX_LENGTH) {
+            return false
+        }
+        return true
+    }
+    fun deleteRoom(room: Room) {
+        viewModelScope.launch {
+            val selectedRoom = selectedRoom.value
+            if (selectedRoom == null) {
+                updateRoomEventMutable.emit(ProcessEvent.Error("Failed to delete room. Please try again."))
+                return@launch
+            }
+            //TODO Call asynchronous function to delete room, when user is its admin.
+            //deleteRoom Marek
+            val status = true
+
+            if (status) {
+                selectedRoomMutable.value = null
+                deleteRoomEventMutable.emit(ProcessEvent.Success(null))
+            } else {
+                deleteRoomEventMutable.emit(ProcessEvent.Error("Something went wrong while deleting the room."))
             }
         }
     }
