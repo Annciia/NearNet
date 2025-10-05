@@ -111,6 +111,8 @@ class MainActivity : ComponentActivity() {
         vm.roomRepository = RoomRepository(this)
 
 
+        ScreenObserver(navController, vm)
+
         NearNetTheme {
             CompositionLocalProvider(LocalViewModel provides vm) {
                 Scaffold(
@@ -128,6 +130,16 @@ class MainActivity : ComponentActivity() {
                 )
             }
         }
+    }
+
+    @Composable
+    fun ScreenObserver (navController: NavHostController, vm: NearNetViewModel) {
+        val navState = navController.currentBackStackEntryAsState().value
+        val previousScreen = rememberSaveable{mutableStateOf<String?>(null)}
+        if (previousScreen.value == "userProfileScreen") {
+            vm.resetWelcomeState()
+        }
+        previousScreen.value = navState?.destination?.route
     }
 
     @OptIn(ExperimentalMaterial3Api::class)
@@ -942,10 +954,18 @@ class MainActivity : ComponentActivity() {
                     Text("Accept")
                 }
                 Spacer(Modifier.width(10.dp))
-                Button(onClick = {
-                    navController.popBackStack()
-                }) {
-                    Text("Cancel")
+                if(vm.welcomeState.value == false) {
+                    Button(onClick = {
+                        navController.popBackStack()
+                    }) {
+                        Text("Cancel")
+                    }
+                } else{
+                    Button(onClick = {
+                        navController.navigate("discoverScreen")
+                    }) {
+                        Text("Next")
+                    }
                 }
             }
             Spacer(Modifier.height(10.dp))
@@ -1003,7 +1023,11 @@ class MainActivity : ComponentActivity() {
                     when (event) {
                         is ProcessEvent.Success -> {
                             Toast.makeText(context, "Profile updated.", Toast.LENGTH_SHORT).show()
-                            navController.popBackStack()
+                            if (vm.welcomeState.value == false) {
+                                navController.popBackStack()
+                            } else {
+                                navController.navigate("discoverScreen")
+                            }
                         }
                         is ProcessEvent.Error -> {
                             Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()

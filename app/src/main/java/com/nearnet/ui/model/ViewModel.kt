@@ -94,6 +94,10 @@ class NearNetViewModel(): ViewModel() {
     private val deleteUserEventMutable = MutableSharedFlow<ProcessEvent<User?>>()
     val deleteUserEvent = deleteUserEventMutable.asSharedFlow()
 
+    //Welcome state
+    private val welcomeStateMutable = MutableStateFlow<Boolean>(false)
+    val welcomeState = welcomeStateMutable.asStateFlow()
+
     //Rooms
     private val myRoomsMutable = MutableStateFlow(listOf<Room>())
     val myRooms = myRoomsMutable.asStateFlow()
@@ -183,6 +187,7 @@ class NearNetViewModel(): ViewModel() {
             val status : Boolean = repository.registerUser(login, password)
             //val status : Boolean = true //
             if (status == true){
+                welcomeStateMutable.value = true
                 registerUserEventMutable.emit(ProcessEvent.Success(Unit))
             }
             else {
@@ -282,6 +287,9 @@ class NearNetViewModel(): ViewModel() {
                 deleteUserEventMutable.emit(ProcessEvent.Error("Something went wrong while deleting account."))
             }
         }
+    }
+    fun resetWelcomeState(){
+        welcomeStateMutable.value = false
     }
     fun loadMyRooms() {
         viewModelScope.launch {
