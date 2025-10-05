@@ -82,7 +82,7 @@ fun MessageItem(message: Message, room: Room? = null, ellipse: Boolean = false, 
                         )
                     }
                     Text(
-                        text = message.userNameSender,
+                        text = message.userId,
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.onPrimary,
                     )
@@ -98,7 +98,7 @@ fun MessageItem(message: Message, room: Room? = null, ellipse: Boolean = false, 
                 )
             }
             Text(
-                text = message.content,
+                text = message.data,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onPrimary,
                 maxLines = if (!ellipse) Int.MAX_VALUE else 1,

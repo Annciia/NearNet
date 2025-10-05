@@ -89,9 +89,9 @@ import com.nearnet.ui.model.ROOM_NAME_MAX_LENGTH
 import com.nearnet.ui.theme.NearNetTheme
 import kotlinx.coroutines.launch
 
-data class Room(val id: String, var name: String, var description: String?, var isPrivate: Boolean, var isVisible: Boolean, var idAdmin: String)
-data class Message(val id: String, val idRoom: String, val userNameSender: String, val content: String, val timestamp: String)
-data class User(val id: String, val login: String, val password: String, val name: String)
+data class Room(val id: String, var name: String, var description: String, var avatar: String, var additionalSettings: String, var isPrivate: Boolean, var isVisible: Boolean, var idAdmin: String, var users: List<String>)
+data class Message(val id: String, val userId: String, val roomId: String, val data: String, val timestamp: String, val messageType: String, var additionalData: String)
+data class User(val id: String, val login: String, val name: String, var avatar: String, var additionalSettings: String, var publicKey: String)
 data class Recent(val message: Message, val room: Room?, val username: String)
 
 class MainActivity : ComponentActivity() {
@@ -111,6 +111,8 @@ class MainActivity : ComponentActivity() {
         vm.roomRepository = RoomRepository(this)
 
 
+        ScreenObserver(navController, vm)
+
         NearNetTheme {
             CompositionLocalProvider(LocalViewModel provides vm) {
                 Scaffold(
@@ -127,6 +129,19 @@ class MainActivity : ComponentActivity() {
                     }
                 )
             }
+        }
+    }
+
+    @Composable
+    fun ScreenObserver (navController: NavHostController, vm: NearNetViewModel) {
+        val navState = navController.currentBackStackEntryAsState().value
+        val previousScreen = rememberSaveable{mutableStateOf<String?>(null)}
+        val currentScreen = navState?.destination?.route
+        if (previousScreen.value != currentScreen) {
+            if (previousScreen.value == "userProfileScreen") {
+                vm.resetWelcomeState()
+            }
+            previousScreen.value = currentScreen
         }
     }
 
@@ -214,6 +229,7 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     fun RoomTopBar(navController: NavController) {
+        val navState = navController.currentBackStackEntryAsState().value
         val selectedRoom = LocalViewModel.current.selectedRoom.collectAsState().value
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -248,10 +264,12 @@ class MainActivity : ComponentActivity() {
                     style = MaterialTheme.typography.titleLarge
                 )
             }
-            StandardButton(
-                image=R.drawable.printer,
-                onClick = { /*navController.navigate("printerScreen") or simply print messages */ }
-            )
+            if (navState != null && navState.destination.route == "roomConversationScreen") {
+                StandardButton(
+                    image=R.drawable.printer,
+                    onClick = { /*navController.navigate("printerScreen") or simply print messages */ }
+                )
+            }
         }
     }
 
@@ -418,7 +436,7 @@ class MainActivity : ComponentActivity() {
                     is ProcessEvent.Success -> {
                         if (event.data !== null) {
                             navController.navigate("recentScreen") {
-                                popUpTo("loginScreen") { inclusive = true }
+                                popUpTo(0) { inclusive = true }
                             }
                             Toast.makeText(context, event.data.name, Toast.LENGTH_SHORT).show()
                         } else {
@@ -537,20 +555,20 @@ class MainActivity : ComponentActivity() {
                         is ProcessEvent.Success -> {
                             if (event.data != null) {
                                 navController.navigate("userProfileScreen") {
-                                    popUpTo("registerScreen") { inclusive = true }
+                                    popUpTo(0) { inclusive = true }
                                 }
                                 Toast.makeText(context, event.data.name, Toast.LENGTH_SHORT).show()
                             } else {
                                 Toast.makeText(context, "Failed to log in.", Toast.LENGTH_SHORT).show()
                                 navController.navigate("loginScreen") {
-                                    popUpTo("registerScreen") { inclusive = true }
+                                    popUpTo(0) { inclusive = true }
                                 }
                             }
                         }
                         is ProcessEvent.Error -> {
                             Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
                             navController.navigate("loginScreen") {
-                                popUpTo("registerScreen") { inclusive = true }
+                                popUpTo(0) { inclusive = true }
                             }
                         }
                     }
@@ -697,6 +715,15 @@ class MainActivity : ComponentActivity() {
         var roomDescription by rememberSaveable { mutableStateOf(selectedRoom?.description ?: "") }
         var isCheckedPublic by rememberSaveable { mutableStateOf(if (selectedRoom != null) !selectedRoom.isPrivate else false) }
         var isCheckedVisible by rememberSaveable { mutableStateOf(if (selectedRoom != null) !selectedRoom.isVisible else false) }
+        val password = remember { mutableStateOf("") }
+        val passwordConfirmation = remember { mutableStateOf("") }
+        fun getPassword(): String? {
+            if (isCheckedPublic || (selectedRoom != null && password.value.isEmpty() && passwordConfirmation.value.isEmpty())) {
+                return null
+            } else {
+                return password.value
+            }
+        }
         Column {
             if (selectedRoom != null) { //roomSettingsScreen
                 ScreenTitle("Room settings")
@@ -733,6 +760,24 @@ class MainActivity : ComponentActivity() {
                 maxChars = ROOM_DESCRIPTION_MAX_LENGTH,
                 modifier = Modifier.fillMaxWidth()
             )
+            Spacer(Modifier.height(10.dp))
+            PlainTextField(
+                value = password.value,
+                onValueChange = { text -> password.value = text },
+                placeholderText = "password",
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                enable = !isCheckedPublic
+            )
+            Spacer(Modifier.height(10.dp))
+            PlainTextField(
+                value = passwordConfirmation.value,
+                onValueChange = { text -> passwordConfirmation.value = text },
+                placeholderText = "confirm password",
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                enable = !isCheckedPublic
+            )
             Spacer(Modifier.height(20.dp))
             //Switches
             LabeledSwitch(
@@ -754,13 +799,13 @@ class MainActivity : ComponentActivity() {
                 Button(
                     onClick = {
                         if (selectedRoom != null) { //roomSettingsScreen
-                            vm.updateRoom(roomName, roomDescription, !isCheckedPublic, !isCheckedVisible)
+                            vm.updateRoom(roomName, roomDescription, getPassword(), passwordConfirmation.value, !isCheckedPublic, !isCheckedVisible)
                         } else { //createRoomScreen
-                            vm.createRoom(roomName, roomDescription, !isCheckedPublic, !isCheckedVisible, "")
+                            vm.createRoom(roomName, roomDescription, getPassword(), passwordConfirmation.value, !isCheckedPublic, !isCheckedVisible, "")
                         }
                         //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
                     },
-                    enabled = vm.validateRoom(roomName, roomDescription)
+                    enabled = vm.validateRoom(roomName, roomDescription, getPassword(), passwordConfirmation.value)
                 ) {
                     if (selectedRoom != null) { //roomSettingsScreen
                         Text("Accept")
@@ -912,10 +957,18 @@ class MainActivity : ComponentActivity() {
                     Text("Accept")
                 }
                 Spacer(Modifier.width(10.dp))
-                Button(onClick = {
-                    navController.popBackStack()
-                }) {
-                    Text("Cancel")
+                if(vm.welcomeState.value == false) {
+                    Button(onClick = {
+                        navController.popBackStack()
+                    }) {
+                        Text("Cancel")
+                    }
+                } else{
+                    Button(onClick = {
+                        navController.navigate("discoverScreen")
+                    }) {
+                        Text("Next")
+                    }
                 }
             }
             Spacer(Modifier.height(10.dp))
@@ -973,7 +1026,11 @@ class MainActivity : ComponentActivity() {
                     when (event) {
                         is ProcessEvent.Success -> {
                             Toast.makeText(context, "Profile updated.", Toast.LENGTH_SHORT).show()
-                            navController.popBackStack()
+                            if (vm.welcomeState.value == false) {
+                                navController.popBackStack()
+                            } else {
+                                navController.navigate("discoverScreen")
+                            }
                         }
                         is ProcessEvent.Error -> {
                             Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
