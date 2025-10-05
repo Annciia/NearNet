@@ -89,9 +89,9 @@ import com.nearnet.ui.model.ROOM_NAME_MAX_LENGTH
 import com.nearnet.ui.theme.NearNetTheme
 import kotlinx.coroutines.launch
 
-data class Room(val id: String, var name: String, var description: String?, var isPrivate: Boolean, var isVisible: Boolean, var idAdmin: String)
-data class Message(val id: String, val idRoom: String, val userNameSender: String, val content: String, val timestamp: String)
-data class User(val id: String, val login: String, val password: String, val name: String)
+data class Room(val id: String, var name: String, var description: String, var avatar: String, var additionalSettings: String, var isPrivate: Boolean, var isVisible: Boolean, var idAdmin: String, var users: List<String>)
+data class Message(val id: String, val userId: String, val roomId: String, val data: String, val timestamp: String, val messageType: String, var additionalData: String)
+data class User(val id: String, val login: String, val name: String, var avatar: String, var additionalSettings: String, var publicKey: String)
 data class Recent(val message: Message, val room: Room?, val username: String)
 
 class MainActivity : ComponentActivity() {

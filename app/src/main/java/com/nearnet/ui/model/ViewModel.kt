@@ -50,11 +50,11 @@ import java.time.format.DateTimeFormatter
 //)
 
 var messagesList = listOf(
-    Message("0", "0", "Orci Kätter", "Lorem ipsum dolor sit amet, consectetur adipiscing elit.", timestamp = "2025-09-28 15:42:17.123"),
-    Message("1", "0", "Mauris ", "Proin a eros quam. Ut sit amet ultrices nisi. Pellentesque ac tristique nisl, id imperdiet est. Integer scelerisque leo at blandit blandit.", timestamp = "2025-09-28 10:15:32.849"),
-    Message("2", "0", "Orci Kätter", "Fusce sed ligula turpis. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Curabitur ac consequat nisi. Phasellus libero nibh, finibus non egestas in, egestas in lorem. Pellentesque nec facilisis erat, in pulvinar ipsum. Morbi congue viverra lectus quis fermentum. Duis sagittis est dapibus venenatis vestibulum.", timestamp = "2025-09-28 14:42:01.102"),
-    Message("0", "hNdyfw6w0pFiWf8vAEkhe", "Orci Kätter", "Curabitur ac consequat nisi. Phasellus libero nibh, finibus non egestas in, egestas in lorem.", timestamp = "2025-09-28 18:03:44.565"),
-    Message("0", "7", "Orci Kätter", "Duis sagittis est dapibus venenatis vestibulum. Non egestas in.", timestamp = "2025-09-28 18:03:44.565"),
+    Message(id = "0", roomId = "0", userId = "0", data = "Lorem ipsum dolor sit amet, consectetur adipiscing elit.", timestamp = "2025-09-28 15:42:17.123", messageType = "TXT", additionalData = ""),
+    Message(id = "1", roomId = "0", userId = "Mauris ", data = "Proin a eros quam. Ut sit amet ultrices nisi. Pellentesque ac tristique nisl, id imperdiet est. Integer scelerisque leo at blandit blandit.", timestamp = "2025-09-28 10:15:32.849", messageType = "TXT", additionalData = ""),
+    Message(id = "2", roomId = "0", userId ="Orci Kätter", data = "Fusce sed ligula turpis. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Curabitur ac consequat nisi. Phasellus libero nibh, finibus non egestas in, egestas in lorem. Pellentesque nec facilisis erat, in pulvinar ipsum. Morbi congue viverra lectus quis fermentum. Duis sagittis est dapibus venenatis vestibulum.", timestamp = "2025-09-28 14:42:01.102", messageType = "TXT", additionalData = ""),
+    Message(id = "0", roomId = "hNdyfw6w0pFiWf8vAEkhe", userId = "Orci Kätter", data = "Curabitur ac consequat nisi. Phasellus libero nibh, finibus non egestas in, egestas in lorem.", timestamp = "2025-09-28 18:03:44.565", messageType = "TXT", additionalData = ""),
+    Message(id = "0", roomId = "7", userId ="Orci Kätter", data = "Duis sagittis est dapibus venenatis vestibulum. Non egestas in.", timestamp = "2025-09-28 18:03:44.565", messageType = "TXT", additionalData = ""),
 )
 
 //event dotyczący wyniku przetwarzania jakiejś operacji asynchronicznej
@@ -161,8 +161,10 @@ class NearNetViewModel(): ViewModel() {
                     val uiUser = User(
                         id = repoUser.id,
                         login = repoUser.login,
-                        password = repoUser.password,
-                        name = repoUser.name
+                        name = repoUser.name,
+                        avatar = "", // brak
+                        additionalSettings = "", // brak
+                        publicKey = "" // brak
                     )
                     selectedUserMutable.value = uiUser
                     selectedUserEventMutable.emit(ProcessEvent.Success(uiUser))
@@ -292,10 +294,13 @@ class NearNetViewModel(): ViewModel() {
                     Room(
                         id = rd.idRoom,
                         name = rd.name,
-                        description = rd.avatar,    // avatar jako opis, trzeba zrobic takie same klasy serw/ui
+                        description = rd.description,    // avatar jako opis, trzeba zrobic takie same klasy serw/ui
+                        avatar = rd.avatar,
+                        additionalSettings = "", // brak!!!!!!
                         isPrivate = rd.isPrivate,
                         isVisible = rd.isVisible,
-                        idAdmin = rd.idAdmin
+                        idAdmin = rd.idAdmin,
+                        users = rd.users.toList()  //lista id users należących
                     )
                 }
                 myRoomsMutable.value = mappedRooms
@@ -316,10 +321,13 @@ class NearNetViewModel(): ViewModel() {
                     Room(
                         id = rd.idRoom,
                         name = rd.name,
-                        description = rd.avatar,    // avatar jako opis, trzeba zrobic takie same klasy serw/ui
+                        description = rd.description,    // avatar jako opis, trzeba zrobic takie same klasy serw/ui
+                        avatar = rd.avatar,
+                        additionalSettings = "", // brak!!!!!
                         isPrivate = rd.isPrivate,
                         isVisible = rd.isVisible,
-                        idAdmin = rd.idAdmin
+                        idAdmin = rd.idAdmin,
+                        users = rd.users.toList()  //lista id users należących
                     )
                 }
                 discoverRoomsMutable.value = mappedRooms
@@ -342,15 +350,18 @@ class NearNetViewModel(): ViewModel() {
 //            selectRoom(createdRoom)
             if (::roomRepository.isInitialized) {
                 // Jeśli pokój jest publiczny to hasło jest zawsze pustym stringiem
-                val createdRoomData = roomRepository.addRoom(roomName, roomDescription) //podać pozostałe argumenty: isPrivate, isVisibility, additionalSettings
+                val createdRoomData = roomRepository.addRoom(roomName, roomDescription) //podać pozostałe argumenty: avatar, isPrivate, isVisibility, additionalSettings
                 if (createdRoomData != null) {
                     val createdRoom = Room(
                         id = createdRoomData.idRoom,
                         name = createdRoomData.name,
-                        description = createdRoomData.avatar, //tutaj dalem to co mamy jako avatar bo nie mamy opisu na serwie a mamy avatar
+                        description = createdRoomData.description, //tutaj dalem to co mamy jako avatar bo nie mamy opisu na serwie a mamy avatar
+                        avatar = createdRoomData.avatar,
+                        additionalSettings = "", // brak!!!!!!
                         isPrivate = createdRoomData.isPrivate,
                         isVisible = createdRoomData.isVisible,
-                        idAdmin = createdRoomData.idAdmin
+                        idAdmin = createdRoomData.idAdmin,
+                        users = createdRoomData.users.toList() //lista id users należących
                     )
                     //wybranie nowego pokoju od razu przelacza do wiadomosci, po utworzeniu
                     registerRoomEventMutable.emit(ProcessEvent.Success(createdRoom))
@@ -377,9 +388,14 @@ class NearNetViewModel(): ViewModel() {
             }
             // TODO Call asynchronous function to update doom data.
             // Jeśli hasło jest pustym stringiem, to oznacza, że nie zostało zmienione, tak więc w bazie zostaje stare!
-            // updateRoom Marek
+            // val result = updateRoom(RoomData) Marek
+            val result = true
 
-            updateRoomEventMutable.emit(ProcessEvent.Success(Unit))
+            if (result) {
+                updateRoomEventMutable.emit(ProcessEvent.Success(Unit))
+            } else {
+                updateRoomEventMutable.emit(ProcessEvent.Error("Failed to update room. Please try again."))
+            }
         }
     }
     fun validateRoom(name: String, description: String, password: String?, passwordConfirmation: String?): Boolean {
@@ -410,7 +426,7 @@ class NearNetViewModel(): ViewModel() {
                 return@launch
             }
             //TODO Call asynchronous function to delete room, when user is its admin.
-            //deleteRoom Marek
+            //Val status = deleteRoom(idRoom) Marek
             val status = true
 
             if (status) {
@@ -478,10 +494,12 @@ class NearNetViewModel(): ViewModel() {
             val messagesFromApi = messageList?.map { payload ->
                 Message(
                     id = payload.timestamp,
-                    idRoom = "0", // TODO: Dane z serwera. Podany id pokoju, w którym te wiadomości wysyłane.
-                    userNameSender = payload.userId,
-                    content = payload.data,
-                    timestamp = "2025-10-02 00:00.00.0000" // TODO: czas podany od 1970 roku
+                    roomId = "0", // TODO: Dane z serwera. Podany id pokoju, w którym te wiadomości wysyłane.
+                    userId = payload.userId,
+                    data = payload.data,
+                    timestamp = "2025-10-02 00:00.00.0000", // TODO: czas podany od 1970 roku
+                    messageType = "TXT",
+                    additionalData = ""
                 )
             } ?: emptyList()
 
@@ -506,14 +524,16 @@ class NearNetViewModel(): ViewModel() {
             // UI message
             val uiMessage = com.nearnet.Message(
                 id = timestamp.toString(),
-                idRoom = "0", // TODO: Dane z serwera. Podany id pokoju, w którym te wiadomości wysyłane.
-                userNameSender = userName,
-                content = messageText,
-                timestamp = "2025-10-02 00:00.00.0000" // TODO: czas podany od 1970 roku
+                roomId = "0", // TODO: Dane z serwera. Podany id pokoju, w którym te wiadomości wysyłane.
+                userId = userName,
+                data = messageText,
+                timestamp = "2025-10-02 00:00.00.0000", // TODO: czas podany od 1970 roku w String
+                messageType = "TXT", //TODO musi Twoja funkcja to przyjąć
+                additionalData = "" //TODO to też
             )
 
             // Backend message
-            val backendMessage = com.nearnet.sessionlayer.data.model.Message(
+            val backendMessage = com.nearnet.sessionlayer.data.model.Message(  //dodaj te wszystkie argumenty, co są w wiadomości, by przyjowała ode mnie
                 username = userName,
                 message = messageText,
                 timestamp = timestamp,
@@ -544,11 +564,11 @@ class NearNetViewModel(): ViewModel() {
             //typu (wiadomość, pokój, nazwa użytkownika), w SQL join pokoju do wiadomości i do usera, i groupby po pokojach ,
             //a potem select na te trójki
             recentMutable.value = messagesList // ta funkcja na teraz bierze pokój o jakimś IdRoom z Twoich na serwerze, więc jeden się wyświetla z Twoich pokoi na sztywno, reszta co się wyświetla to te o ID 0 , bo null wziął za 0. Dasz swoją funkcję to powinno działać.
-                .groupBy { message -> message.idRoom }
+                .groupBy { message -> message.roomId }
                 .mapValues { roomMessages ->
                     val message = roomMessages.value.maxBy { message -> message.timestamp }
-                    val room = myRooms.value.find { room -> room.id == message.idRoom }
-                    Recent(message = message, room = room, username = message.userNameSender)
+                    val room = myRooms.value.find { room -> room.id == message.roomId }
+                    Recent(message = message, room = room, username = message.userId)
                 }.values
                 .toList()
                 .sortedByDescending { recent -> recent.message.timestamp }
