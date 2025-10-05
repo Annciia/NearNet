@@ -136,10 +136,13 @@ class MainActivity : ComponentActivity() {
     fun ScreenObserver (navController: NavHostController, vm: NearNetViewModel) {
         val navState = navController.currentBackStackEntryAsState().value
         val previousScreen = rememberSaveable{mutableStateOf<String?>(null)}
-        if (previousScreen.value == "userProfileScreen") {
-            vm.resetWelcomeState()
+        val currentScreen = navState?.destination?.route
+        if (previousScreen.value != currentScreen) {
+            if (previousScreen.value == "userProfileScreen") {
+                vm.resetWelcomeState()
+            }
+            previousScreen.value = currentScreen
         }
-        previousScreen.value = navState?.destination?.route
     }
 
     @OptIn(ExperimentalMaterial3Api::class)
