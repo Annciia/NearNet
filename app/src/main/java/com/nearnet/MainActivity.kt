@@ -436,7 +436,7 @@ class MainActivity : ComponentActivity() {
                     is ProcessEvent.Success -> {
                         if (event.data !== null) {
                             navController.navigate("recentScreen") {
-                                popUpTo("loginScreen") { inclusive = true }
+                                popUpTo(0) { inclusive = true }
                             }
                             Toast.makeText(context, event.data.name, Toast.LENGTH_SHORT).show()
                         } else {
@@ -555,20 +555,20 @@ class MainActivity : ComponentActivity() {
                         is ProcessEvent.Success -> {
                             if (event.data != null) {
                                 navController.navigate("userProfileScreen") {
-                                    popUpTo("registerScreen") { inclusive = true }
+                                    popUpTo(0) { inclusive = true }
                                 }
                                 Toast.makeText(context, event.data.name, Toast.LENGTH_SHORT).show()
                             } else {
                                 Toast.makeText(context, "Failed to log in.", Toast.LENGTH_SHORT).show()
                                 navController.navigate("loginScreen") {
-                                    popUpTo("registerScreen") { inclusive = true }
+                                    popUpTo(0) { inclusive = true }
                                 }
                             }
                         }
                         is ProcessEvent.Error -> {
                             Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
                             navController.navigate("loginScreen") {
-                                popUpTo("registerScreen") { inclusive = true }
+                                popUpTo(0) { inclusive = true }
                             }
                         }
                     }
