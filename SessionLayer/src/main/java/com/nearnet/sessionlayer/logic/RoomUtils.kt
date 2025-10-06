@@ -17,24 +17,44 @@ data class RoomsResponse(
 )
 
 data class DeleteRoomResponse(
-    val Succes: Boolean? = null,
+    val success: Boolean,
     val error: String? = null
 )
 
+//data class AddRoomRequest(
+//    val name: String,
+//    val avatar: String,
+//    val password: String,
+//    val isPrivate: Boolean,
+//    val isVisible: Boolean
+//)
+
 data class AddRoomRequest(
     val name: String,
-    val avatar: String,
-    val password: String,
-    val isPrivate: Boolean,
-    val isVisible: Boolean
-)
-
-data class UpdateRoomRequest(
-    val name: String,
-    val avatar: String,
+    val description: String = "",
+    val avatar: String = "",
     val password: String = "",
     val isPrivate: Boolean = false,
-    val isVisible: Boolean = true
+    val isVisible: Boolean = true,
+    val additionalSettings: String = ""
+)
+
+//data class UpdateRoomRequest(
+//    val name: String,
+//    val avatar: String,
+//    val password: String = "",
+//    val isPrivate: Boolean = false,
+//    val isVisible: Boolean = true
+//)
+
+data class UpdateRoomRequest(
+    val name: String? = null,
+    val description: String? = null,
+    val avatar: String? = null,
+    val password: String? = null,
+    val isPrivate: Boolean? = null,
+    val isVisible: Boolean? = null,
+    val additionalSettings: String? = null
 )
 
 data class UserListResponse(
@@ -150,44 +170,6 @@ class RoomRepository(private val context: Context) {
         }
     }
 
-//    suspend fun addRoom(room: RoomData): RoomData? = withContext(Dispatchers.IO) {
-//        val token = getToken()
-//        if (token == null) {
-//            Log.e("ROOM", "❌ Token jest null! Nie można dodać pokoju")
-//            return@withContext null
-//        }
-//
-//        val avatarUrl = room.avatar.ifEmpty { "https://example.com/default-avatar.png" }
-//
-//        val request = AddRoomRequest(
-//            name = room.name,
-//            avatar = avatarUrl,
-//            password = room.password,
-//            isPrivate = room.isPrivate,
-//            isVisible = room.isVisible
-//        )
-//
-//        Log.d("ROOM", "➡️ Sending addRoom request with body: $request")
-//
-//        try {
-//            val response = api.addRoom(token, request)
-//
-//            Log.d("ROOM", "⬅️ Response code: ${response.code()}")
-//            Log.d("ROOM", "⬅️ Response error body: ${response.errorBody()?.string()}")
-//            Log.d("ROOM", "⬅️ Response success body: ${response.body()}")
-//
-//            if (response.isSuccessful) {
-//                response.body()
-//            } else {
-//                Log.e("ROOM", "❌ addRoom failed: ${response.code()} ${response.errorBody()?.string()}")
-//                null
-//            }
-//
-//        } catch (e: Exception) {
-//            Log.e("ROOM", "❌ Exception in addRoom", e)
-//            null
-//        }
-//    }
 
     suspend fun addRoom(roomName: String, roomDescription: String): RoomData? = withContext(Dispatchers.IO) {
         val token = getToken()
@@ -198,8 +180,9 @@ class RoomRepository(private val context: Context) {
 
         // Tworzymy request, używając parametrów z ViewModelu
         val request = AddRoomRequest(
-            name = roomName,
-            avatar = roomDescription.ifEmpty { "https://example.com/default-avatar.png" },
+            name = roomName.trim(),
+            description =  roomDescription.trim(),
+            avatar = "",
             password = "",
             isPrivate = false,
             isVisible = true
@@ -226,9 +209,6 @@ class RoomRepository(private val context: Context) {
             null
         }
     }
-
-
-
 
 
     suspend fun updateRoom(room: RoomData): RoomData? = withContext(Dispatchers.IO) {
@@ -278,7 +258,7 @@ class RoomRepository(private val context: Context) {
             Log.d("ROOM", "⬅️ Response error body: ${response.errorBody()?.string()}")
 
             if (response.isSuccessful) {
-                response.body()?.Succes == true
+                response.body()?.success == true
             } else {
                 Log.e("ROOM", "❌ deleteRoom failed: ${response.code()} ${response.errorBody()?.string()}")
                 false

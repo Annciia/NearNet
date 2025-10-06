@@ -145,7 +145,7 @@ class UserRepository(private val context: Context) {
 //        throw Exception("Login failed: ${response.code()}")
 //    }
 //}
-
+    //funkcja z full debugowaniem, bo sprawdzalem czemu nie loguje, mozliwe, ze juz nie wymaga userDto, ale to sprawdze jutro
     suspend fun loginUser(login: String, password: String): UserData = withContext(Dispatchers.IO) {
         //czyszczenie starego tokena
         val sharedPref = context.getSharedPreferences("UserPrefs", Context.MODE_PRIVATE)
@@ -204,16 +204,9 @@ class UserRepository(private val context: Context) {
         }
     }
 
-
-
-
-
-
-
-
     suspend fun updateUser(user: UserData) = withContext(Dispatchers.IO) {
         val token = getTokenFromPreferences(context) ?: return@withContext
-        Log.d("REST", "➡️ Updating user for token: $token")
+        Log.d("REST", "Updating user for token: $token")
         val body = mapOf(
             "name" to user.name,
             "avatar" to user.avatar,
@@ -231,9 +224,10 @@ class UserRepository(private val context: Context) {
         } catch (e: Exception) {
             Log.e("REST", "Exception during update: ${e.message}")
         }
-
     }
 
+
+    //zostaje 1:1 jak ze starym bo wysyla haslo, a otrzymuje boola
     suspend fun deleteUser(password: String): Boolean = withContext(Dispatchers.IO) {
         val token = getTokenFromPreferences(context) ?: return@withContext false
 

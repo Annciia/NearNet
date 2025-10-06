@@ -5,7 +5,7 @@ import android.util.Log
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.nearnet.Message
+//import com.nearnet.Message
 import com.nearnet.Recent
 import com.nearnet.Room
 import com.nearnet.User
@@ -21,6 +21,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.nearnet.sessionlayer.data.model.Message
+
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -49,12 +51,12 @@ import java.time.format.DateTimeFormatter
 //    Room(9, "Fallout", null, true),
 //)
 
-var messagesList = listOf(
-    Message(id = "0", roomId = "0", userId = "0", data = "Lorem ipsum dolor sit amet, consectetur adipiscing elit.", timestamp = "2025-09-28 15:42:17.123", messageType = "TXT", additionalData = ""),
-    Message(id = "1", roomId = "0", userId = "Mauris ", data = "Proin a eros quam. Ut sit amet ultrices nisi. Pellentesque ac tristique nisl, id imperdiet est. Integer scelerisque leo at blandit blandit.", timestamp = "2025-09-28 10:15:32.849", messageType = "TXT", additionalData = ""),
-    Message(id = "2", roomId = "0", userId ="Orci Kätter", data = "Fusce sed ligula turpis. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Curabitur ac consequat nisi. Phasellus libero nibh, finibus non egestas in, egestas in lorem. Pellentesque nec facilisis erat, in pulvinar ipsum. Morbi congue viverra lectus quis fermentum. Duis sagittis est dapibus venenatis vestibulum.", timestamp = "2025-09-28 14:42:01.102", messageType = "TXT", additionalData = ""),
-    Message(id = "0", roomId = "hNdyfw6w0pFiWf8vAEkhe", userId = "Orci Kätter", data = "Curabitur ac consequat nisi. Phasellus libero nibh, finibus non egestas in, egestas in lorem.", timestamp = "2025-09-28 18:03:44.565", messageType = "TXT", additionalData = ""),
-    Message(id = "0", roomId = "7", userId ="Orci Kätter", data = "Duis sagittis est dapibus venenatis vestibulum. Non egestas in.", timestamp = "2025-09-28 18:03:44.565", messageType = "TXT", additionalData = ""),
+var messagesListRecent = listOf(
+    Message(id = "0", roomId = "0", userId = "0", message = "Lorem ipsum dolor sit amet, consectetur adipiscing elit.", timestamp = "2025-09-28 15:42:17.123", messageType = "TXT", additionalData = ""),
+    Message(id = "1", roomId = "0", userId = "Mauris ", message = "Proin a eros quam. Ut sit amet ultrices nisi. Pellentesque ac tristique nisl, id imperdiet est. Integer scelerisque leo at blandit blandit.", timestamp = "2025-09-28 10:15:32.849", messageType = "TXT", additionalData = ""),
+    Message(id = "2", roomId = "0", userId ="Orci Kätter", message = "Fusce sed ligula turpis. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Curabitur ac consequat nisi. Phasellus libero nibh, finibus non egestas in, egestas in lorem. Pellentesque nec facilisis erat, in pulvinar ipsum. Morbi congue viverra lectus quis fermentum. Duis sagittis est dapibus venenatis vestibulum.", timestamp = "2025-09-28 14:42:01.102", messageType = "TXT", additionalData = ""),
+    Message(id = "0", roomId = "hNdyfw6w0pFiWf8vAEkhe", userId = "Orci Kätter", message = "Curabitur ac consequat nisi. Phasellus libero nibh, finibus non egestas in, egestas in lorem.", timestamp = "2025-09-28 18:03:44.565", messageType = "TXT", additionalData = ""),
+    Message(id = "0", roomId = "7", userId ="Orci Kätter", message = "Duis sagittis est dapibus venenatis vestibulum. Non egestas in.", timestamp = "2025-09-28 18:03:44.565", messageType = "TXT", additionalData = ""),
 )
 
 //event dotyczący wyniku przetwarzania jakiejś operacji asynchronicznej
@@ -309,7 +311,7 @@ class NearNetViewModel(): ViewModel() {
                         isPrivate = rd.isPrivate,
                         isVisible = rd.isVisible,
                         idAdmin = rd.idAdmin,
-                        users = rd.users.toList()  //lista id users należących
+                        users = emptyList()   //na serwerze tego nie ma
                     )
                 }
                 myRoomsMutable.value = mappedRooms
@@ -336,7 +338,7 @@ class NearNetViewModel(): ViewModel() {
                         isPrivate = rd.isPrivate,
                         isVisible = rd.isVisible,
                         idAdmin = rd.idAdmin,
-                        users = rd.users.toList()  //lista id users należących
+                        users = emptyList() //lista id users należących
                     )
                 }
                 discoverRoomsMutable.value = mappedRooms
@@ -370,7 +372,7 @@ class NearNetViewModel(): ViewModel() {
                         isPrivate = createdRoomData.isPrivate,
                         isVisible = createdRoomData.isVisible,
                         idAdmin = createdRoomData.idAdmin,
-                        users = createdRoomData.users.toList() //lista id users należących
+                        users = emptyList() //lista id users należących
                     )
                     //wybranie nowego pokoju od razu przelacza do wiadomosci, po utworzeniu
                     registerRoomEventMutable.emit(ProcessEvent.Success(createdRoom))
@@ -500,17 +502,22 @@ class NearNetViewModel(): ViewModel() {
             }
 
             // mapowanie do UI
-            val messagesFromApi = messageList?.map { payload ->
-                Message(
-                    id = payload.timestamp,
-                    roomId = "0", // TODO: Dane z serwera. Podany id pokoju, w którym te wiadomości wysyłane.
-                    userId = payload.userId,
-                    data = payload.data,
-                    timestamp = "2025-10-02 00:00.00.0000", // TODO: czas podany od 1970 roku
-                    messageType = "TXT",
-                    additionalData = ""
-                )
-            } ?: emptyList()
+            val messagesFromApi = messageUtils.mapPayloadToMessages(
+                room.id,
+                messageList ?: emptyList()
+            )
+
+//            val messagesFromApi = messageList?.map { payload ->
+//                Message(
+//                    id = payload.timestamp,
+//                    roomId = "0", // TODO: Dane z serwera. Podany id pokoju, w którym te wiadomości wysyłane.
+//                    userId = payload.userId,
+//                    data = payload.data,
+//                    timestamp = "2025-10-02 00:00.00.0000", // TODO: czas podany od 1970 roku
+//                    messageType = "TXT",
+//                    additionalData = ""
+//                )
+//            } ?: emptyList()
 
             // aktualizacja stanu
             messagesMutable.value = messagesFromApi
@@ -528,35 +535,30 @@ class NearNetViewModel(): ViewModel() {
             }
 
             val userName = selectedUser.value?.name ?: "brak usera"
-            val timestamp = System.currentTimeMillis()
+            val timestamp = System.currentTimeMillis().toString()
 
-            // UI message
-            val uiMessage = com.nearnet.Message(
-                id = timestamp.toString(),
-                roomId = "0", // TODO: Dane z serwera. Podany id pokoju, w którym te wiadomości wysyłane.
+
+
+            val newMessage = com.nearnet.sessionlayer.data.model.Message(
+                id = timestamp,
+                roomId = room.id,
                 userId = userName,
-                data = messageText,
-                timestamp = "2025-10-02 00:00.00.0000", // TODO: czas podany od 1970 roku w String
-                messageType = "TXT", //TODO musi Twoja funkcja to przyjąć
-                additionalData = "" //TODO to też
-            )
-
-            // Backend message
-            val backendMessage = com.nearnet.sessionlayer.data.model.Message(  //dodaj te wszystkie argumenty, co są w wiadomości, by przyjowała ode mnie
-                username = userName,
+                messageType = "TXT",
                 message = messageText,
-                timestamp = timestamp,
-                roomId = room.id
+                additionalData = "",
+                timestamp = timestamp
             )
 
-            Log.d("sendMessage", "Wysyłam wiadomość na backend: $backendMessage")
+
+
+            Log.d("sendMessage", "Wysyłam wiadomość na backend: $newMessage")
 
             try {
-                val success = messageUtils.sendMessage(room.id, backendMessage)
+                val success = messageUtils.sendMessage(room.id, newMessage)
 
                 if (success) {
                     Log.d("sendMessage", "Wiadomość wysłana poprawnie")
-                    messagesMutable.value += uiMessage
+                    messagesMutable.value += newMessage
                 } else {
                     Log.e("sendMessage", "Nie udało się wysłać wiadomości")
                 }
@@ -572,15 +574,30 @@ class NearNetViewModel(): ViewModel() {
             //funkcja: grupuje wiadomości po pokojach, dla każdej grupy uzyskuje dane pokoju, a następnie tworzy trójki
             //typu (wiadomość, pokój, nazwa użytkownika), w SQL join pokoju do wiadomości i do usera, i groupby po pokojach ,
             //a potem select na te trójki
-            recentMutable.value = messagesList // ta funkcja na teraz bierze pokój o jakimś IdRoom z Twoich na serwerze, więc jeden się wyświetla z Twoich pokoi na sztywno, reszta co się wyświetla to te o ID 0 , bo null wziął za 0. Dasz swoją funkcję to powinno działać.
-                .groupBy { message -> message.roomId }
-                .mapValues { roomMessages ->
-                    val message = roomMessages.value.maxBy { message -> message.timestamp }
-                    val room = myRooms.value.find { room -> room.id == message.roomId }
-                    Recent(message = message, room = room, username = message.userId)
-                }.values
+            val backendMessages = messagesListRecent
+            recentMutable.value = backendMessages // ta funkcja na teraz bierze pokój o jakimś IdRoom z Twoich na serwerze, więc jeden się wyświetla z Twoich pokoi na sztywno, reszta co się wyświetla to te o ID 0 , bo null wziął za 0. Dasz swoją funkcję to powinno działać.
+                .groupBy { it.roomId } // grupowanie po pokojach
+                .mapValues { (_, messagesInRoom) ->
+                    val latestBackendMessage = messagesInRoom.maxByOrNull { it.timestamp }!!
+                    val room = myRooms.value.find { it.id == latestBackendMessage.roomId }
+                    val latestMessageUI = com.nearnet.Message(
+                        id = latestBackendMessage.id,
+                        roomId = latestBackendMessage.roomId,
+                        userId = latestBackendMessage.userId,
+                        data = latestBackendMessage.message, // backend 'message' → UI 'data'
+                        timestamp = latestBackendMessage.timestamp,
+                        messageType = latestBackendMessage.messageType,
+                        additionalData = latestBackendMessage.additionalData
+                    )
+                    Recent(
+                        message = latestMessageUI,
+                        room = room,
+                        username = latestBackendMessage.userId
+                    )
+                }
+                .values
                 .toList()
-                .sortedByDescending { recent -> recent.message.timestamp }
+                .sortedByDescending { it.message.timestamp }
         }
     }
 
