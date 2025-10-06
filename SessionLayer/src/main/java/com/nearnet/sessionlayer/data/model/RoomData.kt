@@ -11,14 +11,13 @@ import com.nearnet.sessionlayer.data.db.Converters
 data class RoomData(
     @PrimaryKey val idRoom: String = "",
     val name: String = "",
+    val description: String = "",
     val avatar: String = "",
     val password: String = "",
     val isPrivate: Boolean = false,
     val isVisible: Boolean = true,
     val idAdmin: String = "",
-    //nie ma na serwie tego nizej
-    val description: String = "",
-    val imagesSettings: String = "",
-    val users: List<String> = emptyList()
+    val additionalSettings: String = ""
+    //val users: List<String> = emptyList()
 )
 

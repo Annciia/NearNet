@@ -2,6 +2,7 @@ package com.nearnet.sessionlayer.logic
 
 import android.content.Context
 import android.util.Log
+import com.google.gson.Gson
 import com.nearnet.sessionlayer.data.db.AppDatabase
 import com.nearnet.sessionlayer.data.model.UserData
 import kotlinx.coroutines.Dispatchers
@@ -13,17 +14,32 @@ import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.*
 
 data class RegisterResponse(
-    val Succes: Boolean? = null,
+    val success: Boolean = false,
     val error: String? = null
 )
 
-data class LoginResponse(
-    val Succes: Boolean,
-    val Token: String? = null,
-    val UserData: UserData? = null
+//data class LoginResponse(
+//    val success: Boolean,
+//    val token: String? = null,
+//    val userData: UserData? = null
+//)
+
+//na czas az kuba poprawi toUserData
+data class UserDataDTO(
+    val idUser: String,
+    val name: String,
+    val avatar: String,
+    val publicKey: String,
+    val password: String?,
+    val additionalSettings: String
 )
 
-data class User(val id: String, val login: String, val password: String, val name: String)
+data class LoginResponse(
+    val success: Boolean,
+    val token: String?,
+    val userData: UserDataDTO?
+)
+
 
 interface ApiService {
     @POST("/api/register")
@@ -56,76 +72,162 @@ class UserRepository(private val context: Context) {
 
     private val api = retrofit.create(ApiService::class.java)
 
-    suspend fun registerUser(login: String, password: String): Boolean = withContext(Dispatchers.IO) {
-        val body = mapOf("login" to login, "password" to password)
-        val response = api.register(body)
 
-        if (response.isSuccessful) {
-            val res = response.body()
-            if (res?.Succes == true) {
-                Log.d("REST", "✅ Rejestracja OK")
-                return@withContext true
+    suspend fun registerUser(login: String, password: String): Boolean = withContext(Dispatchers.IO) {
+        val body = mapOf("login" to login.trim(), "password" to password.trim())
+
+
+        return@withContext try {
+            val response = api.register(body)
+
+            if (response.isSuccessful) {
+                Log.d("REST", "Rejestracja OK dla loginu: $login")
+                true
             } else {
-                Log.d("REST", "❌ Rejestracja nieudana: ${res?.error}")
+                val errorMsg = response.errorBody()?.string() ?: "Unknown error"
+                Log.d("REST", "Rejestracja nieudana: $errorMsg (HTTP ${response.code()})")
+                false
             }
-        } else {
-            Log.e("REST", "❌ Błąd serwera: ${response.code()}")
+
+        } catch (e: Exception) {
+            Log.e("REST", "Wyjątek podczas rejestracji: ${e.message}", e)
+            false
         }
-        return@withContext false
     }
 
-    suspend fun loginUser(login: String, password: String): User? = withContext(Dispatchers.IO) {
-        val body = mapOf("login" to login, "password" to password)
+
+
+//    suspend fun loginUser(login: String, password: String): UserData = withContext(Dispatchers.IO) {
+//        val body = mapOf("login" to login, "password" to password)
+//        val response = api.login(body)
+//
+//        if (response.isSuccessful) {
+//            val res = response.body()
+//            if (res?.success == true && res.token != null && res.userData != null) {
+//                saveTokenToPreferences(res.token)
+//
+//                val userData = res.userData
+//                return@withContext userData
+//            } else {
+//                throw Exception("Login failed: invalid credentials")
+//            }
+//        } else {
+//            throw Exception("Login failed: ${response.code()}")
+//        }
+//    }
+//poki Kuba nie poprawi toUserData konieczne mapowanie na UserDto
+//suspend fun loginUser(login: String, password: String): UserData = withContext(Dispatchers.IO) {
+//    val body = mapOf("login" to login, "password" to password)
+//    val response = api.login(body)
+//
+//    if (response.isSuccessful) {
+//        val res = response.body()
+//
+//        if (res?.success == true && res.token != null && res.userData != null) {
+//            saveTokenToPreferences(res.token)
+//
+//            val userDto = res.userData
+//            val userData = UserData(
+//                id = userDto.idUser.toString(),
+//                login = login,
+//                name = if (userDto.name.isNotEmpty()) userDto.name else login,
+//                avatar = userDto.avatar,
+//                publicKey = userDto.publicKey,
+//                passwordHash = userDto.password ?: "",
+//                additionalSettings = userDto.additionalSettings
+//            )
+//
+//            return@withContext userData
+//        } else {
+//            throw Exception("Login failed: invalid credentials")
+//        }
+//    } else {
+//        throw Exception("Login failed: ${response.code()}")
+//    }
+//}
+    //funkcja z full debugowaniem, bo sprawdzalem czemu nie loguje, mozliwe, ze juz nie wymaga userDto, ale to sprawdze jutro
+    suspend fun loginUser(login: String, password: String): UserData = withContext(Dispatchers.IO) {
+        //czyszczenie starego tokena
+        val sharedPref = context.getSharedPreferences("UserPrefs", Context.MODE_PRIVATE)
+        with(sharedPref.edit()) { remove("user_token"); apply() }
+        val body = mapOf(
+            "login" to login.trim(),
+            "password" to password.trim()
+        )
+        Log.d("LOGIN_DEBUG", "Request body: $body")
+
         val response = api.login(body)
 
-        if (response.isSuccessful) {
-            val res = response.body()
-            if (res?.Succes == true && res.Token != null && res.UserData != null) {
-                saveTokenToPreferences(res.Token)
+        Log.d("LOGIN_DEBUG", "HTTP response code: ${response.code()}")
 
-                val userData = res.UserData
+        if (!response.isSuccessful) {
+            val errorBody = response.errorBody()?.string()
+            Log.e("LOGIN_DEBUG", "HTTP error body: $errorBody")
+            throw Exception("Login failed: ${response.code()}")
+        }
 
-                // mapowanie UserData -> User (trzeba jakos ogarnac zeby takie same userData byly bo jebanie z mapowaniem jest)
-                return@withContext User(
-                    id = userData.idUser,
-                    login = login,
-                    password = password,
-                    name = userData.name
-                )
-            } else {
-                throw Exception("❌ Login failed: invalid credentials")
-            }
+        val res = response.body()
+        Log.d("LOGIN_DEBUG", "Raw response body: $res")
+
+        if (res == null) {
+            Log.e("LOGIN_DEBUG", "Response body is null")
+            throw Exception("Login failed: empty response")
+        }
+
+        Log.d("LOGIN_DEBUG", "success = ${res.success}")
+        Log.d("LOGIN_DEBUG", "token = ${res.token}")
+        Log.d("LOGIN_DEBUG", "userData = ${res.userData}")
+
+        if (res.success && res.token != null && res.userData != null) {
+            // Zapisujemy token do SharedPreferences
+            saveTokenToPreferences(res.token)
+
+            // Mapowanie backendowego DTO na lokalny model UserData
+            val userDto = res.userData
+            val userData = UserData(
+                id = userDto.idUser,
+                login = login,
+                name = if (userDto.name.isNotEmpty()) userDto.name else login,
+                avatar = userDto.avatar,
+                publicKey = userDto.publicKey,
+                passwordHash = userDto.password ?: "",
+                additionalSettings = userDto.additionalSettings
+            )
+
+            Log.d("LOGIN_DEBUG", "Mapped UserData: $userData")
+            return@withContext userData
         } else {
-            throw Exception("❌ Login failed: ${response.code()}")
+            if (!res.success) Log.e("LOGIN_DEBUG", "Login failed: success=false")
+            if (res.token == null) Log.e("LOGIN_DEBUG", "Login failed: token=null")
+            if (res.userData == null) Log.e("LOGIN_DEBUG", "Login failed: userData=null")
+            throw Exception("Login failed: invalid credentials")
         }
     }
-
-
-
 
     suspend fun updateUser(user: UserData) = withContext(Dispatchers.IO) {
         val token = getTokenFromPreferences(context) ?: return@withContext
-        Log.d("REST", "➡️ Updating user for token: $token")
+        Log.d("REST", "Updating user for token: $token")
         val body = mapOf(
             "name" to user.name,
             "avatar" to user.avatar,
             "publicKey" to user.publicKey,
-            "darkLightMode" to if (user.darkLightMode) "1" else "0"
+            "additionalSettings" to user.additionalSettings
         )
         try {
             val response = api.updateUser("Bearer $token", body)
             if (response.isSuccessful) {
                 val json = response.body()?.string()
-                Log.d("REST", "✅ Update response: $json")
+                Log.d("REST", "Update response: $json")
             } else {
-                Log.e("REST", "❌ Update failed: ${response.code()} ${response.errorBody()?.string()}")
+                Log.e("REST", "Update failed: ${response.code()} ${response.errorBody()?.string()}")
             }
         } catch (e: Exception) {
-            Log.e("REST", "❌ Exception during update: ${e.message}")
+            Log.e("REST", "Exception during update: ${e.message}")
         }
-
     }
 
+
+    //zostaje 1:1 jak ze starym bo wysyla haslo, a otrzymuje boola
     suspend fun deleteUser(password: String): Boolean = withContext(Dispatchers.IO) {
         val token = getTokenFromPreferences(context) ?: return@withContext false
 
@@ -133,20 +235,20 @@ class UserRepository(private val context: Context) {
             val response = api.deleteUser("Bearer $token", mapOf("password" to password))
             if (response.isSuccessful) {
                 val res = response.body()
-                if (res?.Succes == true) {
-                    Log.d("REST", "✅ User deleted")
+                if (res?.success == true) {
+                    Log.d("REST", "User deleted")
                     clearToken()
                     true
                 } else {
-                    Log.d("REST", "❌ Delete failed: ${res?.error}")
+                    Log.d("REST", "Delete failed: ${res?.error}")
                     false
                 }
             } else {
-                Log.e("REST", "❌ Delete error: ${response.code()} ${response.errorBody()?.string()}")
+                Log.e("REST", "Delete error: ${response.code()} ${response.errorBody()?.string()}")
                 false
             }
         } catch (e: Exception) {
-            Log.e("REST", "❌ Exception during delete: ${e.message}")
+            Log.e("REST", "Exception during delete: ${e.message}")
             false
         }
     }

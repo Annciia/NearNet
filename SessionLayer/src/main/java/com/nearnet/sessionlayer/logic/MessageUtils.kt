@@ -23,7 +23,7 @@ data class SendMessageRequest(
 )
 
 data class MessagePayload(
-    val userId: String,
+    val userId: String? = null,
     val timestamp: String,
     val messageType: String = "text",
     val data: String,
@@ -31,7 +31,7 @@ data class MessagePayload(
 )
 
 data class SendMessageResponse(
-    val Succes: Boolean,
+    val success: Boolean,
     val error: String? = null
 )
 
@@ -41,7 +41,7 @@ data class RequestLastMessagesRequest(
 
 data class RequestLastMessagesResponse(
     val roomData: RoomData?,
-    val Login: String,
+    val login: String,
     val `package`: PackageData
 )
 
@@ -51,7 +51,7 @@ data class PackageData(
     val messageList: List<MessagePayload>
 )
 
-data class AckLastMessagesResponse(val Succes: Boolean)
+data class AckLastMessagesResponse(val success: Boolean)
 
 
 
@@ -87,12 +87,14 @@ class MessageUtils(private val tokenProvider: () -> String?) {
 
     suspend fun sendMessage(roomId: String, message: Message): Boolean = withContext(Dispatchers.IO) {
         val token = tokenProvider() ?: return@withContext false
-        val userId = message.username
+
 
         val payload = MessagePayload(
-            userId = userId,
-            timestamp = message.timestamp.toString(),
-            data = message.message
+            userId = message.userId,
+            timestamp = message.timestamp,
+            messageType = "text",
+            data = message.message,
+            additionalData = message.additionalData
         )
 
         val request = SendMessageRequest(
@@ -103,7 +105,7 @@ class MessageUtils(private val tokenProvider: () -> String?) {
         try {
             val response = api.sendMessage("Bearer $token", request)
             if (response.isSuccessful) {
-                response.body()?.Succes == true
+                response.body()?.success == true
             } else {
                 Log.e("MESSAGE", "sendMessage failed: ${response.code()} ${response.errorBody()?.string()}")
                 false
@@ -134,13 +136,27 @@ class MessageUtils(private val tokenProvider: () -> String?) {
             null
         }
     }
+    //mapowanie, zeby nie powtarzac w ViewModelu
+    fun mapPayloadToMessages(roomId: String, messageList: List<MessagePayload>): List<Message> {
+        return messageList.map { payload ->
+            Message(
+                id = payload.timestamp,
+                roomId = roomId,
+                userId = payload.userId ?: "unknown",
+                messageType = payload.messageType,
+                message = payload.data,
+                additionalData = payload.additionalData,
+                timestamp = payload.timestamp
+            )
+        }
+    }
 
     // --- potwierdzenie odbioru ---
     suspend fun ackLastMessages(): Boolean = withContext(Dispatchers.IO) {
         val token = tokenProvider() ?: return@withContext false
         try {
             val response = api.ackLastMessages(token)
-            response.isSuccessful && (response.body()?.Succes == true)
+            response.isSuccessful && (response.body()?.success == true)
         } catch (e: Exception) {
             Log.e("MESSAGE", "Exception in ackLastMessages", e)
             false

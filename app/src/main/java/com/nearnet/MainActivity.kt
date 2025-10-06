@@ -1058,11 +1058,23 @@ class MainActivity : ComponentActivity() {
         }
 
         Column {
+            //TODO narazie tak, zeby sie odpalalo, trzeba ta klase Message wywalic i tylko zostawic ta moja
+            val messagesUI = vm.messages.collectAsState().value.map { backendMessage ->
+                com.nearnet.Message(
+                    id = backendMessage.id,
+                    roomId = backendMessage.roomId,
+                    userId = backendMessage.userId,
+                    data = backendMessage.message,
+                    timestamp = backendMessage.timestamp,
+                    messageType = backendMessage.messageType,
+                    additionalData = backendMessage.additionalData
+                )
+            }
             LazyColumn(
                 state = listState,
                 modifier = Modifier.weight(1f).fillMaxWidth()
             ){
-                items(messages) {message ->
+                items(messagesUI) {message ->
                     MessageItem(message)
                 }
             }
