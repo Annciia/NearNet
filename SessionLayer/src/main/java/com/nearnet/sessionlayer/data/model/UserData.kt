@@ -5,11 +5,13 @@ import androidx.room.PrimaryKey
 
 @Entity(tableName = "users")
 data class UserData(
-    @PrimaryKey val idUser: String,
+    @PrimaryKey val id: String,
+    val login: String,
     val name: String,
     val avatar: String,
     val publicKey: String,
-    val password: String = "",
-    //val passwordHash: String,
-    val darkLightMode: Boolean
+    val passwordHash: String = "",
+    var additionalSettings: String,
 )
+
+

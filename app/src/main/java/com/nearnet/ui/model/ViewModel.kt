@@ -231,11 +231,12 @@ class NearNetViewModel(): ViewModel() {
             try {
                 //tutaj znowu rozjechane wszystko, trzeba ujednolicic z serwerem
                 val userData = com.nearnet.sessionlayer.data.model.UserData(
-                    idUser = currentUser.id,
+                    id = currentUser.id,
+                    login = currentUser.login,
                     name = if (userName.isNotBlank()) userName else currentUser.name,
                     avatar = "updateAvatar",
                     publicKey = "newPublicKey",
-                    darkLightMode = additionalSettings == "0"
+                    additionalSettings = "newAdditionalSettings"
                 )
 
                 repository.updateUser(userData)
