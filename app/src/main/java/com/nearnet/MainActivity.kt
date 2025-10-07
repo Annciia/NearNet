@@ -684,7 +684,8 @@ class MainActivity : ComponentActivity() {
                 items(rooms) { room ->
                     RoomItem(room, onClick = {
                         //TODO Dołączanie do pokoju - odkomentowalem(Marek)
-                        vm.selectRoom(room)
+                        //vm.selectRoom(room)
+                        vm.joinRoom(room,"") //tu hasło będę z pop up podawać, na razie na sztywno, ale przyjmuj je w funkcji
                     })
                 }
             }
@@ -692,13 +693,28 @@ class MainActivity : ComponentActivity() {
         LaunchedEffect(Unit) {
             vm.loadDiscoverRooms()
 
-            vm.selectedRoomEvent.collect { event ->
-                when (event) {
-                    is ProcessEvent.Success -> {
-                        navController.navigate("roomConversationScreen")
+            launch {
+                vm.selectedRoomEvent.collect { event ->
+                    when (event) {
+                        is ProcessEvent.Success -> {
+                            navController.navigate("roomConversationScreen")
+                            Toast.makeText(context, "Welcome to the room!", Toast.LENGTH_SHORT).show()
+                        }
+                        is ProcessEvent.Error -> {
+                            Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
+                        }
                     }
-                    is ProcessEvent.Error -> {
-                        Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
+                }
+            }
+            launch {
+                vm.joinRoomEvent.collect { event ->
+                    when (event) {
+                        is ProcessEvent.Success -> {
+                            Toast.makeText(context, "Your request to join the room has been sent.", Toast.LENGTH_SHORT).show()
+                        }
+                        is ProcessEvent.Error -> {
+                            Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
+                        }
                     }
                 }
             }

@@ -142,6 +142,10 @@ class NearNetViewModel(): ViewModel() {
     private val deleteRoomEventMutable = MutableSharedFlow<ProcessEvent<Room?>>()
     val deleteRoomEvent = deleteRoomEventMutable.asSharedFlow()
 
+    //Join the room
+    private val joinRoomEventMutable = MutableSharedFlow<ProcessEvent<Unit>>()
+    val joinRoomEvent = joinRoomEventMutable.asSharedFlow()
+
     //Messages
     private val messagesMutable = MutableStateFlow(listOf<Message>())
     val messages = messagesMutable.asStateFlow()
@@ -445,6 +449,34 @@ class NearNetViewModel(): ViewModel() {
                 deleteRoomEventMutable.emit(ProcessEvent.Success(null))
             } else {
                 deleteRoomEventMutable.emit(ProcessEvent.Error("Something went wrong while deleting the room."))
+            }
+        }
+    }
+    fun joinRoom(room: Room, password: String){
+        viewModelScope.launch {
+            //var status : Boolean = joinRoom(room.id, ””) //funkcja dla Marka -> podawane jest id pokoju gdzie dołączam i hasło lub pusty string->
+            // hasło: dla publicznego pokoju pusty string podaję, dla  prywatnego podaję hasło które użytkownik wpisał lub pusty string gdy go nie zna,
+            // jak jest publiczny lub użytkownik poda hasło, to klucz do rozszyfrowania wiadomości dostaje od dowolnego użytkownika, gdzie klucz jest zaszyfrowany przez RSA (+ osobno wiadomości zaszyfrowane AES, któree tym kluczem rozszyfruje sobie)
+            // jak jest pokój prywatny i użytkownik nie zna hasła, to prośba o dołączenie idzie do admina i on potwierdza i wysyła mu on ten klucz szyfrowany przez RSA (+ osobno też wiadomości zaszyfrowane AES)
+            //4 przypadki!!!
+            //1.pokój prywatny i nie ma hasła od użytkownika (pusty string) ->prośba do admina o dołącznie
+            //2.pokój prywatny i jest hasło od użytkownika -> dołącza po sprawdzeniu poprawności z hashem na serwerze lub status=false
+            //3.pokój publiczny i nie ma hasła (pusty string) -> dołącza
+            //4.pokój publiczny i jest hasło - PRZYPADEK NIE MA PRAWA ZAJŚĆ, w razie czego ignorujemy hasło i wpuszczamy do pokoju ->dołącza
+            //hasło do pokoju trzymane w postaci hasha na serwerze, dodawane przy tworzeniu pokoju
+
+            var status :Boolean = true //wykomentować
+            if (status== true){ //jeżeli publiczny lub jeżeli podam dobre hasło do prywatnego, lub jeżeli prośba zostanie wysłana do admina
+                if (!room.isPrivate || (room.isPrivate && password!="")){ //hasło niewymagane lub podałam dobre hasło
+                    selectRoom(room)
+                }
+                else{ //jeżeli prośba została wysłana do admina
+                    //Popup Ania , że prośba pomyślnie wysłana do admina
+                    joinRoomEventMutable.emit(ProcessEvent.Success(Unit))
+                }
+            }
+            else{ //złe hasło podane do prywatnego lub serwer nawalił
+                joinRoomEventMutable.emit(ProcessEvent.Error("Incorrect password or something went wrong. Please try joining the room again."))
             }
         }
     }
