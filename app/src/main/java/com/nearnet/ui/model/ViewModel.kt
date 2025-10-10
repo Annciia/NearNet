@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import com.nearnet.sessionlayer.data.model.Message
+import com.nearnet.sessionlayer.data.model.UserData
 
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -79,9 +80,9 @@ class NearNetViewModel(): ViewModel() {
     }
 
     //Selected user
-    private val selectedUserMutable = MutableStateFlow<User?>(null)
+    private val selectedUserMutable = MutableStateFlow<UserData?>(null)
     val selectedUser = selectedUserMutable.asStateFlow()
-    private val selectedUserEventMutable = MutableSharedFlow<ProcessEvent<User?>>()
+    private val selectedUserEventMutable = MutableSharedFlow<ProcessEvent<UserData?>>()
     val selectedUserEvent = selectedUserEventMutable.asSharedFlow()
 
     //Register user
@@ -159,40 +160,27 @@ class NearNetViewModel(): ViewModel() {
 
     }
 
-    fun logInUser(login: String, password: String){
+    //TODO dziala ok - ujednolicielm UserData
+    fun logInUser(login: String, password: String) {
         viewModelScope.launch {
-            // TODO Call asynchronous function to log user.
-            //val user = logInUser(login, password)
-            //selectedUserMutable.value = user
-            // val user = User(id = -1, login = "orci99", password = "abcd1234", name = "Orci Kätter")
             try {
-                val repoUser = repository.loginUser(login, password)
-                if (repoUser != null) {
-                    val uiUser = User(
-                        id = repoUser.id,
-                        login = repoUser.login,
-                        name = repoUser.name,
-                        avatar = "", // brak
-                        additionalSettings = "", // brak
-                        publicKey = "" // brak
-                    )
-                    selectedUserMutable.value = uiUser
-                    selectedUserEventMutable.emit(ProcessEvent.Success(uiUser))
-                } else {
-                    selectedUserEventMutable.emit(ProcessEvent.Error("Login failed"))
-                }
+                val userData = repository.loginUser(login, password)
+
+                selectedUserMutable.value = userData
+                selectedUserEventMutable.emit(ProcessEvent.Success(userData))
+
             } catch (e: Exception) {
                 Log.e("LoginError", "Failed to log in", e)
                 selectedUserEventMutable.emit(ProcessEvent.Error("Login failed: ${e.message}"))
             }
         }
     }
+    //TODO tez ok dziala
     fun registerUser(login: String, password: String){
         viewModelScope.launch {
             // TODO Call asynchronous function to register user. //DONE
             val status : Boolean = repository.registerUser(login, password)
-            //val status : Boolean = true //
-            if (status == true){
+            if (status){
                 welcomeStateMutable.value = true
                 registerUserEventMutable.emit(ProcessEvent.Success(Unit))
             }
@@ -201,6 +189,7 @@ class NearNetViewModel(): ViewModel() {
             }
         }
     }
+
     //tutaj czysci po prostu token = wylogowuje
     fun logOutUser(){ //wylogowuje nawet jak coś poszło nie tak z internetem/serwerem
         viewModelScope.launch{
@@ -219,7 +208,7 @@ class NearNetViewModel(): ViewModel() {
             }
         }
     }
-    // TODO ujednolicic userData z serwerem bo teraz inne + nie widzi w logach avataru, ale odbiera po prostu nie wyswietla na dev stronce
+    // TODO tutaj chyba jakas oblusge/pola do additionalSettings: String musisz dorobic + nie ma aktualizacji avatara
     fun updateUser(userName: String, password: String, passwordConfirmation: String, additionalSettings: String){
         viewModelScope.launch {
             if (!validateUpdate(userName, password, passwordConfirmation, additionalSettings)) {
@@ -227,7 +216,6 @@ class NearNetViewModel(): ViewModel() {
                 return@launch
             }
 
-            // TODO Call asynchronous function to update user.
             val currentUser = selectedUser.value
             if (currentUser == null) {
                 updateUserEventMutable.emit(ProcessEvent.Error("No user logged in."))
@@ -235,14 +223,13 @@ class NearNetViewModel(): ViewModel() {
             }
             //val status : Boolean = repository.updateUser(userName, password, additionalSettings)
             try {
-                //tutaj znowu rozjechane wszystko, trzeba ujednolicic z serwerem
                 val userData = com.nearnet.sessionlayer.data.model.UserData(
                     id = currentUser.id,
                     login = currentUser.login,
                     name = if (userName.isNotBlank()) userName else currentUser.name,
-                    avatar = "updateAvatar",
-                    publicKey = "newPublicKey",
-                    additionalSettings = "newAdditionalSettings"
+                    avatar = currentUser.avatar,
+                    publicKey = currentUser.publicKey,
+                    additionalSettings = if (additionalSettings.isNotBlank()) additionalSettings else currentUser.additionalSettings
                 )
 
                 repository.updateUser(userData)

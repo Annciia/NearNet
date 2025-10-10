@@ -18,26 +18,10 @@ data class RegisterResponse(
     val error: String? = null
 )
 
-//data class LoginResponse(
-//    val success: Boolean,
-//    val token: String? = null,
-//    val userData: UserData? = null
-//)
-
-//na czas az kuba poprawi toUserData
-data class UserDataDTO(
-    val idUser: String,
-    val name: String,
-    val avatar: String,
-    val publicKey: String,
-    val password: String?,
-    val additionalSettings: String
-)
-
 data class LoginResponse(
     val success: Boolean,
     val token: String?,
-    val userData: UserDataDTO?
+    val userData: UserData?
 )
 
 
@@ -95,61 +79,13 @@ class UserRepository(private val context: Context) {
         }
     }
 
-
-
-//    suspend fun loginUser(login: String, password: String): UserData = withContext(Dispatchers.IO) {
-//        val body = mapOf("login" to login, "password" to password)
-//        val response = api.login(body)
-//
-//        if (response.isSuccessful) {
-//            val res = response.body()
-//            if (res?.success == true && res.token != null && res.userData != null) {
-//                saveTokenToPreferences(res.token)
-//
-//                val userData = res.userData
-//                return@withContext userData
-//            } else {
-//                throw Exception("Login failed: invalid credentials")
-//            }
-//        } else {
-//            throw Exception("Login failed: ${response.code()}")
-//        }
-//    }
-//poki Kuba nie poprawi toUserData konieczne mapowanie na UserDto
-//suspend fun loginUser(login: String, password: String): UserData = withContext(Dispatchers.IO) {
-//    val body = mapOf("login" to login, "password" to password)
-//    val response = api.login(body)
-//
-//    if (response.isSuccessful) {
-//        val res = response.body()
-//
-//        if (res?.success == true && res.token != null && res.userData != null) {
-//            saveTokenToPreferences(res.token)
-//
-//            val userDto = res.userData
-//            val userData = UserData(
-//                id = userDto.idUser.toString(),
-//                login = login,
-//                name = if (userDto.name.isNotEmpty()) userDto.name else login,
-//                avatar = userDto.avatar,
-//                publicKey = userDto.publicKey,
-//                passwordHash = userDto.password ?: "",
-//                additionalSettings = userDto.additionalSettings
-//            )
-//
-//            return@withContext userData
-//        } else {
-//            throw Exception("Login failed: invalid credentials")
-//        }
-//    } else {
-//        throw Exception("Login failed: ${response.code()}")
-//    }
-//}
-    //funkcja z full debugowaniem, bo sprawdzalem czemu nie loguje, mozliwe, ze juz nie wymaga userDto, ale to sprawdze jutro
     suspend fun loginUser(login: String, password: String): UserData = withContext(Dispatchers.IO) {
-        //czyszczenie starego tokena
         val sharedPref = context.getSharedPreferences("UserPrefs", Context.MODE_PRIVATE)
-        with(sharedPref.edit()) { remove("user_token"); apply() }
+        with(sharedPref.edit()) {
+            remove("user_token")
+            apply()
+        }
+
         val body = mapOf(
             "login" to login.trim(),
             "password" to password.trim()
@@ -157,7 +93,6 @@ class UserRepository(private val context: Context) {
         Log.d("LOGIN_DEBUG", "Request body: $body")
 
         val response = api.login(body)
-
         Log.d("LOGIN_DEBUG", "HTTP response code: ${response.code()}")
 
         if (!response.isSuccessful) {
@@ -167,32 +102,18 @@ class UserRepository(private val context: Context) {
         }
 
         val res = response.body()
-        Log.d("LOGIN_DEBUG", "Raw response body: $res")
-
         if (res == null) {
             Log.e("LOGIN_DEBUG", "Response body is null")
             throw Exception("Login failed: empty response")
         }
 
-        Log.d("LOGIN_DEBUG", "success = ${res.success}")
-        Log.d("LOGIN_DEBUG", "token = ${res.token}")
-        Log.d("LOGIN_DEBUG", "userData = ${res.userData}")
+        Log.d("LOGIN_DEBUG", "Response: success=${res.success}, token=${res.token}, userData=${res.userData}")
 
         if (res.success && res.token != null && res.userData != null) {
-            // Zapisujemy token do SharedPreferences
             saveTokenToPreferences(res.token)
 
-            // Mapowanie backendowego DTO na lokalny model UserData
-            val userDto = res.userData
-            val userData = UserData(
-                id = userDto.idUser,
-                login = login,
-                name = if (userDto.name.isNotEmpty()) userDto.name else login,
-                avatar = userDto.avatar,
-                publicKey = userDto.publicKey,
-                passwordHash = userDto.password ?: "",
-                additionalSettings = userDto.additionalSettings
-            )
+            //TODO dodalem w UserData @SerializedName, zeby dopasowac nazwy z backendu do nas
+            val userData = res.userData.copy(login = login.trim())
 
             Log.d("LOGIN_DEBUG", "Mapped UserData: $userData")
             return@withContext userData
@@ -200,9 +121,11 @@ class UserRepository(private val context: Context) {
             if (!res.success) Log.e("LOGIN_DEBUG", "Login failed: success=false")
             if (res.token == null) Log.e("LOGIN_DEBUG", "Login failed: token=null")
             if (res.userData == null) Log.e("LOGIN_DEBUG", "Login failed: userData=null")
-            throw Exception("Login failed: invalid credentials")
+
+            throw Exception("Login failed: invalid credentials or incomplete response")
         }
     }
+
 
     suspend fun updateUser(user: UserData) = withContext(Dispatchers.IO) {
         val token = getTokenFromPreferences(context) ?: return@withContext

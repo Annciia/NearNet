@@ -70,6 +70,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.nearnet.sessionlayer.data.model.UserData
 import com.nearnet.sessionlayer.logic.MessageUtils
 import com.nearnet.sessionlayer.logic.RoomRepository
 import com.nearnet.sessionlayer.logic.UserRepository
@@ -726,7 +727,7 @@ class MainActivity : ComponentActivity() {
         val context = LocalContext.current
         val vm = LocalViewModel.current
         val selectedRoom: Room? = if (navController.currentDestination?.route == "roomSettingsScreen") vm.selectedRoom.value else null
-        val selectedUser: User? = vm.selectedUser.value
+        val selectedUser: UserData? = vm.selectedUser.value
         var roomName by rememberSaveable { mutableStateOf(selectedRoom?.name ?: "") }
         var roomDescription by rememberSaveable { mutableStateOf(selectedRoom?.description ?: "") }
         var isCheckedPublic by rememberSaveable { mutableStateOf(if (selectedRoom != null) !selectedRoom.isPrivate else false) }
