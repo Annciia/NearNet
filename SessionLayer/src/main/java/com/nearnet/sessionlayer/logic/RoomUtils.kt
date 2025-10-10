@@ -21,13 +21,6 @@ data class DeleteRoomResponse(
     val error: String? = null
 )
 
-//data class AddRoomRequest(
-//    val name: String,
-//    val avatar: String,
-//    val password: String,
-//    val isPrivate: Boolean,
-//    val isVisible: Boolean
-//)
 
 data class AddRoomRequest(
     val name: String,
@@ -38,14 +31,6 @@ data class AddRoomRequest(
     val isVisible: Boolean = true,
     val additionalSettings: String = ""
 )
-
-//data class UpdateRoomRequest(
-//    val name: String,
-//    val avatar: String,
-//    val password: String = "",
-//    val isPrivate: Boolean = false,
-//    val isVisible: Boolean = true
-//)
 
 data class UpdateRoomRequest(
     val name: String? = null,
@@ -171,21 +156,26 @@ class RoomRepository(private val context: Context) {
     }
 
 
-    suspend fun addRoom(roomName: String, roomDescription: String): RoomData? = withContext(Dispatchers.IO) {
+    suspend fun addRoom(name: String,
+                        description: String,
+                        password: String,
+                        isPrivate: Boolean,
+                        isVisible: Boolean,
+                        additionalSettings: String = ""): RoomData? = withContext(Dispatchers.IO) {
         val token = getToken()
         if (token == null) {
             Log.e("ROOM", "❌ Token jest null! Nie można dodać pokoju")
             return@withContext null
         }
 
-        // Tworzymy request, używając parametrów z ViewModelu
         val request = AddRoomRequest(
-            name = roomName.trim(),
-            description =  roomDescription.trim(),
+            name = name.trim(),
+            description = description.trim(),
             avatar = "",
-            password = "",
-            isPrivate = false,
-            isVisible = true
+            password = password.trim(),
+            isPrivate = isPrivate,
+            isVisible = isVisible,
+            additionalSettings = additionalSettings
         )
 
         Log.d("ROOM", "➡️ Sending addRoom request with body: $request")
@@ -214,12 +204,13 @@ class RoomRepository(private val context: Context) {
     suspend fun updateRoom(room: RoomData): RoomData? = withContext(Dispatchers.IO) {
         val token = getToken() ?: return@withContext null
 
-        val idRoom = getRoomIdByName(room.name) ?: return@withContext null
-        val avatarUrl = room.avatar.ifEmpty { "https://example.com/default-avatar.png" }
+        //val idRoom = getRoomIdByName(room.name) ?: return@withContext null
 
+        val idRoom = room.idRoom
         val body = UpdateRoomRequest(
             name = room.name,
-            avatar = avatarUrl,
+            description = room.description,
+            avatar = room.avatar.ifEmpty { "" },
             password = room.password,
             isPrivate = room.isPrivate,
             isVisible = room.isVisible
@@ -241,18 +232,17 @@ class RoomRepository(private val context: Context) {
 
 
 
-    suspend fun deleteRoom(roomName: String): Boolean = withContext(Dispatchers.IO) {
+    suspend fun deleteRoom(roomId: String): Boolean = withContext(Dispatchers.IO) {
         val token = getToken()
         if (token == null) {
             Log.e("ROOM", "❌ Token jest null! Nie można usunąć pokoju")
             return@withContext false
         }
-        val idRoom = getRoomIdByName(roomName) ?: return@withContext false
 
         try {
-            val response = api.deleteRoom(token, idRoom)
+            val response = api.deleteRoom(token, roomId)
 
-            Log.d("ROOM", "➡️ Sending deleteRoom request for id: $idRoom")
+            Log.d("ROOM", "➡️ Sending deleteRoom request for id: $roomId")
             Log.d("ROOM", "⬅️ Response code: ${response.code()}")
             Log.d("ROOM", "⬅️ Response body: ${response.body()}")
             Log.d("ROOM", "⬅️ Response error body: ${response.errorBody()?.string()}")
@@ -269,6 +259,8 @@ class RoomRepository(private val context: Context) {
             false
         }
     }
+
+
 
     suspend fun getRoomAndUsers(roomName: String): Pair<RoomData, List<UserData>>? = withContext(Dispatchers.IO) {
         val token = getToken() ?: return@withContext null
