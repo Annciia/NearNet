@@ -4,6 +4,7 @@ package com.nearnet.sessionlayer.logic
 import android.util.Log
 import com.nearnet.sessionlayer.data.model.Message
 import com.nearnet.sessionlayer.data.model.RoomData
+import com.nearnet.sessionlayer.data.model.UserData
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import retrofit2.Response
@@ -14,7 +15,8 @@ import retrofit2.http.Header
 import retrofit2.http.POST
 import okhttp3.OkHttpClient
 import okhttp3.Request
-
+import retrofit2.http.GET
+import retrofit2.http.Path
 
 
 data class SendMessageRequest(
@@ -51,6 +53,15 @@ data class PackageData(
     val messageList: List<MessagePayload>
 )
 
+data class RoomUsersResponse(
+    val roomData: RoomData,
+    val userList: UserListWrapper
+)
+
+data class UserListWrapper(
+    val rooms: List<UserData>
+)
+
 data class AckLastMessagesResponse(val success: Boolean)
 
 
@@ -74,6 +85,14 @@ interface MessageApiService {
         @Header("Authorization") token: String,
         @Body body: Map<String, Any> = emptyMap()
     ): Response<AckLastMessagesResponse>
+
+    @GET("/api/rooms/{id}/users")
+    suspend fun getRoomUsers(
+        @Header("Authorization") token: String,
+        @Path("id") roomId: String
+    ): Response<RoomUsersResponse>
+
+
 }
 
 class MessageUtils(private val tokenProvider: () -> String?) {
@@ -150,6 +169,28 @@ class MessageUtils(private val tokenProvider: () -> String?) {
             )
         }
     }
+    //zmiana id na name, zeby w czatach byly name a nie id
+    suspend fun requestRoomUsers(roomId: String): RoomUsersResponse? = withContext(Dispatchers.IO) {
+        val token = tokenProvider() ?: return@withContext null
+        try {
+            val response = api.getRoomUsers("Bearer $token", roomId)
+            Log.d("MessageUtils", "requestRoomUsers: code=${response.code()}, success=${response.isSuccessful}")
+
+            if (response.isSuccessful) {
+                val body = response.body()
+                Log.d("MessageUtils", "Room users response body: $body")
+                body
+            } else {
+                Log.e("MessageUtils", "requestRoomUsers failed: ${response.code()} ${response.errorBody()?.string()}")
+                null
+            }
+        } catch (e: Exception) {
+            Log.e("MessageUtils", "Exception in requestRoomUsers", e)
+            null
+        }
+    }
+
+
 
     // --- potwierdzenie odbioru ---
     suspend fun ackLastMessages(): Boolean = withContext(Dispatchers.IO) {
