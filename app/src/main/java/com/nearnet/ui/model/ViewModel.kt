@@ -678,33 +678,51 @@ class NearNetViewModel(): ViewModel() {
             //funkcja: grupuje wiadomości po pokojach, dla każdej grupy uzyskuje dane pokoju, a następnie tworzy trójki
             //typu (wiadomość, pokój, nazwa użytkownika), w SQL join pokoju do wiadomości i do usera, i groupby po pokojach ,
             //a potem select na te trójki
-            val backendMessages = messagesListRecent
+            try {
+                val rooms = roomRepository.getMyRooms()
+                myRoomsMutable.value = rooms
 
-            val recents = backendMessages
-                .groupBy { it.roomId } // grupowanie po pokojach
-                .mapNotNull { (_, messagesInRoom) ->
-                    val latestBackendMessage = messagesInRoom.maxByOrNull { it.timestamp } ?: return@mapNotNull null
-                    val roomData = myRooms.value.find { it.idRoom == latestBackendMessage.roomId } ?: return@mapNotNull null
+                val allRecents = mutableListOf<Recent>()
+
+                for (room in rooms) {
+                    val response = messageUtils.requestLastMessages(room.idRoom)
+
+                    if (response?.`package`?.messageList.isNullOrEmpty()) continue
+
+                    val messages = messageUtils.mapPayloadToMessages(
+                        room.idRoom,
+                        response?.`package`?.messageList ?: emptyList()
+                    )
+
+                    val latest = messages.maxByOrNull { it.timestamp } ?: continue
 
                     val latestMessageUI = com.nearnet.Message(
-                        id = latestBackendMessage.id,
-                        roomId = latestBackendMessage.roomId,
-                        userId = latestBackendMessage.userId,
-                        data = latestBackendMessage.message,
-                        timestamp = latestBackendMessage.timestamp,
-                        messageType = latestBackendMessage.messageType,
-                        additionalData = latestBackendMessage.additionalData
+                        id = latest.id,
+                        roomId = latest.roomId,
+                        userId = latest.userId,
+                        data = latest.message,
+                        timestamp = latest.timestamp,
+                        messageType = latest.messageType,
+                        additionalData = latest.additionalData
                     )
 
-                    Recent(
+                    val recentItem = Recent(
                         message = latestMessageUI,
-                        room = roomData,
-                        username = latestBackendMessage.userId
+                        room = room,
+                        username = latest.userId //TODO zmienic na name
                     )
-                }
-                .sortedByDescending { it.message.timestamp }
 
-            recentMutable.value = recents
+                    allRecents.add(recentItem)
+                }
+
+                val sorted = allRecents.sortedByDescending { it.message.timestamp }
+                recentMutable.value = sorted
+
+                Log.d("NearNetVM", "loadRecentMessages: Loaded ${sorted.size} recents")
+
+            } catch (e: Exception) {
+                Log.e("NearNetVM", "loadRecentMessages error", e)
+            }
         }
 
     }
