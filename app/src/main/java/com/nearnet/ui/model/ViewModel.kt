@@ -522,22 +522,48 @@ class NearNetViewModel(): ViewModel() {
             //3.pokój publiczny i nie ma hasła (pusty string) -> dołącza
             //4.pokój publiczny i jest hasło - PRZYPADEK NIE MA PRAWA ZAJŚĆ, w razie czego ignorujemy hasło i wpuszczamy do pokoju ->dołącza
             //hasło do pokoju trzymane w postaci hasha na serwerze, dodawane przy tworzeniu pokoju
+            //var status :Boolean = true //wykomentować
+            try {
+                Log.d("NearNetVM", "Attempting to join room: ${room.name} with password=${if (password.isBlank()) "<empty>" else "<provided>"}")
 
-            var status :Boolean = true //wykomentować
-            if (status== true){ //jeżeli publiczny lub jeżeli podam dobre hasło do prywatnego, lub jeżeli prośba zostanie wysłana do admina
-                if (!room.isPrivate || (room.isPrivate && password!="")){ //hasło niewymagane lub podałam dobre hasło
-                    selectRoom(room)
-                }
-                else{ //jeżeli prośba została wysłana do admina
-                    //Popup Ania , że prośba pomyślnie wysłana do admina
+                var joinSuccess = false
+
+                if (room.isPrivate && password.isBlank()) {
+                    //TODO  prywatny pokój i brak hasła
+                    Log.d("NearNetVM", "Request sent to admin for private room: ${room.name}")
                     joinRoomEventMutable.emit(ProcessEvent.Success(Unit))
+                    return@launch
                 }
+
+                //TODO tutaj trzeba dodacpopup z haslem, bo w rpzeciwnym wypadku dla kazdego pokoju prwatnego nawet z haselm sie te przypadek wyzej odpala
+                // publiczny lub prywatny z hasłem
+                val passwordToSend = if (room.isPrivate) password else "" // publiczny zawsze pusty string
+                Log.d("NearNetVM", "Joining room: ${room.name} with password=${if (passwordToSend.isBlank()) "<empty>" else "<provided>"}")
+
+                if (::roomRepository.isInitialized) {
+                    joinSuccess = roomRepository.addMyselfToRoom(room.idRoom, passwordToSend)
+                    Log.d("NearNetVM", "Server returned joinSuccess=$joinSuccess for room: ${room.name}")
+                } else {
+                    Log.e("NearNetVM", "RoomRepository is not initialized!")
+                }
+
+                if (joinSuccess) {
+                    selectRoom(room)
+                    joinRoomEventMutable.emit(ProcessEvent.Success(Unit))
+                    Log.d("NearNetVM", "Successfully joined room: ${room.name}")
+                } else {
+                    joinRoomEventMutable.emit(ProcessEvent.Error("Failed to join room — incorrect password or server error."))
+                    Log.e("NearNetVM", "Could not join room: ${room.name}")
+                }
+
+            } catch (e: Exception) {
+                Log.e("NearNetVM", "Exception in joinRoom", e)
+                joinRoomEventMutable.emit(ProcessEvent.Error("Unexpected error while joining the room."))
             }
-            else{ //złe hasło podane do prywatnego lub serwer nawalił
-                joinRoomEventMutable.emit(ProcessEvent.Error("Incorrect password or something went wrong. Please try joining the room again."))
-            }
-        }
-    }
+
+
+
+        }}
     fun filterMyRooms(filterText: String){
         searchMyRoomsTextMutable.value = filterText
     }
