@@ -5,7 +5,6 @@ import android.util.Log
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-//import com.nearnet.Message
 import com.nearnet.Recent
 import com.nearnet.Room
 import com.nearnet.User
@@ -22,10 +21,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import com.nearnet.sessionlayer.data.model.Message
-
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
-
+import com.nearnet.sessionlayer.data.model.UserData
+import com.nearnet.sessionlayer.data.model.RoomData
 
 
 //var myRoomsList = listOf(
@@ -79,9 +76,9 @@ class NearNetViewModel(): ViewModel() {
     }
 
     //Selected user
-    private val selectedUserMutable = MutableStateFlow<User?>(null)
+    private val selectedUserMutable = MutableStateFlow<UserData?>(null)
     val selectedUser = selectedUserMutable.asStateFlow()
-    private val selectedUserEventMutable = MutableSharedFlow<ProcessEvent<User?>>()
+    private val selectedUserEventMutable = MutableSharedFlow<ProcessEvent<UserData?>>()
     val selectedUserEvent = selectedUserEventMutable.asSharedFlow()
 
     //Register user
@@ -101,17 +98,17 @@ class NearNetViewModel(): ViewModel() {
     val welcomeState = welcomeStateMutable.asStateFlow()
 
     //Rooms
-    private val myRoomsMutable = MutableStateFlow(listOf<Room>())
+    private val myRoomsMutable = MutableStateFlow(listOf<RoomData>())
     val myRooms = myRoomsMutable.asStateFlow()
 
     //Discover rooms
-    private val discoverRoomsMutable = MutableStateFlow(listOf<Room>())
+    private val discoverRoomsMutable = MutableStateFlow(listOf<RoomData>())
     val discoverRooms = discoverRoomsMutable.asStateFlow()
 
     //Filtered my rooms
     private val searchMyRoomsTextMutable = MutableStateFlow("")
     val searchMyRoomsText = searchMyRoomsTextMutable.asStateFlow()
-    val filteredMyRoomsList : StateFlow<List<Room>> = combine(myRooms, searchMyRoomsText) { rooms, searchText ->
+    val filteredMyRoomsList : StateFlow<List<RoomData>> = combine(myRooms, searchMyRoomsText) { rooms, searchText ->
         if (searchText.isEmpty()) rooms
         else rooms.filter { it.name.contains(searchText, ignoreCase = true) }
     }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
@@ -119,19 +116,19 @@ class NearNetViewModel(): ViewModel() {
     //Filtered discover rooms
     private val searchDiscoverTextMutable = MutableStateFlow("")
     val searchDiscoverText = searchDiscoverTextMutable.asStateFlow()
-    var filteredDiscoverList : StateFlow<List<Room>> = combine(discoverRooms, searchDiscoverText) { rooms, searchText ->
+    var filteredDiscoverList : StateFlow<List<RoomData>> = combine(discoverRooms, searchDiscoverText) { rooms, searchText ->
         if (searchText.isEmpty()) rooms
         else rooms.filter { it.name.contains(searchText, ignoreCase = true) }
     }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     //Selected room
-    private val selectedRoomMutable = MutableStateFlow<Room?>(null)
+    private val selectedRoomMutable = MutableStateFlow<RoomData?>(null)
     val selectedRoom = selectedRoomMutable.asStateFlow()
-    private val selectedRoomEventMutable = MutableSharedFlow<ProcessEvent<Room>>()
+    private val selectedRoomEventMutable = MutableSharedFlow<ProcessEvent<RoomData>>()
     val selectedRoomEvent = selectedRoomEventMutable.asSharedFlow()
 
     //Register room
-    private val registerRoomEventMutable = MutableSharedFlow<ProcessEvent<Room>>()
+    private val registerRoomEventMutable = MutableSharedFlow<ProcessEvent<RoomData>>()
     val registerRoomEvent = registerRoomEventMutable.asSharedFlow()
 
     //Update room
@@ -139,7 +136,7 @@ class NearNetViewModel(): ViewModel() {
     val updateRoomEvent = updateRoomEventMutable.asSharedFlow()
 
     //Delete room
-    private val deleteRoomEventMutable = MutableSharedFlow<ProcessEvent<Room?>>()
+    private val deleteRoomEventMutable = MutableSharedFlow<ProcessEvent<RoomData?>>()
     val deleteRoomEvent = deleteRoomEventMutable.asSharedFlow()
 
     //Join the room
@@ -159,40 +156,27 @@ class NearNetViewModel(): ViewModel() {
 
     }
 
-    fun logInUser(login: String, password: String){
+    //TODO dziala ok - ujednolicielm UserData
+    fun logInUser(login: String, password: String) {
         viewModelScope.launch {
-            // TODO Call asynchronous function to log user.
-            //val user = logInUser(login, password)
-            //selectedUserMutable.value = user
-            // val user = User(id = -1, login = "orci99", password = "abcd1234", name = "Orci Kätter")
             try {
-                val repoUser = repository.loginUser(login, password)
-                if (repoUser != null) {
-                    val uiUser = User(
-                        id = repoUser.id,
-                        login = repoUser.login,
-                        name = repoUser.name,
-                        avatar = "", // brak
-                        additionalSettings = "", // brak
-                        publicKey = "" // brak
-                    )
-                    selectedUserMutable.value = uiUser
-                    selectedUserEventMutable.emit(ProcessEvent.Success(uiUser))
-                } else {
-                    selectedUserEventMutable.emit(ProcessEvent.Error("Login failed"))
-                }
+                val userData = repository.loginUser(login, password)
+
+                selectedUserMutable.value = userData
+                selectedUserEventMutable.emit(ProcessEvent.Success(userData))
+
             } catch (e: Exception) {
                 Log.e("LoginError", "Failed to log in", e)
                 selectedUserEventMutable.emit(ProcessEvent.Error("Login failed: ${e.message}"))
             }
         }
     }
+    //TODO tez ok dziala
     fun registerUser(login: String, password: String){
         viewModelScope.launch {
             // TODO Call asynchronous function to register user. //DONE
             val status : Boolean = repository.registerUser(login, password)
-            //val status : Boolean = true //
-            if (status == true){
+            if (status){
                 welcomeStateMutable.value = true
                 registerUserEventMutable.emit(ProcessEvent.Success(Unit))
             }
@@ -201,6 +185,7 @@ class NearNetViewModel(): ViewModel() {
             }
         }
     }
+
     //tutaj czysci po prostu token = wylogowuje
     fun logOutUser(){ //wylogowuje nawet jak coś poszło nie tak z internetem/serwerem
         viewModelScope.launch{
@@ -219,7 +204,7 @@ class NearNetViewModel(): ViewModel() {
             }
         }
     }
-    // TODO ujednolicic userData z serwerem bo teraz inne + nie widzi w logach avataru, ale odbiera po prostu nie wyswietla na dev stronce
+    // TODO tutaj chyba jakas oblusge/pola do additionalSettings: String musisz dorobic + nie ma aktualizacji avatara
     fun updateUser(userName: String, password: String, passwordConfirmation: String, additionalSettings: String){
         viewModelScope.launch {
             if (!validateUpdate(userName, password, passwordConfirmation, additionalSettings)) {
@@ -227,7 +212,6 @@ class NearNetViewModel(): ViewModel() {
                 return@launch
             }
 
-            // TODO Call asynchronous function to update user.
             val currentUser = selectedUser.value
             if (currentUser == null) {
                 updateUserEventMutable.emit(ProcessEvent.Error("No user logged in."))
@@ -235,14 +219,13 @@ class NearNetViewModel(): ViewModel() {
             }
             //val status : Boolean = repository.updateUser(userName, password, additionalSettings)
             try {
-                //tutaj znowu rozjechane wszystko, trzeba ujednolicic z serwerem
                 val userData = com.nearnet.sessionlayer.data.model.UserData(
                     id = currentUser.id,
                     login = currentUser.login,
                     name = if (userName.isNotBlank()) userName else currentUser.name,
-                    avatar = "updateAvatar",
-                    publicKey = "newPublicKey",
-                    additionalSettings = "newAdditionalSettings"
+                    avatar = currentUser.avatar,
+                    publicKey = currentUser.publicKey,
+                    additionalSettings = if (additionalSettings.isNotBlank()) additionalSettings else currentUser.additionalSettings
                 )
 
                 repository.updateUser(userData)
@@ -304,115 +287,189 @@ class NearNetViewModel(): ViewModel() {
             //roomsMutable.value = getUserRoomList(idUser)
             if (::roomRepository.isInitialized) {
                 val roomsFromApi = roomRepository.getMyRooms()
-                // konwersja RoomData -> Room
-                val mappedRooms = roomsFromApi.map { rd ->
-                    Room(
-                        id = rd.idRoom,
-                        name = rd.name,
-                        description = rd.description,    // avatar jako opis, trzeba zrobic takie same klasy serw/ui
-                        avatar = rd.avatar,
-                        additionalSettings = "", // brak!!!!!!
-                        isPrivate = rd.isPrivate,
-                        isVisible = rd.isVisible,
-                        idAdmin = rd.idAdmin,
-                        users = emptyList()   //na serwerze tego nie ma
-                    )
-                }
-                myRoomsMutable.value = mappedRooms
+                myRoomsMutable.value = roomsFromApi
             } else {
                 Log.e("loadMyRooms", "RoomRepository is not initialized!")
             }
-            //roomsMutable.value = myRoomsList
         }
     }
+
     fun loadDiscoverRooms() {
         viewModelScope.launch {
             // TODO Call asynchronous function to fetch discover rooms here.
             //roomsMutable.value = getRoomList()
             //roomsMutable.value = discoverRoomsList
+//            if (::roomRepository.isInitialized) {
+//                val roomsFromApi = roomRepository.getAllRooms()
+//                val mappedRooms = roomsFromApi.map { rd ->
+//                    Room(
+//                        id = rd.idRoom,
+//                        name = rd.name,
+//                        description = rd.description,    // avatar jako opis, trzeba zrobic takie same klasy serw/ui
+//                        avatar = rd.avatar,
+//                        additionalSettings = "", // brak!!!!!
+//                        isPrivate = rd.isPrivate,
+//                        isVisible = rd.isVisible,
+//                        idAdmin = rd.idAdmin,
+//                        users = emptyList() //lista id users należących
+//                    )
+//                }
             if (::roomRepository.isInitialized) {
                 val roomsFromApi = roomRepository.getAllRooms()
-                val mappedRooms = roomsFromApi.map { rd ->
-                    Room(
-                        id = rd.idRoom,
-                        name = rd.name,
-                        description = rd.description,    // avatar jako opis, trzeba zrobic takie same klasy serw/ui
-                        avatar = rd.avatar,
-                        additionalSettings = "", // brak!!!!!
-                        isPrivate = rd.isPrivate,
-                        isVisible = rd.isVisible,
-                        idAdmin = rd.idAdmin,
-                        users = emptyList() //lista id users należących
-                    )
-                }
-                discoverRoomsMutable.value = mappedRooms
+                discoverRoomsMutable.value = roomsFromApi
             } else {
                 Log.e("loadDiscoverRooms", "RoomRepository is not initialized!")
             }
         }
     }
-    fun createRoom(roomName : String, roomDescription : String, password: String?, passwordConfirmation: String?, isPrivate : Boolean, isVisible : Boolean, additionalSettings: String =""){
+//    fun createRoom(roomName : String, roomDescription : String, password: String?, passwordConfirmation: String?, isPrivate : Boolean, isVisible : Boolean, additionalSettings: String =""){
+//        viewModelScope.launch {
+//            if (!validateRoom(roomName, roomDescription, password, passwordConfirmation)) {
+//                registerRoomEventMutable.emit(ProcessEvent.Error("Something went wrong while creating the room."))
+//                return@launch
+//            }
+//            if (::roomRepository.isInitialized) {
+//
+//                // Jeśli pokój jest publiczny to hasło jest zawsze pustym stringiem
+//                val createdRoomData = roomRepository.addRoom(roomName, roomDescription) //podać pozostałe argumenty: avatar, isPrivate, isVisibility, additionalSettings
+//                if (createdRoomData != null) {
+//                    val createdRoom = Room(
+//                        id = createdRoomData.idRoom,
+//                        name = createdRoomData.name,
+//                        description = createdRoomData.description, //tutaj dalem to co mamy jako avatar bo nie mamy opisu na serwie a mamy avatar
+//                        avatar = createdRoomData.avatar,
+//                        additionalSettings = "", // brak!!!!!!
+//                        isPrivate = createdRoomData.isPrivate,
+//                        isVisible = createdRoomData.isVisible,
+//                        idAdmin = createdRoomData.idAdmin,
+//                        users = emptyList() //lista id users należących
+//                    )
+//                    //wybranie nowego pokoju od razu przelacza do wiadomosci, po utworzeniu
+//                    registerRoomEventMutable.emit(ProcessEvent.Success(createdRoom))
+//                } else {
+//                    Log.e("createRoom", "❌ Nie udało się utworzyć pokoju na serwerze")
+//                    registerRoomEventMutable.emit(ProcessEvent.Error("Something went wrong while creating the room."))
+//                }
+//            } else {
+//                Log.e("createRoom", "❌ RoomRepository nie jest zainicjalizowane!")
+//                registerRoomEventMutable.emit(ProcessEvent.Error("Something went wrong while creating the room."))
+//            }
+//        }
+//    }
+
+    fun createRoom(
+        roomName: String,
+        roomDescription: String,
+        password: String?,
+        passwordConfirmation: String?,
+        isPrivate: Boolean,
+        isVisible: Boolean,
+        additionalSettings: String = ""
+    ) {
         viewModelScope.launch {
             if (!validateRoom(roomName, roomDescription, password, passwordConfirmation)) {
                 registerRoomEventMutable.emit(ProcessEvent.Error("Something went wrong while creating the room."))
                 return@launch
             }
-//            val createdRoom = Room(id = -1, name = roomName, description = roomDescription, isPrivate = false)
-//            // TODO Call asynchronous function to create room.
-//            // createdRoom.id = createRoom(createdRoom)
-//            myRoomsList += createdRoom
-//            discoverRoomsList += createdRoom
-//            selectRoom(createdRoom)
+
             if (::roomRepository.isInitialized) {
-                // Jeśli pokój jest publiczny to hasło jest zawsze pustym stringiem
-                val createdRoomData = roomRepository.addRoom(roomName, roomDescription) //podać pozostałe argumenty: avatar, isPrivate, isVisibility, additionalSettings
-                if (createdRoomData != null) {
-                    val createdRoom = Room(
-                        id = createdRoomData.idRoom,
-                        name = createdRoomData.name,
-                        description = createdRoomData.description, //tutaj dalem to co mamy jako avatar bo nie mamy opisu na serwie a mamy avatar
-                        avatar = createdRoomData.avatar,
-                        additionalSettings = "", // brak!!!!!!
-                        isPrivate = createdRoomData.isPrivate,
-                        isVisible = createdRoomData.isVisible,
-                        idAdmin = createdRoomData.idAdmin,
-                        users = emptyList() //lista id users należących
+                try {
+                    // jeśli pokój jest publiczny, hasło będzie puste
+                    val createdRoomData = roomRepository.addRoom(
+                        name = roomName,
+                        description = roomDescription,
+                        password = password ?: "",
+                        isPrivate = isPrivate,
+                        isVisible = isVisible,
+                        additionalSettings = additionalSettings
                     )
-                    //wybranie nowego pokoju od razu przelacza do wiadomosci, po utworzeniu
-                    registerRoomEventMutable.emit(ProcessEvent.Success(createdRoom))
-                } else {
-                    Log.e("createRoom", "❌ Nie udało się utworzyć pokoju na serwerze")
+
+                    if (createdRoomData != null) {
+                        // Emitujemy bezpośrednio RoomData
+                        registerRoomEventMutable.emit(ProcessEvent.Success(createdRoomData))
+                    } else {
+                        Log.e("createRoom", "❌ Nie udało się utworzyć pokoju na serwerze")
+                        registerRoomEventMutable.emit(ProcessEvent.Error("Something went wrong while creating the room."))
+                    }
+
+                } catch (e: Exception) {
+                    Log.e("createRoom", "❌ Błąd podczas tworzenia pokoju", e)
                     registerRoomEventMutable.emit(ProcessEvent.Error("Something went wrong while creating the room."))
                 }
+
             } else {
                 Log.e("createRoom", "❌ RoomRepository nie jest zainicjalizowane!")
                 registerRoomEventMutable.emit(ProcessEvent.Error("Something went wrong while creating the room."))
             }
         }
     }
-    fun updateRoom(name: String, description: String, password: String?, passwordConfirmation: String?, isPrivate: Boolean, isVisible: Boolean) {
+
+//    fun updateRoom(name: String, description: String, password: String?, passwordConfirmation: String?, isPrivate: Boolean, isVisible: Boolean) {
+//        viewModelScope.launch {
+//            if (!validateRoom(name, description, password, passwordConfirmation)) {
+//                updateRoomEventMutable.emit(ProcessEvent.Error("Failed to update room. Please try again."))
+//                return@launch
+//            }
+//            val selectedRoom = selectedRoom.value
+//            if (selectedRoom == null) {
+//                updateRoomEventMutable.emit(ProcessEvent.Error("Failed to update room. Please try again."))
+//                return@launch
+//            }
+//            // TODO Call asynchronous function to update doom data.
+//            // Jeśli hasło jest pustym stringiem, to oznacza, że nie zostało zmienione, tak więc w bazie zostaje stare!
+//            // val result = updateRoom(RoomData) Marek
+//            val result = true
+//
+//            if (result) {
+//                updateRoomEventMutable.emit(ProcessEvent.Success(Unit))
+//            } else {
+//                updateRoomEventMutable.emit(ProcessEvent.Error("Failed to update room. Please try again."))
+//            }
+//        }
+//    }
+
+    fun updateRoom(
+        name: String,
+        description: String,
+        password: String?,
+        passwordConfirmation: String?,
+        isPrivate: Boolean,
+        isVisible: Boolean
+    ) {
         viewModelScope.launch {
+
             if (!validateRoom(name, description, password, passwordConfirmation)) {
                 updateRoomEventMutable.emit(ProcessEvent.Error("Failed to update room. Please try again."))
                 return@launch
             }
-            val selectedRoom = selectedRoom.value
-            if (selectedRoom == null) {
+
+            val currentRoom = selectedRoom.value
+            if (currentRoom == null) {
                 updateRoomEventMutable.emit(ProcessEvent.Error("Failed to update room. Please try again."))
                 return@launch
             }
-            // TODO Call asynchronous function to update doom data.
-            // Jeśli hasło jest pustym stringiem, to oznacza, że nie zostało zmienione, tak więc w bazie zostaje stare!
-            // val result = updateRoom(RoomData) Marek
-            val result = true
 
-            if (result) {
+            val updatedRoomData = currentRoom.copy(
+                name = name.trim(),
+                description = description.trim(),
+                password = password ?: currentRoom.password,
+                isPrivate = isPrivate,
+                isVisible = isVisible
+            )
+
+            val result = roomRepository.updateRoom(updatedRoomData)
+
+            if (result != null) {
+                selectedRoomMutable.value = result
                 updateRoomEventMutable.emit(ProcessEvent.Success(Unit))
             } else {
                 updateRoomEventMutable.emit(ProcessEvent.Error("Failed to update room. Please try again."))
             }
         }
     }
+
+
+
     fun validateRoom(name: String, description: String, password: String?, passwordConfirmation: String?): Boolean {
         if (name.isBlank()) {
             return false
@@ -433,7 +490,7 @@ class NearNetViewModel(): ViewModel() {
         }
         return true
     }
-    fun deleteRoom(room: Room) {
+    fun deleteRoom(room: RoomData?) {
         viewModelScope.launch {
             val selectedRoom = selectedRoom.value
             if (selectedRoom == null) {
@@ -441,8 +498,9 @@ class NearNetViewModel(): ViewModel() {
                 return@launch
             }
             //TODO Call asynchronous function to delete room, when user is its admin.
-            //Val status = deleteRoom(idRoom) Marek
-            val status = true
+            //TODO tutaj chyba musisz KUBA sprawdzic na serwie, czy to jest admin pokoju?
+            val status = roomRepository.deleteRoom(selectedRoom.idRoom)
+            //val status = true
 
             if (status) {
                 selectedRoomMutable.value = null
@@ -452,7 +510,7 @@ class NearNetViewModel(): ViewModel() {
             }
         }
     }
-    fun joinRoom(room: Room, password: String){
+    fun joinRoom(room: RoomData, password: String){
         viewModelScope.launch {
             //var status : Boolean = joinRoom(room.id, ””) //funkcja dla Marka -> podawane jest id pokoju gdzie dołączam i hasło lub pusty string->
             // hasło: dla publicznego pokoju pusty string podaję, dla  prywatnego podaję hasło które użytkownik wpisał lub pusty string gdy go nie zna,
@@ -464,29 +522,55 @@ class NearNetViewModel(): ViewModel() {
             //3.pokój publiczny i nie ma hasła (pusty string) -> dołącza
             //4.pokój publiczny i jest hasło - PRZYPADEK NIE MA PRAWA ZAJŚĆ, w razie czego ignorujemy hasło i wpuszczamy do pokoju ->dołącza
             //hasło do pokoju trzymane w postaci hasha na serwerze, dodawane przy tworzeniu pokoju
+            //var status :Boolean = true //wykomentować
+            try {
+                Log.d("NearNetVM", "Attempting to join room: ${room.name} with password=${if (password.isBlank()) "<empty>" else "<provided>"}")
 
-            var status :Boolean = true //wykomentować
-            if (status== true){ //jeżeli publiczny lub jeżeli podam dobre hasło do prywatnego, lub jeżeli prośba zostanie wysłana do admina
-                if (!room.isPrivate || (room.isPrivate && password!="")){ //hasło niewymagane lub podałam dobre hasło
-                    selectRoom(room)
-                }
-                else{ //jeżeli prośba została wysłana do admina
-                    //Popup Ania , że prośba pomyślnie wysłana do admina
+                var joinSuccess = false
+
+                if (room.isPrivate && password.isBlank()) {
+                    //TODO  prywatny pokój i brak hasła
+                    Log.d("NearNetVM", "Request sent to admin for private room: ${room.name}")
                     joinRoomEventMutable.emit(ProcessEvent.Success(Unit))
+                    return@launch
                 }
+
+                //TODO tutaj trzeba dodacpopup z haslem, bo w rpzeciwnym wypadku dla kazdego pokoju prwatnego nawet z haselm sie te przypadek wyzej odpala
+                // publiczny lub prywatny z hasłem
+                val passwordToSend = if (room.isPrivate) password else "" // publiczny zawsze pusty string
+                Log.d("NearNetVM", "Joining room: ${room.name} with password=${if (passwordToSend.isBlank()) "<empty>" else "<provided>"}")
+
+                if (::roomRepository.isInitialized) {
+                    joinSuccess = roomRepository.addMyselfToRoom(room.idRoom, passwordToSend)
+                    Log.d("NearNetVM", "Server returned joinSuccess=$joinSuccess for room: ${room.name}")
+                } else {
+                    Log.e("NearNetVM", "RoomRepository is not initialized!")
+                }
+
+                if (joinSuccess) {
+                    selectRoom(room)
+                    joinRoomEventMutable.emit(ProcessEvent.Success(Unit))
+                    Log.d("NearNetVM", "Successfully joined room: ${room.name}")
+                } else {
+                    joinRoomEventMutable.emit(ProcessEvent.Error("Failed to join room — incorrect password or server error."))
+                    Log.e("NearNetVM", "Could not join room: ${room.name}")
+                }
+
+            } catch (e: Exception) {
+                Log.e("NearNetVM", "Exception in joinRoom", e)
+                joinRoomEventMutable.emit(ProcessEvent.Error("Unexpected error while joining the room."))
             }
-            else{ //złe hasło podane do prywatnego lub serwer nawalił
-                joinRoomEventMutable.emit(ProcessEvent.Error("Incorrect password or something went wrong. Please try joining the room again."))
-            }
-        }
-    }
+
+
+
+        }}
     fun filterMyRooms(filterText: String){
         searchMyRoomsTextMutable.value = filterText
     }
     fun filterDiscoverRooms(filterText: String){
         searchDiscoverTextMutable.value = filterText
     }
-    fun selectRoom(room : Room) {
+    fun selectRoom(room : RoomData) {
         viewModelScope.launch {
             loadMessages(room)
             selectedRoomMutable.value = room
@@ -498,64 +582,151 @@ class NearNetViewModel(): ViewModel() {
             }
         }
     }
-    fun loadMessages(room: Room){
+//    fun loadMessages(room: RoomData){
+//        viewModelScope.launch {
+//            // TODO Call asynchronous function to fetch messages here. Przefiltrowana i posortowana lista potrzebna.
+//            //messagesMutable.value = getMessageHistory(idRoom = room.id, offset = 0, numberOfMessages = -1)
+//            if (!::messageUtils.isInitialized) {
+//                Log.e("loadMessages", "MessageUtils nie jest zainicjalizowany")
+//                return@launch
+//            } else {
+//                Log.d("loadMessages", "MessageUtils jest zainicjalizowany")
+//            }
+//            //pobieranie wiadomosci
+//            val response = try {
+//                Log.d("loadMessages", "Pobieram wiadomości dla pokoju=${room.idRoom}")
+//                messageUtils.requestLastMessages(room.idRoom)
+//            } catch (e: Exception) {
+//                Log.e("loadMessages", " Błąd podczas pobierania wiadomości dla pokoju=${room.idRoom}", e)
+//                null
+//            }
+//
+//            //sprawdzenie odpowiedzi
+//            if (response == null) {
+//                Log.e("loadMessages", "Serwer zwrócił pustą odpowiedź dla pokoju=${room.idRoom}")
+//                return@launch
+//            } else {
+//                Log.d("loadMessages", "Otrzymano odpowiedź z serwera dla pokoju=${room.idRoom}: $response")
+//            }
+//
+//            // sprawdzenie listy wiadomosci
+//            val messageList = response.`package`?.messageList
+//            if (messageList.isNullOrEmpty()) {
+//                Log.w("loadMessages", "Brak wiadomości w historii dla pokoju=${room.idRoom}")
+//            } else {
+//                Log.d("loadMessages", "Serwer zwrócił ${messageList.size} wiadomości dla pokoju: ${room.idRoom}")
+//            }
+//
+//            val userResponse = try {
+//                messageUtils.requestRoomUsers(room.idRoom)
+//            } catch (e: Exception) {
+//                Log.e("loadMessages", "Błąd podczas pobierania listy użytkowników dla pokoju=${room.idRoom}", e)
+//                null
+//            }
+//
+//            val userMap = userResponse?.userList?.associateBy(
+//                { it.idUser },
+//                { it.name }
+//            ) ?: emptyMap()
+//
+//            Log.d("loadMessages", "Mapa użytkowników: $userMap")
+//
+//            val messagesFromApi = messageUtils.mapPayloadToMessages(
+//                room.idRoom,
+//                messageList ?: emptyList()
+//            ).map { msg ->
+//                msg.copy(
+//                    userId = userMap[msg.userId] ?: msg.userId // jeśli nie znaleziono, zostaje id
+//                )
+//            }
+//
+////            // mapowanie do UI
+////            val messagesFromApi = messageUtils.mapPayloadToMessages(
+////                room.idRoom,
+////                messageList ?: emptyList()
+////            )
+//
+////            val messagesFromApi = messageList?.map { payload ->
+////                Message(
+////                    id = payload.timestamp,
+////                    roomId = "0", // TODO: Dane z serwera. Podany id pokoju, w którym te wiadomości wysyłane.
+////                    userId = payload.userId,
+////                    data = payload.data,
+////                    timestamp = "2025-10-02 00:00.00.0000", // TODO: czas podany od 1970 roku
+////                    messageType = "TXT",
+////                    additionalData = ""
+////                )
+////            } ?: emptyList()
+//
+//            // aktualizacja stanu
+//            messagesMutable.value = messagesFromApi
+//        }
+//    }
+
+    fun loadMessages(room: RoomData) {
         viewModelScope.launch {
-            // TODO Call asynchronous function to fetch messages here. Przefiltrowana i posortowana lista potrzebna.
-            //messagesMutable.value = getMessageHistory(idRoom = room.id, offset = 0, numberOfMessages = -1)
             if (!::messageUtils.isInitialized) {
-                Log.e("loadMessages", "MessageUtils nie jest zainicjalizowany")
+                Log.e("loadMessages", "❌ MessageUtils nie jest zainicjalizowany")
                 return@launch
-            } else {
-                Log.d("loadMessages", "MessageUtils jest zainicjalizowany")
             }
-            //pobieranie wiadomosci
+
+            Log.d("loadMessages", "MessageUtils jest zainicjalizowany — startuję pobieranie wiadomości")
+
+            //pobranie wiadomości z serwera
             val response = try {
-                Log.d("loadMessages", "Pobieram wiadomości dla pokoju=${room.id}")
-                messageUtils.requestLastMessages(room.id)
+                Log.d("loadMessages", "Pobieram wiadomości dla pokoju=${room.idRoom}")
+                messageUtils.requestLastMessages(room.idRoom)
             } catch (e: Exception) {
-                Log.e("loadMessages", " Błąd podczas pobierania wiadomości dla pokoju=${room.id}", e)
+                Log.e("loadMessages", "Błąd podczas pobierania wiadomości dla pokoju=${room.idRoom}", e)
                 null
             }
 
-            //sprawdzenie odpowiedzi
             if (response == null) {
-                Log.e("loadMessages", "Serwer zwrócił pustą odpowiedź dla pokoju=${room.id}")
+                Log.e("loadMessages", "Serwer zwrócił pustą odpowiedź dla pokoju=${room.idRoom}")
                 return@launch
-            } else {
-                Log.d("loadMessages", "Otrzymano odpowiedź z serwera dla pokoju=${room.id}: $response")
             }
 
-            // sprawdzenie listy wiadomosci
             val messageList = response.`package`?.messageList
             if (messageList.isNullOrEmpty()) {
-                Log.w("loadMessages", "Brak wiadomości w historii dla pokoju=${room.id}")
+                Log.w("loadMessages", "Brak wiadomości w historii dla pokoju=${room.idRoom}")
             } else {
-                Log.d("loadMessages", "Serwer zwrócił ${messageList.size} wiadomości dla pokoju: ${room.id}")
+                Log.d("loadMessages", "Otrzymano ${messageList.size} wiadomości dla pokoju=${room.idRoom}")
             }
 
-            // mapowanie do UI
+            //pobranie listy użytkowników (żeby zamienić ID → nick)
+            val userResponse = try {
+                Log.d("loadMessages", "Pobieram użytkowników dla pokoju=${room.idRoom}")
+                messageUtils.requestRoomUsers(room.idRoom)
+            } catch (e: Exception) {
+                Log.e("loadMessages", "Błąd podczas pobierania listy użytkowników dla pokoju=${room.idRoom}", e)
+                null
+            }
+
+            //mapowanie ID → nazw użytkowników
+            val userMap = userResponse?.userList?.rooms
+                ?.associateBy({ it.id }, { it.name })
+                ?: emptyMap()
+
+            Log.d("loadMessages", "👥 Utworzono mapę użytkowników: ${userMap.size} pozycji")
+
+            //mapowanie wiadomości i zamiana userId na nickname
             val messagesFromApi = messageUtils.mapPayloadToMessages(
-                room.id,
+                room.idRoom,
                 messageList ?: emptyList()
-            )
+            ).map { msg ->
+                msg.copy(
+                    userId = userMap[msg.userId] ?: msg.userId // jeśli nie znaleziono, zostaje ID
+                )
+            }
 
-//            val messagesFromApi = messageList?.map { payload ->
-//                Message(
-//                    id = payload.timestamp,
-//                    roomId = "0", // TODO: Dane z serwera. Podany id pokoju, w którym te wiadomości wysyłane.
-//                    userId = payload.userId,
-//                    data = payload.data,
-//                    timestamp = "2025-10-02 00:00.00.0000", // TODO: czas podany od 1970 roku
-//                    messageType = "TXT",
-//                    additionalData = ""
-//                )
-//            } ?: emptyList()
-
-            // aktualizacja stanu
+            //aktualizacja stanu UI
             messagesMutable.value = messagesFromApi
+            Log.d("loadMessages", "Załadowano ${messagesFromApi.size} wiadomości do UI")
         }
     }
-    fun sendMessage(messageText : String, room : Room){
+
+
+    fun sendMessage(messageText : String, room : RoomData){
         viewModelScope.launch{
             //val message = Message (id = -1, userNameSender = "Orci Kätter", content = messageText)
             //messagesMutable.value += message
@@ -573,7 +744,7 @@ class NearNetViewModel(): ViewModel() {
 
             val newMessage = com.nearnet.sessionlayer.data.model.Message(
                 id = timestamp,
-                roomId = room.id,
+                roomId = room.idRoom,
                 userId = userName,
                 messageType = "TXT",
                 message = messageText,
@@ -586,7 +757,7 @@ class NearNetViewModel(): ViewModel() {
             Log.d("sendMessage", "Wysyłam wiadomość na backend: $newMessage")
 
             try {
-                val success = messageUtils.sendMessage(room.id, newMessage)
+                val success = messageUtils.sendMessage(room.idRoom, newMessage)
 
                 if (success) {
                     Log.d("sendMessage", "Wiadomość wysłana poprawnie")
@@ -599,6 +770,20 @@ class NearNetViewModel(): ViewModel() {
             }
         }
     }
+    fun Room.toRoomData(): RoomData {
+        return RoomData(
+            idRoom = this.id,
+            name = this.name,
+            description = this.description,
+            avatar = this.avatar,
+            password = "",
+            isPrivate = this.isPrivate,
+            isVisible = this.isVisible,
+            idAdmin = this.idAdmin,
+            additionalSettings = this.additionalSettings
+        )
+    }
+
     fun loadRecentMessages() {
         viewModelScope.launch {
             // TODO Call asynchronous function to fetch recent messages here.
@@ -606,31 +791,69 @@ class NearNetViewModel(): ViewModel() {
             //funkcja: grupuje wiadomości po pokojach, dla każdej grupy uzyskuje dane pokoju, a następnie tworzy trójki
             //typu (wiadomość, pokój, nazwa użytkownika), w SQL join pokoju do wiadomości i do usera, i groupby po pokojach ,
             //a potem select na te trójki
-            val backendMessages = messagesListRecent
-            recentMutable.value = backendMessages // ta funkcja na teraz bierze pokój o jakimś IdRoom z Twoich na serwerze, więc jeden się wyświetla z Twoich pokoi na sztywno, reszta co się wyświetla to te o ID 0 , bo null wziął za 0. Dasz swoją funkcję to powinno działać.
-                .groupBy { it.roomId } // grupowanie po pokojach
-                .mapValues { (_, messagesInRoom) ->
-                    val latestBackendMessage = messagesInRoom.maxByOrNull { it.timestamp }!!
-                    val room = myRooms.value.find { it.id == latestBackendMessage.roomId }
+            try {
+                val rooms = roomRepository.getMyRooms()
+                myRoomsMutable.value = rooms
+
+                val allRecents = mutableListOf<Recent>()
+
+                for (room in rooms) {
+                    val response = messageUtils.requestLastMessages(room.idRoom)
+
+                    if (response?.`package`?.messageList.isNullOrEmpty()) continue
+
+                    val userResponse = try {
+                        messageUtils.requestRoomUsers(room.idRoom)
+                    } catch (e: Exception) {
+                        Log.e("loadRecentMessages", "Błąd przy pobieraniu użytkowników pokoju=${room.idRoom}", e)
+                        null
+                    }
+                    //mapowanie id -> name
+                    val userMap = userResponse?.userList?.rooms
+                        ?.associate { user -> user.id to user.name }
+                        ?: emptyMap()
+
+                    val messages = messageUtils.mapPayloadToMessages(
+                        room.idRoom,
+                        response?.`package`?.messageList ?: emptyList()
+                    ).map { msg ->
+                        msg.copy(
+                            userId = userMap[msg.userId] ?: msg.userId
+                        )
+                    }
+
+
+                    val latest = messages.maxByOrNull { it.timestamp } ?: continue
+
                     val latestMessageUI = com.nearnet.Message(
-                        id = latestBackendMessage.id,
-                        roomId = latestBackendMessage.roomId,
-                        userId = latestBackendMessage.userId,
-                        data = latestBackendMessage.message, // backend 'message' → UI 'data'
-                        timestamp = latestBackendMessage.timestamp,
-                        messageType = latestBackendMessage.messageType,
-                        additionalData = latestBackendMessage.additionalData
+                        id = latest.id,
+                        roomId = latest.roomId,
+                        userId = latest.userId,
+                        data = latest.message,
+                        timestamp = latest.timestamp,
+                        messageType = latest.messageType,
+                        additionalData = latest.additionalData
                     )
-                    Recent(
+
+                    val recentItem = Recent(
                         message = latestMessageUI,
                         room = room,
-                        username = latestBackendMessage.userId
+                        username = latest.userId
                     )
+
+                    allRecents.add(recentItem)
                 }
-                .values
-                .toList()
-                .sortedByDescending { it.message.timestamp }
+
+                val sorted = allRecents.sortedByDescending { it.message.timestamp }
+                recentMutable.value = sorted
+
+                Log.d("NearNetVM", "loadRecentMessages: Loaded ${sorted.size} recents")
+
+            } catch (e: Exception) {
+                Log.e("NearNetVM", "loadRecentMessages error", e)
+            }
         }
+
     }
 
 }

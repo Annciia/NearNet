@@ -10,7 +10,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -70,7 +69,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.nearnet.sessionlayer.logic.MessageUtils
+import com.nearnet.sessionlayer.data.model.RoomData
+import com.nearnet.sessionlayer.data.model.UserData
 import com.nearnet.sessionlayer.logic.RoomRepository
 import com.nearnet.sessionlayer.logic.UserRepository
 import com.nearnet.ui.component.ConversationPanel
@@ -92,7 +92,9 @@ import kotlinx.coroutines.launch
 data class Room(val id: String, var name: String, var description: String, var avatar: String, var additionalSettings: String, var isPrivate: Boolean, var isVisible: Boolean, var idAdmin: String, var users: List<String>)
 data class Message(val id: String, val userId: String, val roomId: String, val data: String, val timestamp: String, val messageType: String, var additionalData: String)
 data class User(val id: String, val login: String, val name: String, var avatar: String, var additionalSettings: String, var publicKey: String)
-data class Recent(val message: Message, val room: Room?, val username: String)
+data class Recent(val message: Message, val room: RoomData?, val username: String)
+
+
 
 class MainActivity : ComponentActivity() {
 
@@ -725,8 +727,8 @@ class MainActivity : ComponentActivity() {
     fun CreateOrUpdateRoomScreen(navController: NavController){
         val context = LocalContext.current
         val vm = LocalViewModel.current
-        val selectedRoom: Room? = if (navController.currentDestination?.route == "roomSettingsScreen") vm.selectedRoom.value else null
-        val selectedUser: User? = vm.selectedUser.value
+        val selectedRoom: RoomData? = if (navController.currentDestination?.route == "roomSettingsScreen") vm.selectedRoom.value else null
+        val selectedUser: UserData? = vm.selectedUser.value
         var roomName by rememberSaveable { mutableStateOf(selectedRoom?.name ?: "") }
         var roomDescription by rememberSaveable { mutableStateOf(selectedRoom?.description ?: "") }
         var isCheckedPublic by rememberSaveable { mutableStateOf(if (selectedRoom != null) !selectedRoom.isPrivate else false) }
@@ -973,7 +975,7 @@ class MainActivity : ComponentActivity() {
                     Text("Accept")
                 }
                 Spacer(Modifier.width(10.dp))
-                if(vm.welcomeState.value == false) {
+                if(!vm.welcomeState.value) {
                     Button(onClick = {
                         navController.popBackStack()
                     }) {

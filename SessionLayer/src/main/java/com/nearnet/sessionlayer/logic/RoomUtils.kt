@@ -21,13 +21,6 @@ data class DeleteRoomResponse(
     val error: String? = null
 )
 
-//data class AddRoomRequest(
-//    val name: String,
-//    val avatar: String,
-//    val password: String,
-//    val isPrivate: Boolean,
-//    val isVisible: Boolean
-//)
 
 data class AddRoomRequest(
     val name: String,
@@ -38,14 +31,6 @@ data class AddRoomRequest(
     val isVisible: Boolean = true,
     val additionalSettings: String = ""
 )
-
-//data class UpdateRoomRequest(
-//    val name: String,
-//    val avatar: String,
-//    val password: String = "",
-//    val isPrivate: Boolean = false,
-//    val isVisible: Boolean = true
-//)
 
 data class UpdateRoomRequest(
     val name: String? = null,
@@ -81,7 +66,7 @@ data class AddMyselfToRoomRequest(
 )
 
 data class AddMyselfToRoomResponse(
-    @SerializedName("Succes") val success: Boolean,
+    val success: Boolean, // poprawna nazwa
     val error: String? = null
 )
 
@@ -153,7 +138,7 @@ class RoomRepository(private val context: Context) {
         if (response.isSuccessful) {
             response.body()?.rooms ?: emptyList()
         } else {
-            Log.e("ROOM", "❌ getAllRooms failed: ${response.code()} ${response.errorBody()?.string()}")
+            Log.e("ROOM", "getAllRooms failed: ${response.code()} ${response.errorBody()?.string()}")
             emptyList()
         }
     }
@@ -165,27 +150,32 @@ class RoomRepository(private val context: Context) {
         if (response.isSuccessful) {
             response.body()?.rooms ?: emptyList()
         } else {
-            Log.e("ROOM", "❌ getMyRooms failed: ${response.code()} ${response.errorBody()?.string()}")
+            Log.e("ROOM", "getMyRooms failed: ${response.code()} ${response.errorBody()?.string()}")
             emptyList()
         }
     }
 
 
-    suspend fun addRoom(roomName: String, roomDescription: String): RoomData? = withContext(Dispatchers.IO) {
+    suspend fun addRoom(name: String,
+                        description: String,
+                        password: String,
+                        isPrivate: Boolean,
+                        isVisible: Boolean,
+                        additionalSettings: String = ""): RoomData? = withContext(Dispatchers.IO) {
         val token = getToken()
         if (token == null) {
-            Log.e("ROOM", "❌ Token jest null! Nie można dodać pokoju")
+            Log.e("ROOM", "Token jest null! Nie można dodać pokoju")
             return@withContext null
         }
 
-        // Tworzymy request, używając parametrów z ViewModelu
         val request = AddRoomRequest(
-            name = roomName.trim(),
-            description =  roomDescription.trim(),
+            name = name.trim(),
+            description = description.trim(),
             avatar = "",
-            password = "",
-            isPrivate = false,
-            isVisible = true
+            password = password.trim(),
+            isPrivate = isPrivate,
+            isVisible = isVisible,
+            additionalSettings = additionalSettings
         )
 
         Log.d("ROOM", "➡️ Sending addRoom request with body: $request")
@@ -200,12 +190,12 @@ class RoomRepository(private val context: Context) {
             if (response.isSuccessful) {
                 response.body()
             } else {
-                Log.e("ROOM", "❌ addRoom failed: ${response.code()} ${response.errorBody()?.string()}")
+                Log.e("ROOM", "addRoom failed: ${response.code()} ${response.errorBody()?.string()}")
                 null
             }
 
         } catch (e: Exception) {
-            Log.e("ROOM", "❌ Exception in addRoom", e)
+            Log.e("ROOM", "Exception in addRoom", e)
             null
         }
     }
@@ -214,12 +204,13 @@ class RoomRepository(private val context: Context) {
     suspend fun updateRoom(room: RoomData): RoomData? = withContext(Dispatchers.IO) {
         val token = getToken() ?: return@withContext null
 
-        val idRoom = getRoomIdByName(room.name) ?: return@withContext null
-        val avatarUrl = room.avatar.ifEmpty { "https://example.com/default-avatar.png" }
+        //val idRoom = getRoomIdByName(room.name) ?: return@withContext null
 
+        val idRoom = room.idRoom
         val body = UpdateRoomRequest(
             name = room.name,
-            avatar = avatarUrl,
+            description = room.description,
+            avatar = room.avatar.ifEmpty { "" },
             password = room.password,
             isPrivate = room.isPrivate,
             isVisible = room.isVisible
@@ -230,45 +221,46 @@ class RoomRepository(private val context: Context) {
             if (response.isSuccessful) {
                 response.body()
             } else {
-                Log.e("ROOM", "❌ updateRoom failed: ${response.code()} ${response.errorBody()?.string()}")
+                Log.e("ROOM", "updateRoom failed: ${response.code()} ${response.errorBody()?.string()}")
                 null
             }
         } catch (e: Exception) {
-            Log.e("ROOM", "❌ Exception in updateRoom", e)
+            Log.e("ROOM", "Exception in updateRoom", e)
             null
         }
     }
 
 
 
-    suspend fun deleteRoom(roomName: String): Boolean = withContext(Dispatchers.IO) {
+    suspend fun deleteRoom(roomId: String): Boolean = withContext(Dispatchers.IO) {
         val token = getToken()
         if (token == null) {
-            Log.e("ROOM", "❌ Token jest null! Nie można usunąć pokoju")
+            Log.e("ROOM", "Token jest null! Nie można usunąć pokoju")
             return@withContext false
         }
-        val idRoom = getRoomIdByName(roomName) ?: return@withContext false
 
         try {
-            val response = api.deleteRoom(token, idRoom)
+            val response = api.deleteRoom(token, roomId)
 
-            Log.d("ROOM", "➡️ Sending deleteRoom request for id: $idRoom")
-            Log.d("ROOM", "⬅️ Response code: ${response.code()}")
-            Log.d("ROOM", "⬅️ Response body: ${response.body()}")
-            Log.d("ROOM", "⬅️ Response error body: ${response.errorBody()?.string()}")
+            Log.d("ROOM", "Sending deleteRoom request for id: $roomId")
+            Log.d("ROOM", "Response code: ${response.code()}")
+            Log.d("ROOM", "Response body: ${response.body()}")
+            Log.d("ROOM", "Response error body: ${response.errorBody()?.string()}")
 
             if (response.isSuccessful) {
                 response.body()?.success == true
             } else {
-                Log.e("ROOM", "❌ deleteRoom failed: ${response.code()} ${response.errorBody()?.string()}")
+                Log.e("ROOM", "deleteRoom failed: ${response.code()} ${response.errorBody()?.string()}")
                 false
             }
 
         } catch (e: Exception) {
-            Log.e("ROOM", "❌ Exception in deleteRoom", e)
+            Log.e("ROOM", "Exception in deleteRoom", e)
             false
         }
     }
+
+
 
     suspend fun getRoomAndUsers(roomName: String): Pair<RoomData, List<UserData>>? = withContext(Dispatchers.IO) {
         val token = getToken() ?: return@withContext null
@@ -282,86 +274,122 @@ class RoomRepository(private val context: Context) {
                 if (body != null) {
                     return@withContext body.roomData to body.userList.rooms
                 } else {
-                    Log.e("ROOM", "❌ Empty body in getRoomAndUsers")
+                    Log.e("ROOM", "Empty body in getRoomAndUsers")
                     return@withContext null
                 }
             } else {
-                Log.e("ROOM", "❌ getRoomAndUsers failed: ${response.code()} ${response.errorBody()?.string()}")
+                Log.e("ROOM", "getRoomAndUsers failed: ${response.code()} ${response.errorBody()?.string()}")
                 null
             }
         } catch (e: Exception) {
-            Log.e("ROOM", "❌ Exception in getRoomAndUsers", e)
+            Log.e("ROOM", "Exception in getRoomAndUsers", e)
             null
         }
     }
 
+    //na razie nie uzywane
     suspend fun addUserToRoom(roomName: String, login: String): Boolean = withContext(Dispatchers.IO) {
         val token = getToken() ?: return@withContext false
         val idRoom = getRoomIdByName(roomName) ?: return@withContext false
         try {
             val response = api.addUserToRoom(token, idRoom, AddUserToRoomRequest(login))
 
-            Log.d("ROOM", "➡️ Sending addUserToRoom request: roomId=$idRoom, login=$login")
-            Log.d("ROOM", "⬅️ Response code: ${response.code()}")
-            Log.d("ROOM", "⬅️ Response body: ${response.body()}")
-            Log.d("ROOM", "⬅️ Response error body: ${response.errorBody()?.string()}")
+            Log.d("ROOM", "Sending addUserToRoom request: roomId=$idRoom, login=$login")
+            Log.d("ROOM", "Response code: ${response.code()}")
+            Log.d("ROOM", "Response body: ${response.body()}")
+            Log.d("ROOM", "Response error body: ${response.errorBody()?.string()}")
 
             if (response.isSuccessful) {
                 response.body()?.success == true
             } else {
-                Log.e("ROOM", "❌ addUserToRoom failed: ${response.code()} ${response.errorBody()?.string()}")
+                Log.e("ROOM", "addUserToRoom failed: ${response.code()} ${response.errorBody()?.string()}")
                 false
             }
         } catch (e: Exception) {
-            Log.e("ROOM", "❌ Exception in addUserToRoom", e)
+            Log.e("ROOM", "Exception in addUserToRoom", e)
             false
         }
     }
 
+    suspend fun addMyselfToRoom(identifier: String, password: String): Boolean = withContext(Dispatchers.IO) {
+        val token = getToken() ?: run {
+            Log.e("ROOM", "No token available")
+            return@withContext false
+        }
 
-    suspend fun addMyselfToRoom(roomName: String, password: String): Boolean = withContext(Dispatchers.IO) {
-        val token = getToken() ?: return@withContext false
+        // pobranie wszystkich widocznych pokoi tylko jeśli identifier wygląda jak nazwa
+        val allRooms = try {
+            val response = api.getAllRooms(token)
+            if (response.isSuccessful) response.body()?.rooms ?: emptyList()
+            else emptyList()
+        } catch (e: Exception) {
+            Log.e("ROOM", "Exception fetching rooms", e)
+            emptyList()
+        }
 
-        val idRoom = getRoomIdByName(roomName) ?: return@withContext false
+        // sprawdzenie, czy id jest juz ID pokoju lub szukanie po nazwie
+        val idRoom = allRooms.find { it.idRoom == identifier || it.name.equals(identifier, ignoreCase = true) }?.idRoom
+            ?: identifier.takeIf { it.isNotBlank() } // jeśli użytkownik podał ID bezpośrednio
+
+        if (idRoom.isNullOrBlank()) {
+            Log.e("ROOM", "No roomId found for identifier=$identifier")
+            return@withContext false
+        }
 
         try {
-            val response = api.addMyselfToRoom(token, AddMyselfToRoomRequest(idRoom, password))
+            val roomPassword = password.ifEmpty { "" }
+            Log.d("ROOM", "Sending addMyselfToRoom request: idRoom=$idRoom, password='${if (roomPassword.isEmpty()) "" else roomPassword}'")
 
-            Log.d("ROOM", "➡️ Sending addMyselfToRoom request: idRoom=$idRoom, password=$password")
-            Log.d("ROOM", "⬅️ Response code: ${response.code()}")
-            Log.d("ROOM", "⬅️ Response body: ${response.body()}")
-            Log.d("ROOM", "⬅️ Response error body: ${response.errorBody()?.string()}")
+            val response = api.addMyselfToRoom(token, AddMyselfToRoomRequest(idRoom, roomPassword))
 
-            if (response.isSuccessful) {
-                response.body()?.success == true
-            } else {
-                Log.e("ROOM", "❌ addMyselfToRoom failed: ${response.code()} ${response.errorBody()?.string()}")
-                false
-            }
+            Log.d("ROOM", "Response code: ${response.code()}")
+            Log.d("ROOM", "Response body: ${response.body()}")
+            val errorBody = response.errorBody()?.string()
+            if (!errorBody.isNullOrBlank()) Log.e("ROOM", "⬅Response error body: $errorBody")
+
+            val success = response.isSuccessful && response.body()?.success == true
+            Log.d("ROOM", "Join room success = $success")
+            return@withContext success
+
         } catch (e: Exception) {
-            Log.e("ROOM", "❌ Exception in addMyselfToRoom", e)
-            false
+            Log.e("ROOM", "Exception in addMyselfToRoom", e)
+            return@withContext false
         }
     }
+
+
+
 
     suspend fun getRoomIdByName(name: String): String? = withContext(Dispatchers.IO) {
-        val token = getToken() ?: return@withContext null
+        val token = getToken() ?: run {
+            Log.e("ROOM", "No token available")
+            return@withContext null
+        }
         try {
-            // Pobranie tylko pokoi, w których jesteś członkiem
-            val myRooms = api.getMyRooms(token)
-            if (myRooms.isSuccessful) {
-                val rooms = myRooms.body()?.rooms ?: emptyList()
+            //pobranie wszystkich widocznych pokoi (publicznych)
+            val allRoomsResponse = api.getAllRooms(token) // /api/rooms
+            Log.d("ROOM", "getAllRooms request sent")
+            Log.d("ROOM", "Response code: ${allRoomsResponse.code()}")
+            Log.d("ROOM", "Response body: ${allRoomsResponse.body()}")
+            val errorBody = allRoomsResponse.errorBody()?.string()
+            if (errorBody != null) Log.d("ROOM", "Response error body: $errorBody")
+
+            if (allRoomsResponse.isSuccessful) {
+                val rooms = allRoomsResponse.body()?.rooms ?: emptyList()
+                Log.d("ROOM", "All visible rooms: ${rooms.map { it.name to it.idRoom }}")
                 val room = rooms.find { it.name.equals(name, ignoreCase = true) }
+                Log.d("ROOM", "Searching for roomName='$name', found=${room?.idRoom}")
                 room?.idRoom
             } else {
-                Log.e("ROOM", "❌ getRoomIdByName failed: ${myRooms.code()} ${myRooms.errorBody()?.string()}")
+                Log.e("ROOM", "getRoomIdByName failed: ${allRoomsResponse.code()} $errorBody")
                 null
             }
         } catch (e: Exception) {
-            Log.e("ROOM", "❌ Exception in getRoomIdByName", e)
+            Log.e("ROOM", "Exception in getRoomIdByName", e)
             null
         }
     }
+
 
     suspend fun addMyselfToRoomByName(name: String, password: String): Boolean {
         val idRoom = getRoomIdByName(name) ?: return false
@@ -373,10 +401,10 @@ class RoomRepository(private val context: Context) {
         return deleteRoom(idRoom)
     }
 
-    suspend fun addUserToRoomByName(name: String, login: String): Boolean {
-        val idRoom = getRoomIdByName(name) ?: return false
-        return addUserToRoom(idRoom, login)
-    }
+//    suspend fun addUserToRoomByName(name: String, login: String): Boolean {
+//        val idRoom = getRoomIdByName(name) ?: return false
+//        return addUserToRoom(idRoom, login)
+//    }
 
 
 
@@ -390,240 +418,3 @@ class RoomRepository(private val context: Context) {
 
 
 
-
-//package com.nearnet.sessionlayer.logic
-//
-//import android.content.Context
-//import android.util.Log
-//import com.google.gson.Gson
-//import com.nearnet.sessionlayer.data.model.RoomData
-//import io.socket.client.Ack
-//import io.socket.client.Socket
-//import kotlinx.coroutines.Dispatchers
-//import kotlinx.coroutines.withContext
-//import org.json.JSONArray
-//import kotlinx.coroutines.CompletableDeferred
-//import org.json.JSONObject
-
-
-
-//object RoomUtils {
-
-//    //to dziala jak wg ma dzialac UserRoomList - tag "get_rooms"
-//    //z tego co rozumiem ma zwracac wszystkie pokoje na serwerze
-//    suspend fun getRoomList(socket: Socket): List<RoomData> = withContext(Dispatchers.IO) {
-//        val deferred = CompletableDeferred<List<RoomData>>() //obiekt pozwalajacy na oczekiwanie na wynik w sposob asynchroniczny przez co nie blokuje
-//
-//        socket.emit("get_rooms", Ack { args ->
-//            try {
-//                val jsonArray = args[0] as JSONArray
-//                val roomList = mutableListOf<RoomData>()
-//
-//                for (i in 0 until jsonArray.length()) {
-//                    val obj = jsonArray.getJSONObject(i)
-//                    //narazie tylko id i name z serwera odsyla
-//                    val room = RoomData(
-//                        idRoom = obj.optLong("id", 0L),
-//                        name = obj.getString("name"),
-//                        description = "",
-//                        imagesSettings = "",
-//                        password = "",
-//                        isPrivate = false,
-//                        isVisible = true,
-//                        idAdmin = "",
-//                        users = mutableListOf()
-//                    )
-//
-//                    roomList.add(room)
-//                }
-//
-//                deferred.complete(roomList)
-//
-//            } catch (e: Exception) {
-//                e.printStackTrace()
-//                deferred.complete(emptyList())
-//            }
-//        })
-//
-//        return@withContext deferred.await() //wstrzymuje wykonanie funkcji az wynik bedzie dostepny
-//    }
-//
-//    //to powinno zwracac to co wyzej
-//    suspend fun getUserRoomList(
-//        userName: String,
-//        userRepository: UserRepository,
-//        socket: Socket)
-//    : List<RoomData> = withContext(Dispatchers.IO) {
-//
-//        val userId = userRepository.getUserIdByName(userName)
-//
-//        if (userId == null) {
-//            return@withContext emptyList<RoomData>()
-//        }
-//
-//        val deferred = CompletableDeferred<List<RoomData>>()
-//        //tu nie wysylac userid?
-//        socket.emit("get_user_rooms", userId, Ack { args ->
-//            try {
-//                val jsonArray = args[0] as JSONArray
-//                val roomList = mutableListOf<RoomData>()
-//
-//                for (i in 0 until jsonArray.length()) {
-//                    val obj = jsonArray.getJSONObject(i)
-//
-//                    val room = RoomData(
-//                        idRoom = obj.optLong("id", 0L),
-//                        name = obj.getString("name"),
-//                        description = obj.optString("description", ""),
-//                        imagesSettings = obj.optString("imagesSettings", ""),
-//                        password = obj.optString("password", ""),
-//                        isPrivate = obj.optBoolean("isPrivate", false),
-//                        isVisible = obj.optBoolean("isVisible", true),
-//                        idAdmin = obj.optString("idAdmin", ""),
-//                        users = mutableListOf()
-//                    )
-//
-//                    roomList.add(room)
-//                }
-//
-//                deferred.complete(roomList)
-//
-//            } catch (e: Exception) {
-//                e.printStackTrace()
-//                deferred.complete(emptyList())
-//            }
-//        })
-//
-//        return@withContext deferred.await()
-//    }
-//
-//
-//    suspend fun addRoom(
-//        socket: Socket,
-//        roomData: RoomData
-//    ): RoomData? = withContext(Dispatchers.IO) {
-//        val deferred = CompletableDeferred<RoomData?>()
-//
-//        try {
-//            val roomJson = JSONObject().apply {
-//                put("idRoom", roomData.idRoom ?: JSONObject.NULL)
-//                put("name", roomData.name)
-//                put("password", roomData.password)
-//                put("isPrivate", roomData.isPrivate)
-//                put("isVisible", roomData.isVisible)
-//                put("idAdmin", roomData.idAdmin)
-//            }
-//
-//            socket.emit("add_room", roomJson, Ack { args ->
-//                try {
-//                    val response = args[0] as JSONObject
-//                    Log.d("AddRoom", "Server response: $response")
-//
-//                    if (response.getBoolean("success")) {
-//                        val roomJsonResp = response.getJSONObject("room")
-//                        val createdRoom = Gson().fromJson(roomJsonResp.toString(), RoomData::class.java)
-//                        deferred.complete(createdRoom)
-//                    } else {
-//                        Log.d("AddRoom", "Room creation failed: ${response.optString("error")}")
-//                        deferred.complete(null)
-//                    }
-//
-//                } catch (e: Exception) {
-//                    e.printStackTrace()
-//                    deferred.complete(null)
-//                }
-//            })
-//        } catch (e: Exception) {
-//            e.printStackTrace()
-//            deferred.complete(null)
-//        }
-//
-//        return@withContext deferred.await()
-//    }
-//
-//    suspend fun updateRoom(
-//        socket: Socket,
-//        roomData: RoomData
-//    ): RoomData? = withContext(Dispatchers.IO) {
-//        val deferred = CompletableDeferred<RoomData?>()
-//
-//        try {
-//            val roomJson = JSONObject().apply {
-//                put("idRoom", roomData.idRoom)
-//                put("name", roomData.name)
-//                put("description", roomData.description)
-//                put("imagesSettings", roomData.imagesSettings)
-//                put("password", roomData.password)
-//                put("isPrivate", roomData.isPrivate)
-//                put("isVisible", roomData.isVisible)
-//                put("idAdmin", roomData.idAdmin)
-//                put("users", JSONArray(roomData.users))
-//            }
-//
-//            socket.emit("update_room", roomJson, Ack { args ->
-//                try {
-//                    val response = args[0] as JSONObject
-//                    Log.d("UpdateRoom", "Server response: $response")
-//
-//                    if (response.getBoolean("success")) {
-//                        val updatedRoomJson = response.getJSONObject("room")
-//                        val updatedRoom = Gson().fromJson(updatedRoomJson.toString(), RoomData::class.java)
-//                        deferred.complete(updatedRoom)
-//                    } else {
-//                        Log.d("UpdateRoom", "Room update failed: ${response.optString("error")}")
-//                        deferred.complete(null)
-//                    }
-//
-//                } catch (e: Exception) {
-//                    e.printStackTrace()
-//                    deferred.complete(null)
-//                }
-//            })
-//        } catch (e: Exception) {
-//            e.printStackTrace()
-//            deferred.complete(null)
-//        }
-//
-//        return@withContext deferred.await()
-//    }
-//
-//
-//    suspend fun deleteRoom(
-//        socket: Socket,
-//        roomData: RoomData
-//    ): Boolean = withContext(Dispatchers.IO) {
-//        val deferred = CompletableDeferred<Boolean>()
-//
-//        try {
-//            val roomJson = JSONObject().apply {
-//                put("idRoom", roomData.idRoom)
-//                put("idAdmin", roomData.idAdmin)
-//            }
-//
-//            socket.emit("delete_room", roomJson, Ack { args ->
-//                try {
-//                    val response = args[0] as JSONObject
-//                    Log.d("DeleteRoom", "Server response: $response")
-//
-//                    if (response.getBoolean("success")) {
-//                        deferred.complete(true)
-//                    } else {
-//                        Log.d("DeleteRoom", "❌ Delete failed: ${response.optString("error")}")
-//                        deferred.complete(false)
-//                    }
-//                } catch (e: Exception) {
-//                    e.printStackTrace()
-//                    deferred.complete(false)
-//                }
-//            })
-//        } catch (e: Exception) {
-//            e.printStackTrace()
-//            deferred.complete(false)
-//        }
-//
-//        return@withContext deferred.await()
-//    }
-
-
-
-//}

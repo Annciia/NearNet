@@ -2,8 +2,6 @@ package com.nearnet.sessionlayer.logic
 
 import android.content.Context
 import android.util.Log
-import com.google.gson.Gson
-import com.nearnet.sessionlayer.data.db.AppDatabase
 import com.nearnet.sessionlayer.data.model.UserData
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -18,26 +16,10 @@ data class RegisterResponse(
     val error: String? = null
 )
 
-//data class LoginResponse(
-//    val success: Boolean,
-//    val token: String? = null,
-//    val userData: UserData? = null
-//)
-
-//na czas az kuba poprawi toUserData
-data class UserDataDTO(
-    val idUser: String,
-    val name: String,
-    val avatar: String,
-    val publicKey: String,
-    val password: String?,
-    val additionalSettings: String
-)
-
 data class LoginResponse(
     val success: Boolean,
     val token: String?,
-    val userData: UserDataDTO?
+    val userData: UserData?
 )
 
 
@@ -95,61 +77,13 @@ class UserRepository(private val context: Context) {
         }
     }
 
-
-
-//    suspend fun loginUser(login: String, password: String): UserData = withContext(Dispatchers.IO) {
-//        val body = mapOf("login" to login, "password" to password)
-//        val response = api.login(body)
-//
-//        if (response.isSuccessful) {
-//            val res = response.body()
-//            if (res?.success == true && res.token != null && res.userData != null) {
-//                saveTokenToPreferences(res.token)
-//
-//                val userData = res.userData
-//                return@withContext userData
-//            } else {
-//                throw Exception("Login failed: invalid credentials")
-//            }
-//        } else {
-//            throw Exception("Login failed: ${response.code()}")
-//        }
-//    }
-//poki Kuba nie poprawi toUserData konieczne mapowanie na UserDto
-//suspend fun loginUser(login: String, password: String): UserData = withContext(Dispatchers.IO) {
-//    val body = mapOf("login" to login, "password" to password)
-//    val response = api.login(body)
-//
-//    if (response.isSuccessful) {
-//        val res = response.body()
-//
-//        if (res?.success == true && res.token != null && res.userData != null) {
-//            saveTokenToPreferences(res.token)
-//
-//            val userDto = res.userData
-//            val userData = UserData(
-//                id = userDto.idUser.toString(),
-//                login = login,
-//                name = if (userDto.name.isNotEmpty()) userDto.name else login,
-//                avatar = userDto.avatar,
-//                publicKey = userDto.publicKey,
-//                passwordHash = userDto.password ?: "",
-//                additionalSettings = userDto.additionalSettings
-//            )
-//
-//            return@withContext userData
-//        } else {
-//            throw Exception("Login failed: invalid credentials")
-//        }
-//    } else {
-//        throw Exception("Login failed: ${response.code()}")
-//    }
-//}
-    //funkcja z full debugowaniem, bo sprawdzalem czemu nie loguje, mozliwe, ze juz nie wymaga userDto, ale to sprawdze jutro
     suspend fun loginUser(login: String, password: String): UserData = withContext(Dispatchers.IO) {
-        //czyszczenie starego tokena
         val sharedPref = context.getSharedPreferences("UserPrefs", Context.MODE_PRIVATE)
-        with(sharedPref.edit()) { remove("user_token"); apply() }
+        with(sharedPref.edit()) {
+            remove("user_token")
+            apply()
+        }
+
         val body = mapOf(
             "login" to login.trim(),
             "password" to password.trim()
@@ -157,7 +91,6 @@ class UserRepository(private val context: Context) {
         Log.d("LOGIN_DEBUG", "Request body: $body")
 
         val response = api.login(body)
-
         Log.d("LOGIN_DEBUG", "HTTP response code: ${response.code()}")
 
         if (!response.isSuccessful) {
@@ -167,32 +100,18 @@ class UserRepository(private val context: Context) {
         }
 
         val res = response.body()
-        Log.d("LOGIN_DEBUG", "Raw response body: $res")
-
         if (res == null) {
             Log.e("LOGIN_DEBUG", "Response body is null")
             throw Exception("Login failed: empty response")
         }
 
-        Log.d("LOGIN_DEBUG", "success = ${res.success}")
-        Log.d("LOGIN_DEBUG", "token = ${res.token}")
-        Log.d("LOGIN_DEBUG", "userData = ${res.userData}")
+        Log.d("LOGIN_DEBUG", "Response: success=${res.success}, token=${res.token}, userData=${res.userData}")
 
         if (res.success && res.token != null && res.userData != null) {
-            // Zapisujemy token do SharedPreferences
             saveTokenToPreferences(res.token)
 
-            // Mapowanie backendowego DTO na lokalny model UserData
-            val userDto = res.userData
-            val userData = UserData(
-                id = userDto.idUser,
-                login = login,
-                name = if (userDto.name.isNotEmpty()) userDto.name else login,
-                avatar = userDto.avatar,
-                publicKey = userDto.publicKey,
-                passwordHash = userDto.password ?: "",
-                additionalSettings = userDto.additionalSettings
-            )
+            //TODO dodalem w UserData @SerializedName, zeby dopasowac nazwy z backendu do nas
+            val userData = res.userData.copy(login = login.trim())
 
             Log.d("LOGIN_DEBUG", "Mapped UserData: $userData")
             return@withContext userData
@@ -200,9 +119,11 @@ class UserRepository(private val context: Context) {
             if (!res.success) Log.e("LOGIN_DEBUG", "Login failed: success=false")
             if (res.token == null) Log.e("LOGIN_DEBUG", "Login failed: token=null")
             if (res.userData == null) Log.e("LOGIN_DEBUG", "Login failed: userData=null")
-            throw Exception("Login failed: invalid credentials")
+
+            throw Exception("Login failed: invalid credentials or incomplete response")
         }
     }
+
 
     suspend fun updateUser(user: UserData) = withContext(Dispatchers.IO) {
         val token = getTokenFromPreferences(context) ?: return@withContext
@@ -226,8 +147,6 @@ class UserRepository(private val context: Context) {
         }
     }
 
-
-    //zostaje 1:1 jak ze starym bo wysyla haslo, a otrzymuje boola
     suspend fun deleteUser(password: String): Boolean = withContext(Dispatchers.IO) {
         val token = getTokenFromPreferences(context) ?: return@withContext false
 
@@ -252,7 +171,6 @@ class UserRepository(private val context: Context) {
             false
         }
     }
-
 
 
     fun logOutUser(): Boolean {
@@ -284,238 +202,6 @@ class UserRepository(private val context: Context) {
     }
 }
 
-//import android.content.Context
-//import android.util.Log
-//import com.nearnet.sessionlayer.data.db.AppDatabase
-//import com.nearnet.sessionlayer.data.model.UserData
-//import io.socket.client.Ack
-//import io.socket.client.Socket
-//import io.socket.emitter.Emitter
-//import kotlinx.coroutines.CoroutineScope
-//import kotlinx.coroutines.Dispatchers
-//import kotlinx.coroutines.suspendCancellableCoroutine
-//import kotlinx.coroutines.withContext
-//import org.json.JSONObject
-//import java.util.*
-//import kotlinx.coroutines.launch
-//
-//
-////1 pytanie - gdzie bedziemy przetrzymywac dane zalogowanego uzytkownika -shered raczej bo tam juz token trzymam
-//
-////musze dopisac obsluge bazy jeszcze
-//class UserRepository(private val context: Context, private val socket: Socket) {
-//
-//    private val db = AppDatabase.getDatabase(context)
-//
-//    //dziala
-//    suspend fun registerUser(
-//        userName: String,
-//        password: String,
-//        avatar: String,
-//    ) = withContext(Dispatchers.IO) {
-//        // poczekaj, az socket będzie połączony
-//        if (!socket.connected()) {
-//            suspendCancellableCoroutine<Unit> { cont ->
-//                socket.once(Socket.EVENT_CONNECT) { cont.resume(Unit) {} }
-//                socket.connect()
-//            }
-//        }
-//
-//        val idUser = UUID.randomUUID().toString()
-//        val passwordHash = CryptoUtils.hashPassword(password)
-//        val publicKey = CryptoUtils.generateRSAKeys()
-//
-//        val user = UserData(
-//            idUser = idUser,
-//            name = userName,
-//            avatar = avatar,
-//            publicKey = publicKey.public.toString(),
-//            passwordHash = passwordHash,
-//            darkLightMode = false
-//        )
-//
-//        // Zapis lokalny
-//        db.userDao().insertUser(user)
-//
-//        val data = JSONObject().apply {
-//            put("idUser", idUser)
-//            put("name", userName)
-//            put("avatar", avatar)
-//            put("publicKey", publicKey)
-//            put("passwordHash", passwordHash)
-//        }
-//
-//
-//        socket.once("register") { args ->
-//            val response = args.getOrNull(0) as? JSONObject
-//            val success = response?.optBoolean("success") ?: false
-//            if (success) {
-//                Log.d("Debug", "✅ Register success: ${response}")
-//            } else {
-//                Log.d("Debug", "❌ Register failed: ${response?.optString("error")}")
-//            }
-//
-//
-//
-//    }
-//        socket.emit("register", data)
-//    }
-//
-//    //dziala
-//    suspend fun loginUser(userName: String, password: String) = withContext(Dispatchers.IO) {
-//
-//        val user = db.userDao().getUserByName(userName)
-//
-//        val data = JSONObject().apply {
-//            put("username", userName)
-//            put("password", password)
-//        }
-//
-//        //mowiles, ze ma isc jawnie bo https bedzie szyfrowal, a na serwerze bedziesz hashowal?
-//        //val passwordHash = CryptoUtils.hashPassword(password)
-//
-//        socket.once("login_response") { args ->
-//            val res = args.getOrNull(0) as? JSONObject
-//            if (res != null) {
-//                val success = res.optBoolean("success", false)
-//                if (success) {
-//                    val token = res.optString("token")
-//                    Log.d("Debug", "✅ Login success! Token: $token")
-//                    saveTokenToPreferences(token)
-//                } else {
-//                    Log.d("Debug", "❌ Login failed on server: ${res.optString("error")}")
-//                }
-//            } else {
-//                Log.d("Debug", "❌ Login response empty or malformed")
-//            }
-//        }
-//
-//        socket.emit("login", data)
-//
-//
-//    }
-//
-//    private fun saveTokenToPreferences(token: String) {
-//        val sharedPref = context.getSharedPreferences("UserPrefs", Context.MODE_PRIVATE)
-//        with(sharedPref.edit()) {
-//            putString("user_token", token)
-//            apply()
-//        }
-//    }
-//
-//    companion object {
-//        fun getTokenFromPreferences(context: Context): String? {
-//            val sharedPref = context.getSharedPreferences("UserPrefs", Context.MODE_PRIVATE)
-//            return sharedPref.getString("user_token", null)
-//        }
-//    }
-//
-//    //funkcja pobierajaca uzytkownikow z lokalnej BD
-//    suspend fun getAllUsers(): List<UserData> {
-//        return db.userDao().getAllUsers()
-//    }
-//
-//    //funkcja pomocnicza, zeby wyciagnac id z BD po nazwie
-//    suspend fun getUserIdByName(userName: String): String? = withContext(Dispatchers.IO) {
-//        val user = db.userDao().getUserByName(userName)
-//        return@withContext user?.idUser
-//    }
-//
-//    suspend fun getUserByName(username: String): UserData? = withContext(Dispatchers.IO) {
-//        db.userDao().getUserByName(username)
-//    }
-//
-//    //pobiera id z lokalnej bazy danych po name i wysyla na serwer - tutaj musze ogarnac jak obecnie zalogowanego uzytkownika trzymac na apce
-//    //zeby tylko jego mozna bylo usunac
-//    suspend fun logOutUser(userName: String) = withContext(Dispatchers.IO) {
-//        val userId = getUserIdByName(userName)
-//
-//        if (userId == null) {
-//            Log.d("Socket", "❌ Logout failed: User '$userName' not found in local DB")
-//            return@withContext
-//        }
-//
-//        val data = JSONObject().apply {
-//            put("userId", userId)
-//        }
-//
-//        socket.emit("logout", data, Ack { args ->
-//            val res = args[0] as JSONObject
-//            if (res.getBoolean("success")) {
-//                Log.d("Socket", "✅ Logout success for user: $userName ($userId)")
-//                //TUTAJ USUWAM UZYTKOWNIKA Z ZALOGOWANEGO
-//            } else {
-//                val error = res.optString("error", "Unknown error")
-//                Log.d("Socket", "❌ Logout failed on server: $error")
-//            }
-//        })
-//    }
-//
-//    //tutaj ten token raczej mozna wyjebac bo i tak jest polaczenie na sockecie z tokenem nawiazywane
-//    suspend fun deleteUser( password: String, token: String) = withContext(Dispatchers.IO) {
-//        val data = JSONObject().apply {
-//            put("password", password)
-//            put("token", token)
-//        }
-//
-//        // Hoist zmiennej
-//        lateinit var listener: Emitter.Listener
-//        listener = Emitter.Listener { args ->
-//            val res = args.getOrNull(0) as? JSONObject ?: return@Listener
-//            val success = res.getBoolean("success")
-//            if (success) {
-//                Log.d("Socket", "✅ User deleted successfully")
-//            } else {
-//                val error = res.optString("error", "Unknown error")
-//                Log.d("Socket", "❌ Delete failed: $error")
-//            }
-//
-//            // Wyrejestrowanie listenera
-//            socket.off("delete_user_response", listener)
-//        }
-//
-//        socket.on("delete_user_response", listener)
-//        socket.emit("delete_user", data)
-//    }
-//
-//
-//    suspend fun updateUser(user: UserData) = withContext(Dispatchers.IO) {
-//        val data = JSONObject().apply {
-//            put("idUser", user.idUser)
-//            put("name", user.name)
-//            put("avatar", user.avatar)
-//            put("publicKey", user.publicKey)
-//            put("passwordHash", user.passwordHash)
-//            put("darkLightMode", user.darkLightMode)
-//        }
-//
-//        // najpierw usuwamy poprzedniego listenera, żeby nie dublował
-//        socket.off("user_updated")
-//
-//        // listener odpowiedzi
-//        socket.on("user_updated") { args ->
-//            val res = args.getOrNull(0) as? JSONObject ?: return@on
-//            val updatedUser = UserData(
-//                idUser = res.getString("idUser"),
-//                name = res.getString("name"),
-//                avatar = res.getString("avatar"),
-//                publicKey = res.getString("publicKey"),
-//                passwordHash = res.getString("passwordHash"),
-//                darkLightMode = res.getBoolean("darkLightMode")
-//            )
-//
-//            // zamiast GlobalScope → od razu w nowym zakresie coroutine
-//            CoroutineScope(Dispatchers.IO).launch {
-//                db.userDao().updateUser(updatedUser)
-//                Log.d("Socket", "✅ User updated successfully: ${updatedUser.name}")
-//            }
-//        }
-//
-//        // Wyślij dane do serwera
-//        socket.emit("update_user", data)
-//    }
-//
-//
-//}
+
 
 

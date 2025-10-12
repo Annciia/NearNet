@@ -29,12 +29,11 @@ import androidx.compose.ui.unit.sp
 import com.nearnet.Message
 import com.nearnet.R
 import com.nearnet.Room
-import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
+import com.nearnet.sessionlayer.data.model.RoomData
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun MessageItem(message: Message, room: Room? = null, ellipse: Boolean = false, onClick: ((message: Message, room: Room?)->Unit)? = null) {
+fun MessageItem(message: Message, room: RoomData? = null, ellipse: Boolean = false, onClick: ((message: Message, room: RoomData?)->Unit)? = null) {
     var date = ""
 //    if (message.timestamp.isNotEmpty()) {
 //        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")

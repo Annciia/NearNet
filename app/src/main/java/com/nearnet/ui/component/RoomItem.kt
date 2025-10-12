@@ -24,10 +24,11 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.nearnet.R
 import com.nearnet.Room
+import com.nearnet.sessionlayer.data.model.RoomData
 import com.nearnet.ui.theme.standardIconStyleTransparent
 
 @Composable
-fun RoomItem(room : Room, onClick : (Room) -> Unit) {
+fun RoomItem(room : RoomData, onClick : (RoomData) -> Unit) {
     Row(
         // can do: If onClick == null => RoomItem is not clickable
         modifier = Modifier.padding(vertical = 10.dp).clickable { onClick(room) },
