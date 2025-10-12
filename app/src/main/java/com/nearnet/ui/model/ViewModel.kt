@@ -670,46 +670,46 @@ class NearNetViewModel(): ViewModel() {
                 return@launch
             }
 
-            Log.d("loadMessages", "✅ MessageUtils jest zainicjalizowany — startuję pobieranie wiadomości")
+            Log.d("loadMessages", "MessageUtils jest zainicjalizowany — startuję pobieranie wiadomości")
 
-            // 📨 Pobranie wiadomości z serwera
+            //pobranie wiadomości z serwera
             val response = try {
-                Log.d("loadMessages", "➡️ Pobieram wiadomości dla pokoju=${room.idRoom}")
+                Log.d("loadMessages", "Pobieram wiadomości dla pokoju=${room.idRoom}")
                 messageUtils.requestLastMessages(room.idRoom)
             } catch (e: Exception) {
-                Log.e("loadMessages", "💥 Błąd podczas pobierania wiadomości dla pokoju=${room.idRoom}", e)
+                Log.e("loadMessages", "Błąd podczas pobierania wiadomości dla pokoju=${room.idRoom}", e)
                 null
             }
 
             if (response == null) {
-                Log.e("loadMessages", "❌ Serwer zwrócił pustą odpowiedź dla pokoju=${room.idRoom}")
+                Log.e("loadMessages", "Serwer zwrócił pustą odpowiedź dla pokoju=${room.idRoom}")
                 return@launch
             }
 
             val messageList = response.`package`?.messageList
             if (messageList.isNullOrEmpty()) {
-                Log.w("loadMessages", "⚠️ Brak wiadomości w historii dla pokoju=${room.idRoom}")
+                Log.w("loadMessages", "Brak wiadomości w historii dla pokoju=${room.idRoom}")
             } else {
-                Log.d("loadMessages", "📦 Otrzymano ${messageList.size} wiadomości dla pokoju=${room.idRoom}")
+                Log.d("loadMessages", "Otrzymano ${messageList.size} wiadomości dla pokoju=${room.idRoom}")
             }
 
-            // 👥 Pobranie listy użytkowników (żeby zamienić ID → nick)
+            //pobranie listy użytkowników (żeby zamienić ID → nick)
             val userResponse = try {
-                Log.d("loadMessages", "➡️ Pobieram użytkowników dla pokoju=${room.idRoom}")
+                Log.d("loadMessages", "Pobieram użytkowników dla pokoju=${room.idRoom}")
                 messageUtils.requestRoomUsers(room.idRoom)
             } catch (e: Exception) {
-                Log.e("loadMessages", "💥 Błąd podczas pobierania listy użytkowników dla pokoju=${room.idRoom}", e)
+                Log.e("loadMessages", "Błąd podczas pobierania listy użytkowników dla pokoju=${room.idRoom}", e)
                 null
             }
 
-            // Mapowanie ID → nazw użytkowników
+            //mapowanie ID → nazw użytkowników
             val userMap = userResponse?.userList?.rooms
                 ?.associateBy({ it.id }, { it.name })
                 ?: emptyMap()
 
             Log.d("loadMessages", "👥 Utworzono mapę użytkowników: ${userMap.size} pozycji")
 
-            // 🧩 Mapowanie wiadomości i zamiana userId na nickname
+            //mapowanie wiadomości i zamiana userId na nickname
             val messagesFromApi = messageUtils.mapPayloadToMessages(
                 room.idRoom,
                 messageList ?: emptyList()
@@ -719,9 +719,9 @@ class NearNetViewModel(): ViewModel() {
                 )
             }
 
-            // 🆗 Aktualizacja stanu UI
+            //aktualizacja stanu UI
             messagesMutable.value = messagesFromApi
-            Log.d("loadMessages", "✅ Załadowano ${messagesFromApi.size} wiadomości do UI")
+            Log.d("loadMessages", "Załadowano ${messagesFromApi.size} wiadomości do UI")
         }
     }
 
