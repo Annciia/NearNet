@@ -2,6 +2,7 @@ package com.nearnet.sessionlayer.logic
 
 
 import android.util.Log
+import com.google.gson.Gson
 import com.nearnet.sessionlayer.data.model.Message
 import com.nearnet.sessionlayer.data.model.RoomData
 import com.nearnet.sessionlayer.data.model.UserData
@@ -17,6 +18,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import retrofit2.http.GET
 import retrofit2.http.Path
+import java.io.IOException
 
 
 data class SendMessageRequest(
@@ -103,6 +105,13 @@ class MessageUtils(private val tokenProvider: () -> String?) {
         .build()
 
     private val api = retrofit.create(MessageApiService::class.java)
+    private val client = OkHttpClient()
+    private val gson = Gson()
+
+    // ---- SSE STREAM ----
+    private var sseThread: Thread? = null
+    @Volatile private var running = false
+    private var activeRoomId: String? = null
 
     suspend fun sendMessage(roomId: String, message: Message): Boolean = withContext(Dispatchers.IO) {
         val token = tokenProvider() ?: return@withContext false
@@ -189,49 +198,176 @@ class MessageUtils(private val tokenProvider: () -> String?) {
             null
         }
     }
+    //odbieranie wiadomosci na zywo przy wlaczonym czacie + reconect
+    fun receiveMessagesStream(
+        roomId: String,
+        userId: String,
+        onMessage: (List<Message>) -> Unit,
+        onReconnect: (() -> Unit)? = null
+    ) {
+        stopReceivingMessages()
 
+        val token = tokenProvider() ?: return
+        val url = "http://95.108.77.201:3001/api/messages/stream/$roomId?userId=$userId"
 
+        val request = Request.Builder()
+            .url(url)
+            .addHeader("Authorization", "Bearer $token")
+            .build()
 
-    // --- potwierdzenie odbioru ---
-    suspend fun ackLastMessages(): Boolean = withContext(Dispatchers.IO) {
-        val token = tokenProvider() ?: return@withContext false
-        try {
-            val response = api.ackLastMessages(token)
-            response.isSuccessful && (response.body()?.success == true)
-        } catch (e: Exception) {
-            Log.e("MESSAGE", "Exception in ackLastMessages", e)
-            false
+        running = true
+        activeRoomId = roomId
+
+        sseThread = Thread {
+            while (running) {
+                try {
+                    client.newCall(request).execute().use { response ->
+                        if (!response.isSuccessful) {
+                            Log.e("SSE", "Connection failed: ${response.code}")
+                            Thread.sleep(5000)
+                            return@use
+                        }
+
+                        val source = response.body?.source() ?: return@use
+                        Log.i("SSE", "Connected to stream for room=$roomId")
+
+                        while (running && !source.exhausted()) {
+                            val line = source.readUtf8Line() ?: continue
+                            if (line.startsWith("data: ")) {
+                                val json = line.removePrefix("data: ").trim()
+                                try {
+                                    val pkg = gson.fromJson(json, SendMessageRequest::class.java)
+                                    val msgs = mapPayloadToMessages(roomId, pkg.messageList)
+                                    onMessage(msgs)
+                                } catch (je: Exception) {
+                                    Log.e("SSE", "JSON parse error: $json", je)
+                                }
+                            }
+                        }
+                    }
+                } catch (io: IOException) {
+                    Log.w("SSE", "Connection lost, will retry...", io)
+                    onReconnect?.invoke()
+                    Thread.sleep(5000) // 5 sekund reconnect
+                } catch (e: Exception) {
+                    Log.e("SSE", "Unexpected error", e)
+                    Thread.sleep(5000)
+                }
+            }
+            Log.i("SSE", "Stream for $roomId closed")
+        }
+
+        sseThread?.start()
+    }
+
+//    // --- Odbiór w czasie rzeczywistym (SSE) ---
+//    fun receiveMessagesStream(
+//        roomId: String,
+//        userId: String,
+//        onMessage: (List<Message>) -> Unit
+//    ) {
+//        stopReceivingMessages() // zatrzymaj ewentualny poprzedni stream
+//
+//        val token = tokenProvider() ?: return
+//        val url = "http://95.108.77.201:3001/api/messages/stream/$roomId?userId=$userId"
+//
+//        val request = Request.Builder()
+//            .url(url)
+//            .addHeader("Authorization", "Bearer $token")
+//            .build()
+//
+//        running = true
+//        activeRoomId = roomId
+//
+//        sseThread = Thread {
+//            try {
+//                client.newCall(request).execute().use { response ->
+//                    if (!response.isSuccessful) {
+//                        Log.e("SSE", "Connection failed: ${response.code}")
+//                        return@use
+//                    }
+//
+//                    val source = response.body?.source() ?: return@use
+//                    Log.i("SSE", "Connected to stream for room=$roomId")
+//
+//                    while (running && !source.exhausted()) {
+//                        val line = source.readUtf8Line() ?: continue
+//                        if (line.startsWith("data: ")) {
+//                            val json = line.removePrefix("data: ").trim()
+//                            try {
+//                                val pkg = gson.fromJson(json, SendMessageRequest::class.java)
+//                                val msgs = mapPayloadToMessages(roomId, pkg.messageList)
+//                                onMessage(msgs)
+//                            } catch (je: Exception) {
+//                                Log.e("SSE", "JSON parse error: $json", je)
+//                            }
+//                        }
+//                    }
+//                }
+//            } catch (io: IOException) {
+//                Log.e("SSE", "I/O error in stream", io)
+//            } catch (e: Exception) {
+//                Log.e("SSE", "Unexpected error in stream", e)
+//            } finally {
+//                Log.i("SSE", "Stream for $roomId closed")
+//            }
+//        }
+//
+//        sseThread?.start()
+//    }
+
+    fun stopReceivingMessages() {
+        if (running) {
+            running = false
+            sseThread?.interrupt()
+            sseThread = null
+            Log.d("SSE", "Stream stopped for room=$activeRoomId")
+            activeRoomId = null
         }
     }
 
-    // --- Odbiór w czasie rzeczywistym (SSE) ---
-    fun receiveMessagesStream(roomId: String, userId: String, onMessage: (String) -> Unit) {
-        val client = OkHttpClient()
-        val request = Request.Builder()
-            .url("http://95.108.77.201:3001/api/messages/stream/$roomId?userId=$userId")
-            .build()
 
-        Thread {
-            try {
-                client.newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) {
-                        Log.e("MESSAGE", "SSE connection failed: ${response.code}")
-                        return@use
-                    }
-                    val source = response.body?.source() ?: return@use
-                    while (!source.exhausted()) {
-                        val line = source.readUtf8Line()
-                        if (line != null && line.startsWith("data: ")) {
-                            val json = line.removePrefix("data: ").trim()
-                            onMessage(json)
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e("MESSAGE", "Exception in SSE stream", e)
-            }
-        }.start()
-    }
+
+//    // --- potwierdzenie odbioru ---
+//    suspend fun ackLastMessages(): Boolean = withContext(Dispatchers.IO) {
+//        val token = tokenProvider() ?: return@withContext false
+//        try {
+//            val response = api.ackLastMessages(token)
+//            response.isSuccessful && (response.body()?.success == true)
+//        } catch (e: Exception) {
+//            Log.e("MESSAGE", "Exception in ackLastMessages", e)
+//            false
+//        }
+//    }
+
+    // --- Odbiór w czasie rzeczywistym (SSE) ---
+//    fun receiveMessagesStream(roomId: String, userId: String, onMessage: (String) -> Unit) {
+//        val client = OkHttpClient()
+//        val request = Request.Builder()
+//            .url("http://95.108.77.201:3001/api/messages/stream/$roomId?userId=$userId")
+//            .build()
+//
+//        Thread {
+//            try {
+//                client.newCall(request).execute().use { response ->
+//                    if (!response.isSuccessful) {
+//                        Log.e("MESSAGE", "SSE connection failed: ${response.code}")
+//                        return@use
+//                    }
+//                    val source = response.body?.source() ?: return@use
+//                    while (!source.exhausted()) {
+//                        val line = source.readUtf8Line()
+//                        if (line != null && line.startsWith("data: ")) {
+//                            val json = line.removePrefix("data: ").trim()
+//                            onMessage(json)
+//                        }
+//                    }
+//                }
+//            } catch (e: Exception) {
+//                Log.e("MESSAGE", "Exception in SSE stream", e)
+//            }
+//        }.start()
+//    }
 
 
 

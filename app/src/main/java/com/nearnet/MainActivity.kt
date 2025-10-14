@@ -46,6 +46,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -62,6 +63,9 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavHostController
@@ -108,6 +112,30 @@ class MainActivity : ComponentActivity() {
         val context = LocalContext.current
         LaunchedEffect(Unit) {
             vm.initMessageUtils(context)
+        }
+
+        // Reagowanie na Lifecycle dla start/stop SSE
+        val lifecycleOwner = LocalLifecycleOwner.current
+        DisposableEffect(lifecycleOwner) {
+            val observer = LifecycleEventObserver { _, event ->
+                when(event) {
+                    Lifecycle.Event.ON_START -> {
+                        val room = vm.selectedRoom.value
+                        val user = vm.selectedUser.value
+                        if (room != null && user != null) {
+                            vm.startRealtime(room)
+                        }
+                    }
+                    Lifecycle.Event.ON_STOP -> {
+                        vm.stopRealtime()
+                    }
+                    else -> {}
+                }
+            }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose {
+                lifecycleOwner.lifecycle.removeObserver(observer)
+            }
         }
         vm.repository = UserRepository(this)
         vm.roomRepository = RoomRepository(this)
@@ -1066,18 +1094,35 @@ class MainActivity : ComponentActivity() {
         val messages = vm.messages.collectAsState().value
         val listState = rememberLazyListState()
 
-        // pobieranie historii wiadomości przy wejściu na ekran lub zmianie pokoju
+
         LaunchedEffect(selectedRoom) {
-            val room = selectedRoom
-            if (room != null) {
-                Log.d("RoomConversation", "Loading messages for room: ${room.name}")
+            selectedRoom?.let { room ->
                 vm.loadMessages(room)
             }
         }
 
-        Column {
-            //TODO narazie tak, zeby sie odpalalo, trzeba ta klase Message wywalic i tylko zostawic ta moja
-            val messagesUI = vm.messages.collectAsState().value.map { backendMessage ->
+        val lifecycleOwner = LocalLifecycleOwner.current
+        DisposableEffect(lifecycleOwner, selectedRoom) {
+            val observer = LifecycleEventObserver { _, event ->
+                when (event) {
+                    Lifecycle.Event.ON_START -> {
+                        selectedRoom?.let { vm.startRealtime(it) } // uruchamiamy SSE tylko jeśli jest wybrany pokój
+                    }
+                    Lifecycle.Event.ON_STOP -> {
+                        vm.stopRealtime() // zatrzymujemy SSE
+                    }
+                    else -> {}
+                }
+            }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose {
+                lifecycleOwner.lifecycle.removeObserver(observer)
+            }
+        }
+
+
+        val messagesUI = remember(messages) {
+            messages.map { backendMessage ->
                 com.nearnet.Message(
                     id = backendMessage.id,
                     roomId = backendMessage.roomId,
@@ -1088,11 +1133,19 @@ class MainActivity : ComponentActivity() {
                     additionalData = backendMessage.additionalData
                 )
             }
+        }
+
+
+
+        Column {
             LazyColumn(
                 state = listState,
-                modifier = Modifier.weight(1f).fillMaxWidth()
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                reverseLayout = false //TODO
+
             ){
-                items(messagesUI) {message ->
+
+                items(messagesUI, key = { it.id }) { message ->
                     MessageItem(message)
                 }
             }
@@ -1105,7 +1158,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -1113,5 +1165,6 @@ class MainActivity : ComponentActivity() {
             App()
         }
     }
+
 
 }

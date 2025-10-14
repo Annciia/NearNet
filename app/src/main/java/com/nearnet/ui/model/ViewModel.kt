@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.google.gson.Gson
 import com.nearnet.Recent
 import com.nearnet.Room
 import com.nearnet.User
@@ -23,6 +24,10 @@ import kotlinx.coroutines.launch
 import com.nearnet.sessionlayer.data.model.Message
 import com.nearnet.sessionlayer.data.model.UserData
 import com.nearnet.sessionlayer.data.model.RoomData
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.update
 
 
 //var myRoomsList = listOf(
@@ -150,6 +155,10 @@ class NearNetViewModel(): ViewModel() {
     //Recent
     private val recentMutable = MutableStateFlow(listOf<Recent>())
     val recent = recentMutable.asStateFlow()
+
+    //Reconnect chat
+    private var reconnectJob: Job? = null
+    private var stopRealtimeFlag = false
 
     //constructor to VievModel
     init {
@@ -297,23 +306,7 @@ class NearNetViewModel(): ViewModel() {
     fun loadDiscoverRooms() {
         viewModelScope.launch {
             // TODO Call asynchronous function to fetch discover rooms here.
-            //roomsMutable.value = getRoomList()
-            //roomsMutable.value = discoverRoomsList
-//            if (::roomRepository.isInitialized) {
-//                val roomsFromApi = roomRepository.getAllRooms()
-//                val mappedRooms = roomsFromApi.map { rd ->
-//                    Room(
-//                        id = rd.idRoom,
-//                        name = rd.name,
-//                        description = rd.description,    // avatar jako opis, trzeba zrobic takie same klasy serw/ui
-//                        avatar = rd.avatar,
-//                        additionalSettings = "", // brak!!!!!
-//                        isPrivate = rd.isPrivate,
-//                        isVisible = rd.isVisible,
-//                        idAdmin = rd.idAdmin,
-//                        users = emptyList() //lista id users należących
-//                    )
-//                }
+
             if (::roomRepository.isInitialized) {
                 val roomsFromApi = roomRepository.getAllRooms()
                 discoverRoomsMutable.value = roomsFromApi
@@ -322,40 +315,6 @@ class NearNetViewModel(): ViewModel() {
             }
         }
     }
-//    fun createRoom(roomName : String, roomDescription : String, password: String?, passwordConfirmation: String?, isPrivate : Boolean, isVisible : Boolean, additionalSettings: String =""){
-//        viewModelScope.launch {
-//            if (!validateRoom(roomName, roomDescription, password, passwordConfirmation)) {
-//                registerRoomEventMutable.emit(ProcessEvent.Error("Something went wrong while creating the room."))
-//                return@launch
-//            }
-//            if (::roomRepository.isInitialized) {
-//
-//                // Jeśli pokój jest publiczny to hasło jest zawsze pustym stringiem
-//                val createdRoomData = roomRepository.addRoom(roomName, roomDescription) //podać pozostałe argumenty: avatar, isPrivate, isVisibility, additionalSettings
-//                if (createdRoomData != null) {
-//                    val createdRoom = Room(
-//                        id = createdRoomData.idRoom,
-//                        name = createdRoomData.name,
-//                        description = createdRoomData.description, //tutaj dalem to co mamy jako avatar bo nie mamy opisu na serwie a mamy avatar
-//                        avatar = createdRoomData.avatar,
-//                        additionalSettings = "", // brak!!!!!!
-//                        isPrivate = createdRoomData.isPrivate,
-//                        isVisible = createdRoomData.isVisible,
-//                        idAdmin = createdRoomData.idAdmin,
-//                        users = emptyList() //lista id users należących
-//                    )
-//                    //wybranie nowego pokoju od razu przelacza do wiadomosci, po utworzeniu
-//                    registerRoomEventMutable.emit(ProcessEvent.Success(createdRoom))
-//                } else {
-//                    Log.e("createRoom", "❌ Nie udało się utworzyć pokoju na serwerze")
-//                    registerRoomEventMutable.emit(ProcessEvent.Error("Something went wrong while creating the room."))
-//                }
-//            } else {
-//                Log.e("createRoom", "❌ RoomRepository nie jest zainicjalizowane!")
-//                registerRoomEventMutable.emit(ProcessEvent.Error("Something went wrong while creating the room."))
-//            }
-//        }
-//    }
 
     fun createRoom(
         roomName: String,
@@ -582,91 +541,11 @@ class NearNetViewModel(): ViewModel() {
             }
         }
     }
-//    fun loadMessages(room: RoomData){
-//        viewModelScope.launch {
-//            // TODO Call asynchronous function to fetch messages here. Przefiltrowana i posortowana lista potrzebna.
-//            //messagesMutable.value = getMessageHistory(idRoom = room.id, offset = 0, numberOfMessages = -1)
-//            if (!::messageUtils.isInitialized) {
-//                Log.e("loadMessages", "MessageUtils nie jest zainicjalizowany")
-//                return@launch
-//            } else {
-//                Log.d("loadMessages", "MessageUtils jest zainicjalizowany")
-//            }
-//            //pobieranie wiadomosci
-//            val response = try {
-//                Log.d("loadMessages", "Pobieram wiadomości dla pokoju=${room.idRoom}")
-//                messageUtils.requestLastMessages(room.idRoom)
-//            } catch (e: Exception) {
-//                Log.e("loadMessages", " Błąd podczas pobierania wiadomości dla pokoju=${room.idRoom}", e)
-//                null
-//            }
-//
-//            //sprawdzenie odpowiedzi
-//            if (response == null) {
-//                Log.e("loadMessages", "Serwer zwrócił pustą odpowiedź dla pokoju=${room.idRoom}")
-//                return@launch
-//            } else {
-//                Log.d("loadMessages", "Otrzymano odpowiedź z serwera dla pokoju=${room.idRoom}: $response")
-//            }
-//
-//            // sprawdzenie listy wiadomosci
-//            val messageList = response.`package`?.messageList
-//            if (messageList.isNullOrEmpty()) {
-//                Log.w("loadMessages", "Brak wiadomości w historii dla pokoju=${room.idRoom}")
-//            } else {
-//                Log.d("loadMessages", "Serwer zwrócił ${messageList.size} wiadomości dla pokoju: ${room.idRoom}")
-//            }
-//
-//            val userResponse = try {
-//                messageUtils.requestRoomUsers(room.idRoom)
-//            } catch (e: Exception) {
-//                Log.e("loadMessages", "Błąd podczas pobierania listy użytkowników dla pokoju=${room.idRoom}", e)
-//                null
-//            }
-//
-//            val userMap = userResponse?.userList?.associateBy(
-//                { it.idUser },
-//                { it.name }
-//            ) ?: emptyMap()
-//
-//            Log.d("loadMessages", "Mapa użytkowników: $userMap")
-//
-//            val messagesFromApi = messageUtils.mapPayloadToMessages(
-//                room.idRoom,
-//                messageList ?: emptyList()
-//            ).map { msg ->
-//                msg.copy(
-//                    userId = userMap[msg.userId] ?: msg.userId // jeśli nie znaleziono, zostaje id
-//                )
-//            }
-//
-////            // mapowanie do UI
-////            val messagesFromApi = messageUtils.mapPayloadToMessages(
-////                room.idRoom,
-////                messageList ?: emptyList()
-////            )
-//
-////            val messagesFromApi = messageList?.map { payload ->
-////                Message(
-////                    id = payload.timestamp,
-////                    roomId = "0", // TODO: Dane z serwera. Podany id pokoju, w którym te wiadomości wysyłane.
-////                    userId = payload.userId,
-////                    data = payload.data,
-////                    timestamp = "2025-10-02 00:00.00.0000", // TODO: czas podany od 1970 roku
-////                    messageType = "TXT",
-////                    additionalData = ""
-////                )
-////            } ?: emptyList()
-//
-//            // aktualizacja stanu
-//            messagesMutable.value = messagesFromApi
-//        }
-//    }
 
     fun loadMessages(room: RoomData) {
         viewModelScope.launch {
             if (!::messageUtils.isInitialized) {
-                Log.e("loadMessages", "❌ MessageUtils nie jest zainicjalizowany")
+                Log.e("loadMessages", "MessageUtils nie jest zainicjalizowany")
                 return@launch
             }
 
@@ -740,8 +619,6 @@ class NearNetViewModel(): ViewModel() {
             val userName = selectedUser.value?.name ?: "brak usera"
             val timestamp = System.currentTimeMillis().toString()
 
-
-
             val newMessage = com.nearnet.sessionlayer.data.model.Message(
                 id = timestamp,
                 roomId = room.idRoom,
@@ -752,8 +629,6 @@ class NearNetViewModel(): ViewModel() {
                 timestamp = timestamp
             )
 
-
-
             Log.d("sendMessage", "Wysyłam wiadomość na backend: $newMessage")
 
             try {
@@ -761,7 +636,8 @@ class NearNetViewModel(): ViewModel() {
 
                 if (success) {
                     Log.d("sendMessage", "Wiadomość wysłana poprawnie")
-                    messagesMutable.value += newMessage
+                    //TODO tu juz nie trzeba bo kazda wiadomosc idzie przez SSE
+                    //messagesMutable.value += newMessage
                 } else {
                     Log.e("sendMessage", "Nie udało się wysłać wiadomości")
                 }
@@ -782,6 +658,53 @@ class NearNetViewModel(): ViewModel() {
             idAdmin = this.idAdmin,
             additionalSettings = this.additionalSettings
         )
+    }
+
+
+    fun startRealtime(room: RoomData) {
+        val userId = selectedUser.value?.id ?: return
+        stopRealtimeFlag = false
+
+        messageUtils.receiveMessagesStream(
+            room.idRoom,
+            userId,
+            onMessage = { newMessages ->
+                viewModelScope.launch(Dispatchers.Main) {
+                    messagesMutable.update { old ->
+                        (old + newMessages).distinctBy { it.id }
+                    }
+                }
+            },
+            onReconnect = {
+                // jesli ktos recznie zatrzymal realtime — nie rob reconnect
+                if (stopRealtimeFlag) return@receiveMessagesStream
+
+                reconnectJob?.cancel()
+                reconnectJob = viewModelScope.launch {
+                    Log.w("SSE", "Reconnecting... fetching last messages.")
+                    try {
+                        val refreshed = messageUtils.requestLastMessages(room.idRoom)
+                        val messages = refreshed?.`package`?.messageList ?: emptyList()
+                        val mapped = messageUtils.mapPayloadToMessages(room.idRoom, messages)
+                        messagesMutable.update { old ->
+                            (old + mapped).distinctBy { it.id }
+                        }
+                        Log.i("SSE", "Reconnect successful — messages refreshed")
+                    } catch (e: Exception) {
+                        Log.e("SSE", "Reconnect failed", e)
+                    }
+                }
+            }
+        )
+    }
+
+
+    fun stopRealtime() {
+        stopRealtimeFlag = true
+        reconnectJob?.cancel()
+        reconnectJob = null
+        messageUtils.stopReceivingMessages()
+        Log.d("SSE", "Zatrzymano połączenie SSE")
     }
 
     fun loadRecentMessages() {
