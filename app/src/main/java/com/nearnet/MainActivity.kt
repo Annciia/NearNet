@@ -81,11 +81,14 @@ import com.nearnet.ui.component.ConversationPanel
 import com.nearnet.ui.component.LabeledSwitch
 import com.nearnet.ui.component.MessageItem
 import com.nearnet.ui.component.PlainTextField
+import com.nearnet.ui.component.PopupBox
 import com.nearnet.ui.component.RoomItem
 import com.nearnet.ui.component.ScreenTitle
 import com.nearnet.ui.component.SearchField
 import com.nearnet.ui.model.LocalViewModel
 import com.nearnet.ui.model.NearNetViewModel
+import com.nearnet.ui.model.PopupContextApprovalData
+import com.nearnet.ui.model.PopupType
 import com.nearnet.ui.model.ProcessEvent
 import com.nearnet.ui.model.ROOM_DESCRIPTION_MAX_LENGTH
 import com.nearnet.ui.model.ROOM_DESCRIPTION_MAX_LINES
@@ -139,7 +142,18 @@ class MainActivity : ComponentActivity() {
         }
         vm.repository = UserRepository(this)
         vm.roomRepository = RoomRepository(this)
+        // (UserData, RoomData) -> Unit
+        /*vm.roomRepository = RoomRepository(this, { user, room -> //tego co prosi o dołączenie i ten pokój - wołana u admina, gdy info z serwera, że ktoś chce dołączyć
+            val data = PopupContextApprovalData(user, room)
+            vm.selectPopup(PopupType.JOIN_ROOM_APPROVAL, data)
+        })*/
 
+        //TODO - jest tymczasowo wygląd popup dla admina gdy ktoś prosi o dołączenie
+        val data = PopupContextApprovalData(
+            UserData(id = "", login = "", name = "Kotter", avatar = "", additionalSettings = "", publicKey = ""), //user który chce dołączyć
+            RoomData(idRoom = "", name = "Stormvik games", description = "Witaj! Jestem wikingiem.", avatar = "", additionalSettings = "", isPrivate = true, isVisible = true, idAdmin = "") //pokój gdzie chce dołączyć
+        )
+        vm.selectPopup(PopupType.JOIN_ROOM_APPROVAL, data)
 
         ScreenObserver(navController, vm)
 
@@ -158,6 +172,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 )
+                PopupBox()
             }
         }
     }
@@ -251,7 +266,8 @@ class MainActivity : ComponentActivity() {
             if (navState != null && navState.destination.route == "userProfileScreen") {
                 StandardButton(
                     image = R.drawable.logout,
-                    onClick = { vm.logOutUser() }
+                    //onClick = { vm.logOutUser() },
+                    onClick = { vm.selectPopup(PopupType.LOGOUT_CONFIRMATION) }
                 )
             }
         }
@@ -714,8 +730,8 @@ class MainActivity : ComponentActivity() {
                 items(rooms) { room ->
                     RoomItem(room, onClick = {
                         //TODO Dołączanie do pokoju - odkomentowalem(Marek)
-                        //vm.selectRoom(room)
-                        vm.joinRoom(room,"") //tu hasło będę z pop up podawać, na razie na sztywno, ale przyjmuj je w funkcji
+                        //vm.joinRoom(room,"") //tu hasło będę z pop up podawać, na razie na sztywno, ale przyjmuj je w funkcji
+                        vm.selectPopup(PopupType.JOIN_ROOM_CONFIRMATION, room)
                     })
                 }
             }
@@ -740,7 +756,7 @@ class MainActivity : ComponentActivity() {
                 vm.joinRoomEvent.collect { event ->
                     when (event) {
                         is ProcessEvent.Success -> {
-                            Toast.makeText(context, "Your request to join the room has been sent.", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Keep your fingers crossed for approval!", Toast.LENGTH_LONG).show()
                         }
                         is ProcessEvent.Error -> {
                             Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
@@ -842,10 +858,16 @@ class MainActivity : ComponentActivity() {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End
             ) {
+                Button(onClick = {
+                    navController.popBackStack()
+                }) {
+                    Text("Cancel")
+                }
+                Spacer(Modifier.width(10.dp))
                 Button(
                     onClick = {
                         if (selectedRoom != null) { //roomSettingsScreen
-                            vm.updateRoom(roomName, roomDescription, getPassword(), passwordConfirmation.value, !isCheckedPublic, !isCheckedVisible)
+                            vm.updateRoom(roomName, roomDescription, getPassword(), passwordConfirmation.value, !isCheckedPublic, !isCheckedVisible, "")
                         } else { //createRoomScreen
                             vm.createRoom(roomName, roomDescription, getPassword(), passwordConfirmation.value, !isCheckedPublic, !isCheckedVisible, "")
                         }
@@ -859,12 +881,6 @@ class MainActivity : ComponentActivity() {
                         Text("Create")
                     }
                 }
-                Spacer(Modifier.width(10.dp))
-                Button(onClick = {
-                    navController.popBackStack()
-                }) {
-                    Text("Cancel")
-                }
             }
             Spacer(Modifier.height(10.dp))
             if (selectedRoom != null && selectedUser != null && selectedUser.id == selectedRoom.idAdmin) { //Only the admin can delete their room.
@@ -873,7 +889,8 @@ class MainActivity : ComponentActivity() {
                     verticalArrangement = Arrangement.Bottom
                 ) {
                     Button(onClick = {
-                        vm.deleteRoom(selectedRoom)
+                        //vm.deleteRoom(selectedRoom)
+                        vm.selectPopup(PopupType.DELETE_ROOM_CONFIRMATION)
                         //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
                     }) {
                         Text("Delete room")
@@ -993,16 +1010,6 @@ class MainActivity : ComponentActivity() {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End
             ) {
-                Button(
-                    onClick = {
-                        vm.updateUser(userName.value, password.value, passwordConfirmation.value, "")
-                        //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
-                    },
-                    enabled = vm.validateUpdate(userName.value, password.value, passwordConfirmation.value, "")
-                ) {
-                    Text("Accept")
-                }
-                Spacer(Modifier.width(10.dp))
                 if(!vm.welcomeState.value) {
                     Button(onClick = {
                         navController.popBackStack()
@@ -1013,8 +1020,18 @@ class MainActivity : ComponentActivity() {
                     Button(onClick = {
                         navController.navigate("discoverScreen")
                     }) {
-                        Text("Next")
+                        Text("Skip")
                     }
+                }
+                Spacer(Modifier.width(10.dp))
+                Button(
+                    onClick = {
+                        vm.updateUser(userName.value, password.value, passwordConfirmation.value, "")
+                        //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
+                    },
+                    enabled = vm.validateUpdate(userName.value, password.value, passwordConfirmation.value, "")
+                ) {
+                    Text("Accept")
                 }
             }
             Spacer(Modifier.height(10.dp))
@@ -1024,8 +1041,8 @@ class MainActivity : ComponentActivity() {
             ) {
                 Button(onClick = {
                     //TODO dodalem vm.deleteUser(password.value) zamiast vm.deleteUser() - zczytuje w compose wartosc pola password
-                    //vm.deleteUser()
-                    vm.deleteUser(password.value)
+                    //vm.deleteUser(password.value)
+                    vm.selectPopup(PopupType.DELETE_USER_AUTHORIZATION)
                     //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
                 }) {
                     Text("Delete account")

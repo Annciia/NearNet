@@ -28,6 +28,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.update
+import java.util.LinkedList
 
 
 //var myRoomsList = listOf(
@@ -59,6 +60,23 @@ var messagesListRecent = listOf(
     Message(id = "2", roomId = "0", userId ="Orci Kätter", message = "Fusce sed ligula turpis. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Curabitur ac consequat nisi. Phasellus libero nibh, finibus non egestas in, egestas in lorem. Pellentesque nec facilisis erat, in pulvinar ipsum. Morbi congue viverra lectus quis fermentum. Duis sagittis est dapibus venenatis vestibulum.", timestamp = "2025-09-28 14:42:01.102", messageType = "TXT", additionalData = ""),
     Message(id = "0", roomId = "hNdyfw6w0pFiWf8vAEkhe", userId = "Orci Kätter", message = "Curabitur ac consequat nisi. Phasellus libero nibh, finibus non egestas in, egestas in lorem.", timestamp = "2025-09-28 18:03:44.565", messageType = "TXT", additionalData = ""),
     Message(id = "0", roomId = "7", userId ="Orci Kätter", message = "Duis sagittis est dapibus venenatis vestibulum. Non egestas in.", timestamp = "2025-09-28 18:03:44.565", messageType = "TXT", additionalData = ""),
+)
+
+//Popup's type, popup's structure
+enum class PopupType {
+    DELETE_USER_AUTHORIZATION,
+    LOGOUT_CONFIRMATION,
+    DELETE_ROOM_CONFIRMATION,
+    JOIN_ROOM_CONFIRMATION,
+    JOIN_ROOM_APPROVAL
+}
+class PopupContext(
+    val type: PopupType,
+    val data: Any?
+)
+class PopupContextApprovalData(
+    val user: UserData,
+    val room: RoomData
 )
 
 //event dotyczący wyniku przetwarzania jakiejś operacji asynchronicznej
@@ -148,6 +166,10 @@ class NearNetViewModel(): ViewModel() {
     private val joinRoomEventMutable = MutableSharedFlow<ProcessEvent<Unit>>()
     val joinRoomEvent = joinRoomEventMutable.asSharedFlow()
 
+    //Join room admin approve
+    private val joinRoomAdminApproveEventMutable = MutableSharedFlow<ProcessEvent<Unit>>()
+    val joinRoomAdminApproveEvent = joinRoomAdminApproveEventMutable.asSharedFlow()
+
     //Messages
     private val messagesMutable = MutableStateFlow(listOf<Message>())
     val messages = messagesMutable.asStateFlow()
@@ -159,6 +181,11 @@ class NearNetViewModel(): ViewModel() {
     //Reconnect chat
     private var reconnectJob: Job? = null
     private var stopRealtimeFlag = false
+
+    //Popup
+    private val queuedPopupList = LinkedList<PopupContext>()
+    private val selectedPopupMutable = MutableStateFlow<PopupContext?>(null)
+    val selectedPopup = selectedPopupMutable.asStateFlow()
 
     //constructor to VievModel
     init {
@@ -306,7 +333,6 @@ class NearNetViewModel(): ViewModel() {
     fun loadDiscoverRooms() {
         viewModelScope.launch {
             // TODO Call asynchronous function to fetch discover rooms here.
-
             if (::roomRepository.isInitialized) {
                 val roomsFromApi = roomRepository.getAllRooms()
                 discoverRoomsMutable.value = roomsFromApi
@@ -323,7 +349,8 @@ class NearNetViewModel(): ViewModel() {
         passwordConfirmation: String?,
         isPrivate: Boolean,
         isVisible: Boolean,
-        additionalSettings: String = ""
+        additionalSettings: String = "",
+        //avatar: String //TODO Marek
     ) {
         viewModelScope.launch {
             if (!validateRoom(roomName, roomDescription, password, passwordConfirmation)) {
@@ -340,7 +367,8 @@ class NearNetViewModel(): ViewModel() {
                         password = password ?: "",
                         isPrivate = isPrivate,
                         isVisible = isVisible,
-                        additionalSettings = additionalSettings
+                        additionalSettings = additionalSettings,
+                        //avatar = "" //TODO Marek
                     )
 
                     if (createdRoomData != null) {
@@ -393,7 +421,8 @@ class NearNetViewModel(): ViewModel() {
         password: String?,
         passwordConfirmation: String?,
         isPrivate: Boolean,
-        isVisible: Boolean
+        isVisible: Boolean,
+        avatar: String
     ) {
         viewModelScope.launch {
 
@@ -413,7 +442,8 @@ class NearNetViewModel(): ViewModel() {
                 description = description.trim(),
                 password = password ?: currentRoom.password,
                 isPrivate = isPrivate,
-                isVisible = isVisible
+                isVisible = isVisible,
+                avatar = avatar
             )
 
             val result = roomRepository.updateRoom(updatedRoomData)
@@ -426,7 +456,6 @@ class NearNetViewModel(): ViewModel() {
             }
         }
     }
-
 
 
     fun validateRoom(name: String, description: String, password: String?, passwordConfirmation: String?): Boolean {
@@ -457,7 +486,6 @@ class NearNetViewModel(): ViewModel() {
                 return@launch
             }
             //TODO Call asynchronous function to delete room, when user is its admin.
-            //TODO tutaj chyba musisz KUBA sprawdzic na serwie, czy to jest admin pokoju?
             val status = roomRepository.deleteRoom(selectedRoom.idRoom)
             //val status = true
 
@@ -487,13 +515,6 @@ class NearNetViewModel(): ViewModel() {
 
                 var joinSuccess = false
 
-                if (room.isPrivate && password.isBlank()) {
-                    //TODO  prywatny pokój i brak hasła
-                    Log.d("NearNetVM", "Request sent to admin for private room: ${room.name}")
-                    joinRoomEventMutable.emit(ProcessEvent.Success(Unit))
-                    return@launch
-                }
-
                 //TODO tutaj trzeba dodacpopup z haslem, bo w rpzeciwnym wypadku dla kazdego pokoju prwatnego nawet z haselm sie te przypadek wyzej odpala
                 // publiczny lub prywatny z hasłem
                 val passwordToSend = if (room.isPrivate) password else "" // publiczny zawsze pusty string
@@ -508,7 +529,6 @@ class NearNetViewModel(): ViewModel() {
 
                 if (joinSuccess) {
                     selectRoom(room)
-                    joinRoomEventMutable.emit(ProcessEvent.Success(Unit))
                     Log.d("NearNetVM", "Successfully joined room: ${room.name}")
                 } else {
                     joinRoomEventMutable.emit(ProcessEvent.Error("Failed to join room — incorrect password or server error."))
@@ -519,10 +539,37 @@ class NearNetViewModel(): ViewModel() {
                 Log.e("NearNetVM", "Exception in joinRoom", e)
                 joinRoomEventMutable.emit(ProcessEvent.Error("Unexpected error while joining the room."))
             }
-
-
-
-        }}
+        }
+    }
+    //proba do Admina o dołączenie do pokoju
+    fun joinRoomRequest(room: RoomData) {
+        viewModelScope.launch {
+            if (!room.isPrivate) {
+                joinRoomEventMutable.emit(ProcessEvent.Error("Failed to send request — the room is public."))
+                return@launch
+            }
+            var requestSuccess : Boolean = false
+            //TODO Marek funkcja wysyłająca prośbę do Admina
+            if (requestSuccess) {
+                joinRoomEventMutable.emit(ProcessEvent.Success(Unit))
+            } else {
+                joinRoomEventMutable.emit(ProcessEvent.Error("Failed to send request — please try again."))
+            }
+        }
+    }
+    //woła się, gdy admin zatwierdzi dołączenie jakiegoś usera do pokoju
+    //TODO ponawianie zrobić na serwerze jak admin nieaktywny w danym momencie, by jak wejdzie to zobaczył popup, że ktoś go pyta o dołączenie
+    fun joinRoomAdminApprove(user: UserData, room: RoomData){ //jaki user i do jakiego pokoju chce dołączyć
+        viewModelScope.launch {
+            var approveSuccess : Boolean = false
+            //TODO Marek funkcja dołączająca usera do pokoju
+            if (approveSuccess){
+                joinRoomAdminApproveEventMutable.emit(ProcessEvent.Success(Unit))
+            } else { //błąd serwera
+                joinRoomAdminApproveEventMutable.emit(ProcessEvent.Error("Failed to send approve — please approve again."))
+            }
+        }
+    }
     fun filterMyRooms(filterText: String){
         searchMyRoomsTextMutable.value = filterText
     }
@@ -636,8 +683,6 @@ class NearNetViewModel(): ViewModel() {
 
                 if (success) {
                     Log.d("sendMessage", "Wiadomość wysłana poprawnie")
-                    //TODO tu juz nie trzeba bo kazda wiadomosc idzie przez SSE
-                    //messagesMutable.value += newMessage
                 } else {
                     Log.e("sendMessage", "Nie udało się wysłać wiadomości")
                 }
@@ -659,7 +704,6 @@ class NearNetViewModel(): ViewModel() {
             additionalSettings = this.additionalSettings
         )
     }
-
 
     fun startRealtime(room: RoomData) {
         val userId = selectedUser.value?.id ?: return
@@ -697,7 +741,6 @@ class NearNetViewModel(): ViewModel() {
             }
         )
     }
-
 
     fun stopRealtime() {
         stopRealtimeFlag = true
@@ -776,7 +819,26 @@ class NearNetViewModel(): ViewModel() {
                 Log.e("NearNetVM", "loadRecentMessages error", e)
             }
         }
+    }
 
+    //for popups management: show, close, clear list
+    fun selectPopup(popupType: PopupType, data: Any? = null) {
+        val currentPopup = PopupContext(popupType, data)
+        if (selectedPopupMutable.value == null) {
+            selectedPopupMutable.value = currentPopup
+        } else {
+            queuedPopupList.push(currentPopup)
+        }
+    }
+    fun closePopup() {
+        if (queuedPopupList.isEmpty()) {
+            selectedPopupMutable.value = null
+        } else {
+            selectedPopupMutable.value = queuedPopupList.pop()
+        }
+    }
+    fun clearQueuedPopups() {
+        queuedPopupList.clear()
     }
 
 }
