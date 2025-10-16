@@ -89,13 +89,17 @@ sealed class ProcessEvent<out T> {
 class NearNetViewModel(): ViewModel() {
     lateinit var repository: UserRepository
     lateinit var roomRepository: RoomRepository
-    lateinit var messageUtils: MessageUtils
+    //lateinit var messageUtils: MessageUtils
 
     //pozwala uzywac messageUtils bez uzywania LocalContext.current w ViewModelu
+//    fun initMessageUtils(context: Context) {
+//        if (!::messageUtils.isInitialized) {
+//            messageUtils = MessageUtils { UserRepository.getTokenFromPreferences(context) }
+//        }
+//    }
+    //przerobienie class na object
     fun initMessageUtils(context: Context) {
-        if (!::messageUtils.isInitialized) {
-            messageUtils = MessageUtils { UserRepository.getTokenFromPreferences(context) }
-        }
+        MessageUtils.init { UserRepository.getTokenFromPreferences(context) }
     }
 
     //Selected user
@@ -368,7 +372,7 @@ class NearNetViewModel(): ViewModel() {
                         isPrivate = isPrivate,
                         isVisible = isVisible,
                         additionalSettings = additionalSettings,
-                        //avatar = "" //TODO Marek
+                        avatar = "" //TODO Marek
                     )
 
                     if (createdRoomData != null) {
@@ -591,17 +595,18 @@ class NearNetViewModel(): ViewModel() {
 
     fun loadMessages(room: RoomData) {
         viewModelScope.launch {
-            if (!::messageUtils.isInitialized) {
-                Log.e("loadMessages", "MessageUtils nie jest zainicjalizowany")
-                return@launch
-            }
+//            if (!::messageUtils.isInitialized) {
+//                Log.e("loadMessages", "MessageUtils nie jest zainicjalizowany")
+//                return@launch
+//            }
 
-            Log.d("loadMessages", "MessageUtils jest zainicjalizowany — startuję pobieranie wiadomości")
+            //Log.d("loadMessages", "MessageUtils jest zainicjalizowany — startuję pobieranie wiadomości")
 
             //pobranie wiadomości z serwera
+            Log.d("loadMessages", "Pobieram wiadomości dla pokoju=${room.idRoom}")
             val response = try {
                 Log.d("loadMessages", "Pobieram wiadomości dla pokoju=${room.idRoom}")
-                messageUtils.requestLastMessages(room.idRoom)
+                MessageUtils.requestLastMessages(room.idRoom)
             } catch (e: Exception) {
                 Log.e("loadMessages", "Błąd podczas pobierania wiadomości dla pokoju=${room.idRoom}", e)
                 null
@@ -622,7 +627,7 @@ class NearNetViewModel(): ViewModel() {
             //pobranie listy użytkowników (żeby zamienić ID → nick)
             val userResponse = try {
                 Log.d("loadMessages", "Pobieram użytkowników dla pokoju=${room.idRoom}")
-                messageUtils.requestRoomUsers(room.idRoom)
+                MessageUtils.requestRoomUsers(room.idRoom)
             } catch (e: Exception) {
                 Log.e("loadMessages", "Błąd podczas pobierania listy użytkowników dla pokoju=${room.idRoom}", e)
                 null
@@ -636,7 +641,7 @@ class NearNetViewModel(): ViewModel() {
             Log.d("loadMessages", "👥 Utworzono mapę użytkowników: ${userMap.size} pozycji")
 
             //mapowanie wiadomości i zamiana userId na nickname
-            val messagesFromApi = messageUtils.mapPayloadToMessages(
+            val messagesFromApi = MessageUtils.mapPayloadToMessages(
                 room.idRoom,
                 messageList ?: emptyList()
             ).map { msg ->
@@ -658,10 +663,10 @@ class NearNetViewModel(): ViewModel() {
             //messagesMutable.value += message
             // TODO Call asynchronous function to send messages
             //sendMessage(room.id, message)
-            if (!::messageUtils.isInitialized) {
-                Log.e("sendMessage", "MessageUtils nie jest zainicjalizowane!")
-                return@launch
-            }
+//            if (!::messageUtils.isInitialized) {
+//                Log.e("sendMessage", "MessageUtils nie jest zainicjalizowane!")
+//                return@launch
+//            }
 
             val userName = selectedUser.value?.name ?: "brak usera"
             val timestamp = System.currentTimeMillis().toString()
@@ -679,7 +684,7 @@ class NearNetViewModel(): ViewModel() {
             Log.d("sendMessage", "Wysyłam wiadomość na backend: $newMessage")
 
             try {
-                val success = messageUtils.sendMessage(room.idRoom, newMessage)
+                val success = MessageUtils.sendMessage(room.idRoom, newMessage)
 
                 if (success) {
                     Log.d("sendMessage", "Wiadomość wysłana poprawnie")
@@ -709,7 +714,7 @@ class NearNetViewModel(): ViewModel() {
         val userId = selectedUser.value?.id ?: return
         stopRealtimeFlag = false
 
-        messageUtils.receiveMessagesStream(
+        MessageUtils.receiveMessagesStream(
             room.idRoom,
             userId,
             onMessage = { newMessages ->
@@ -727,9 +732,9 @@ class NearNetViewModel(): ViewModel() {
                 reconnectJob = viewModelScope.launch {
                     Log.w("SSE", "Reconnecting... fetching last messages.")
                     try {
-                        val refreshed = messageUtils.requestLastMessages(room.idRoom)
+                        val refreshed = MessageUtils.requestLastMessages(room.idRoom)
                         val messages = refreshed?.`package`?.messageList ?: emptyList()
-                        val mapped = messageUtils.mapPayloadToMessages(room.idRoom, messages)
+                        val mapped = MessageUtils.mapPayloadToMessages(room.idRoom, messages)
                         messagesMutable.update { old ->
                             (old + mapped).distinctBy { it.id }
                         }
@@ -746,7 +751,7 @@ class NearNetViewModel(): ViewModel() {
         stopRealtimeFlag = true
         reconnectJob?.cancel()
         reconnectJob = null
-        messageUtils.stopReceivingMessages()
+        MessageUtils.stopReceivingMessages()
         Log.d("SSE", "Zatrzymano połączenie SSE")
     }
 
@@ -764,12 +769,12 @@ class NearNetViewModel(): ViewModel() {
                 val allRecents = mutableListOf<Recent>()
 
                 for (room in rooms) {
-                    val response = messageUtils.requestLastMessages(room.idRoom)
+                    val response = MessageUtils.requestLastMessages(room.idRoom)
 
                     if (response?.`package`?.messageList.isNullOrEmpty()) continue
 
                     val userResponse = try {
-                        messageUtils.requestRoomUsers(room.idRoom)
+                        MessageUtils.requestRoomUsers(room.idRoom)
                     } catch (e: Exception) {
                         Log.e("loadRecentMessages", "Błąd przy pobieraniu użytkowników pokoju=${room.idRoom}", e)
                         null
@@ -779,7 +784,7 @@ class NearNetViewModel(): ViewModel() {
                         ?.associate { user -> user.id to user.name }
                         ?: emptyMap()
 
-                    val messages = messageUtils.mapPayloadToMessages(
+                    val messages = MessageUtils.mapPayloadToMessages(
                         room.idRoom,
                         response?.`package`?.messageList ?: emptyList()
                     ).map { msg ->
