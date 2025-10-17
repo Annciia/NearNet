@@ -249,12 +249,22 @@ class MainActivity : ComponentActivity() {
                         }
                     },
                     content = {
-                        Image(
-                            painter = painterResource((R.drawable.ic_launcher_foreground)),
-                            contentDescription = "Avatar",
-                            modifier = Modifier.size(80.dp).clip(CircleShape)
-                                .border(2.dp, MaterialTheme.colorScheme.onPrimary, CircleShape)
-                        )
+                        if (selectedUser != null && selectedUser.avatar.isNotEmpty()) {
+                            Image(
+                                painter = painterResource(R.drawable.spacecat),
+                                contentDescription = "Avatar",
+                                modifier = Modifier.size(80.dp).clip(CircleShape)
+                                    .border(2.dp, MaterialTheme.colorScheme.onPrimary, CircleShape)
+                            )
+                        } else {
+                            Icon(
+                                painter = painterResource(R.drawable.spacecat),
+                                tint = MaterialTheme.colorScheme.onPrimary,
+                                contentDescription = "Avatar",
+                                modifier = Modifier.size(80.dp).clip(CircleShape)
+                                    .border(2.dp, MaterialTheme.colorScheme.onPrimary, CircleShape)
+                            )
+                        }
                     }
                 )
                 Spacer(Modifier.width(5.dp))
@@ -264,9 +274,9 @@ class MainActivity : ComponentActivity() {
                 )
             }
             if (navState != null && navState.destination.route == "userProfileScreen") {
+                Spacer(Modifier.width(5.dp))
                 StandardButton(
                     image = R.drawable.logout,
-                    //onClick = { vm.logOutUser() },
                     onClick = { vm.selectPopup(PopupType.LOGOUT_CONFIRMATION) }
                 )
             }
@@ -320,7 +330,7 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    fun StandardButton(image :Int, onClick: ()->Unit){
+    fun StandardButton(image: Int, onClick: ()->Unit){
         Button(
             onClick = onClick,
             shape = RoundedCornerShape(6.dp),
@@ -329,9 +339,10 @@ class MainActivity : ComponentActivity() {
             contentPadding = PaddingValues(0.dp),
             modifier = Modifier.size(36.dp),
             content = {
-                Image(
+                Icon(
                     painter = painterResource(image),
                     contentDescription = "Print conversation",
+                    tint = MaterialTheme.colorScheme.onPrimary,
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(6.dp)
@@ -359,9 +370,9 @@ class MainActivity : ComponentActivity() {
                     horizontalArrangement = Arrangement.SpaceEvenly
 
                 ){
-                    NavigationButton(icon=R.drawable.ic_launcher_foreground, iconDescription = "recent", text = "recent", navController, screenName = "recentScreen")
-                    NavigationButton(icon=R.drawable.ic_launcher_foreground, iconDescription = "rooms", text = "rooms", navController, screenName = "roomsScreen")
-                    NavigationButton(icon=R.drawable.ic_launcher_foreground, iconDescription = "discover", text = "discover", navController, screenName = "discoverScreen")
+                    NavigationButton(icon=R.drawable.recent, iconDescription = "recent", text = "recent", navController, screenName = "recentScreen")
+                    NavigationButton(icon=R.drawable.rooms, iconDescription = "rooms", text = "rooms", navController, screenName = "roomsScreen")
+                    NavigationButton(icon=R.drawable.discover, iconDescription = "discover", text = "discover", navController, screenName = "discoverScreen")
                 }
             }
         }
@@ -371,7 +382,7 @@ class MainActivity : ComponentActivity() {
     fun NavigationButton(icon: Int, iconDescription: String, text: String, navController: NavHostController, screenName: String) :Unit {
         Button(
             onClick = { navController.navigate(screenName)},
-            modifier = Modifier.padding(0.dp)
+            modifier = Modifier.padding(4.dp)
         ) {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -380,8 +391,10 @@ class MainActivity : ComponentActivity() {
                 Icon(
                     painter= painterResource(id=icon),
                     contentDescription = iconDescription,
+                    tint = MaterialTheme.colorScheme.onPrimary,
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(30.dp)
+                        .padding(vertical = 2.dp)
                         //.background(MaterialTheme.colorScheme.secondary)
                 )
                 Text(
@@ -417,7 +430,7 @@ class MainActivity : ComponentActivity() {
         val password = remember { mutableStateOf("") }
         val inProgress = remember { mutableStateOf(false) }
 
-        ScreenTitle("Log in or create account!")
+        //ScreenTitle("Log in or create account!")
         Column(
             modifier = Modifier.fillMaxSize().padding(40.dp),
             verticalArrangement = Arrangement.Center
@@ -510,7 +523,7 @@ class MainActivity : ComponentActivity() {
         val passwordConfirmation = remember { mutableStateOf("") }
         val inProgress = remember { mutableStateOf(false) }
 
-        ScreenTitle("Create your new account!")
+        //ScreenTitle("Create your new account!")
         Column(
             modifier = Modifier.fillMaxSize().padding(40.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -959,9 +972,11 @@ class MainActivity : ComponentActivity() {
                         is ProcessEvent.Success -> {
                             Toast.makeText(context, "Room updated.", Toast.LENGTH_SHORT).show()
                             navController.popBackStack()
+                            inProgress.value = false
                         }
                         is ProcessEvent.Error -> {
                             Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
+                            inProgress.value = false
                         }
                     }
                 }

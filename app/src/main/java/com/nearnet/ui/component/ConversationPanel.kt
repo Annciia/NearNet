@@ -3,6 +3,7 @@ package com.nearnet.ui.component
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -23,7 +24,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import com.nearnet.R
 import com.nearnet.ui.model.LocalViewModel
 
 @Composable
@@ -36,9 +39,13 @@ fun ConversationPanel() {
         verticalAlignment = Alignment.Bottom
     ) {
         if (hideAttachmentPanel==false) {
-            ConversationPanelButton(imageVector = Icons.Default.Share, conversationButtonDescription ="Attach a file")
+            ConversationPanelButton(
+                res = R.drawable.file,
+                conversationButtonDescription ="Attach a file")
             Spacer(Modifier.width(5.dp))
-            ConversationPanelButton(imageVector = Icons.Default.AccountBox, conversationButtonDescription="Attach an image")
+            ConversationPanelButton(
+                res = R.drawable.image,
+                conversationButtonDescription="Attach an image")
         } else {
             ConversationPanelButton(
                 imageVector = Icons.Default.KeyboardArrowRight,
@@ -57,7 +64,7 @@ fun ConversationPanel() {
         )
         Spacer(Modifier.width(5.dp))
         ConversationPanelButton(
-            imageVector = Icons.Default.Send,
+            res = R.drawable.send,
             onClick = {
                 if (messageText.isNotBlank()) {
                     vm.sendMessage(messageText, vm.selectedRoom.value!!)
@@ -69,17 +76,26 @@ fun ConversationPanel() {
     }
 }
 @Composable
-fun ConversationPanelButton(modifier: Modifier = Modifier, imageVector: ImageVector, conversationButtonDescription: String="", onClick: (() -> Unit) = {}) {
+fun ConversationPanelButton(modifier: Modifier = Modifier, res: Int? = null, imageVector: ImageVector? = null, conversationButtonDescription: String="", onClick: (() -> Unit) = {}) {
     Button(
         onClick = onClick,
         shape = RoundedCornerShape(6.dp),
         modifier = modifier.size(36.dp),
         contentPadding = PaddingValues(0.dp)
     ) {
-        Icon(
-            imageVector = imageVector,
-            contentDescription = conversationButtonDescription,
-            tint = MaterialTheme.colorScheme.onPrimary
-        )
+        if (res != null) {
+            Icon(
+                painter = painterResource(res),
+                contentDescription = conversationButtonDescription,
+                tint = MaterialTheme.colorScheme.onPrimary,
+                modifier = modifier.fillMaxSize(0.7f),
+            )
+        } else if (imageVector != null){
+            Icon(
+                imageVector = imageVector,
+                contentDescription = conversationButtonDescription,
+                tint = MaterialTheme.colorScheme.onPrimary
+            )
+        }
     }
 }

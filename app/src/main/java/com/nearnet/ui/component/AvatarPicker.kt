@@ -10,11 +10,10 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -23,10 +22,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import java.io.IOException
 import androidx.core.graphics.scale
 import androidx.exifinterface.media.ExifInterface
+import com.nearnet.R
 import java.io.ByteArrayOutputStream
 
 fun getBitmapFromUri(context: Context, uri: Uri): Bitmap {
@@ -57,12 +58,12 @@ fun transformToAvatar(bitmap: Bitmap): Bitmap {
     val cropY = (height - cropSize) / 2
     return Bitmap
         .createBitmap(bitmap, cropX, cropY, cropSize, cropSize)
-        .scale(128,128, true)
+        .scale(256,256, true)
 }
 
 fun encodeBase64(bitmap: Bitmap): String {
     val outputStream = ByteArrayOutputStream()
-    bitmap.compress(Bitmap.CompressFormat.PNG,100, outputStream)
+    bitmap.compress(Bitmap.CompressFormat.PNG,80, outputStream)
     val bytes = outputStream.toByteArray()
     return Base64.encodeToString(bytes, Base64.NO_WRAP)
 }
@@ -87,13 +88,22 @@ fun AvatarPicker(avatarBase64: String, onAvatarChange: (String) -> Unit) {
     val avatarBitmap = if (avatarBase64.isNotEmpty()) decodeBase64(avatarBase64) else null
     if (avatarBitmap == null) {
         Icon(
-            imageVector = Icons.Default.Add,
+            painter = painterResource(R.drawable.image),
             contentDescription = "Avatar",
             tint = MaterialTheme.colorScheme.onPrimary,
-            modifier = Modifier.size(100.dp).background(
-                color = MaterialTheme.colorScheme.primary,
-                shape = RoundedCornerShape(6.dp)
-            ).clickable { launcher.launch("image/*") }
+            modifier = Modifier
+                .size(100.dp)
+                .background(
+                    color = MaterialTheme.colorScheme.primary,
+                    shape = RoundedCornerShape(6.dp)
+                )
+                .clip(RoundedCornerShape(6.dp))
+                .border(2.dp, MaterialTheme.colorScheme.onPrimary, RoundedCornerShape(6.dp))
+                .clickable { launcher.launch("image/*") }
+
+                //.background(color = MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(6.dp))
+                //.clip(RoundedCornerShape(6.dp))
+                //.border(2.dp, MaterialTheme.colorScheme.onPrimary, RoundedCornerShape(6.dp)),
         )
     } else {
         Image(
@@ -106,6 +116,8 @@ fun AvatarPicker(avatarBase64: String, onAvatarChange: (String) -> Unit) {
                     color = MaterialTheme.colorScheme.primary,
                     shape = RoundedCornerShape(6.dp)
                 )
+                .clip(RoundedCornerShape(6.dp))
+                .border(2.dp, MaterialTheme.colorScheme.onPrimary, RoundedCornerShape(6.dp))
                 .clickable { launcher.launch("image/*") }
         )
     }
