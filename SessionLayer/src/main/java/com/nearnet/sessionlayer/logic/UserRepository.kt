@@ -125,26 +125,61 @@ class UserRepository(private val context: Context) {
     }
 
 
-    suspend fun updateUser(user: UserData) = withContext(Dispatchers.IO) {
+    suspend fun updateUser(user: UserData,
+                           password: String = "",
+                           passwordConfirmation: String = ""
+    ) = withContext(Dispatchers.IO) {
         val token = getTokenFromPreferences(context) ?: return@withContext
         Log.d("REST", "Updating user for token: $token")
-        val body = mapOf(
-            "name" to user.name,
-            "avatar" to user.avatar,
-            "publicKey" to user.publicKey,
-            "additionalSettings" to user.additionalSettings
+//        val body = mapOf(
+//            "name" to user.name,
+//            "avatar" to user.avatar,
+//            "publicKey" to user.publicKey,
+//            "additionalSettings" to user.additionalSettings
+//        )
+
+        val payload: MutableMap<String, String> = mutableMapOf(
+            "name" to (user.name ?: ""),
+            "avatar" to (user.avatar ?: ""),
+            "publicKey" to (user.publicKey ?: ""),
+            "additionalSettings" to (user.additionalSettings ?: "")
         )
+
+        // Dodanie obsługi zmiany hasła jeśli pola są wypełnione i zgodne
+        if (password.isNotEmpty() && password == passwordConfirmation) {
+            payload["password"] = password
+            payload["newPassword"] = password
+        }
+
         try {
-            val response = api.updateUser("Bearer $token", body)
+            val response = api.updateUser("Bearer $token", payload)
             if (response.isSuccessful) {
-                val json = response.body()?.string()
+                val raw = response.body()?.string()
+                val json = raw ?: "{}"
                 Log.d("REST", "Update response: $json")
+
+                if (json.trimStart().startsWith("<html", ignoreCase = true)) {
+                    Log.w("REST", "Server returned HTML instead of JSON (possible error page).")
+                }
             } else {
-                Log.e("REST", "Update failed: ${response.code()} ${response.errorBody()?.string()}")
+                val errorText = response.errorBody()?.string() ?: "Unknown error"
+                Log.e("REST", "Update failed: ${response.code()} $errorText")
             }
         } catch (e: Exception) {
             Log.e("REST", "Exception during update: ${e.message}")
         }
+
+//        try {
+//            val response = api.updateUser("Bearer $token", body)
+//            if (response.isSuccessful) {
+//                val json = response.body()?.string()
+//                Log.d("REST", "Update response: $json")
+//            } else {
+//                Log.e("REST", "Update failed: ${response.code()} ${response.errorBody()?.string()}")
+//            }
+//        } catch (e: Exception) {
+//            Log.e("REST", "Exception during update: ${e.message}")
+//        }
     }
 
     suspend fun deleteUser(password: String): Boolean = withContext(Dispatchers.IO) {

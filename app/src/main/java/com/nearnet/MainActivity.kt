@@ -2,7 +2,6 @@ package com.nearnet
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
@@ -95,6 +94,7 @@ import com.nearnet.ui.model.ROOM_DESCRIPTION_MAX_LINES
 import com.nearnet.ui.model.ROOM_NAME_MAX_LENGTH
 import com.nearnet.ui.theme.NearNetTheme
 import kotlinx.coroutines.launch
+
 
 data class Room(val id: String, var name: String, var description: String, var avatar: String, var additionalSettings: String, var isPrivate: Boolean, var isVisible: Boolean, var idAdmin: String, var users: List<String>)
 data class Message(val id: String, val userId: String, val roomId: String, val data: String, val timestamp: String, val messageType: String, var additionalData: String)
@@ -633,7 +633,17 @@ class MainActivity : ComponentActivity() {
                 Modifier.weight(1f).fillMaxWidth()
             ) {
                 items(recent) { recent ->
-                    MessageItem(recent.message, recent.room, ellipse = true, onClick = { message, room ->
+                    MessageItem(message = com.nearnet.sessionlayer.data.model.Message(
+                        id = recent.message.id,
+                        roomId = recent.message.roomId,
+                        userId = recent.message.userId,
+                        messageType = recent.message.messageType,
+                        message = recent.message.data, // bo w com.nearnet.Message pole nazywa się `data`
+                        additionalData = recent.message.additionalData,
+                        timestamp = recent.message.timestamp
+                    ), recent.room,
+                        ellipse = true,
+                        onClick = { message, room ->
                         if (room != null) {
                             vm.selectRoom(room)
                             navController.navigate("roomConversationScreen")
@@ -1105,7 +1115,7 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    fun RoomConversationScreen() : Unit {
+    fun RoomConversationScreen() {
         val vm = LocalViewModel.current
         val selectedRoom = vm.selectedRoom.collectAsState().value
         val messages = vm.messages.collectAsState().value
@@ -1163,7 +1173,14 @@ class MainActivity : ComponentActivity() {
             ){
 
                 items(messagesUI, key = { it.id }) { message ->
-                    MessageItem(message)
+                    MessageItem(message = com.nearnet.sessionlayer.data.model.Message(
+                        id = message.id,
+                        roomId = message.roomId,
+                        userId = message.userId,
+                        messageType = message.messageType,
+                        message = message.data,
+                        additionalData = message.additionalData,
+                        timestamp = message.timestamp))
                 }
             }
             ConversationPanel()

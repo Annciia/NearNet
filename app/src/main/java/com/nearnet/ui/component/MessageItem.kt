@@ -26,19 +26,30 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.nearnet.Message
+//import com.nearnet.Message
 import com.nearnet.R
-import com.nearnet.Room
 import com.nearnet.sessionlayer.data.model.RoomData
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import com.nearnet.sessionlayer.data.model.Message
+import java.time.Instant
+import java.time.ZoneId
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun MessageItem(message: Message, room: RoomData? = null, ellipse: Boolean = false, onClick: ((message: Message, room: RoomData?)->Unit)? = null) {
-    var date = ""
+fun MessageItem(message: com.nearnet.sessionlayer.data.model.Message, room: RoomData? = null, ellipse: Boolean = false, onClick: ((message:  com.nearnet.sessionlayer.data.model.Message, room: RoomData?)->Unit)? = null) {
+//    var date = ""
 //    if (message.timestamp.isNotEmpty()) {
 //        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
 //        date = LocalDateTime.parse(message.timestamp, formatter).format(DateTimeFormatter.ofPattern("yyyy-MM-dd • HH:mm"))
 //    }
+    val date = try {
+        val tsMillis = message.timestamp.toLong() // zamień String na Long
+        val localDateTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(tsMillis), ZoneId.systemDefault())
+        localDateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd • HH:mm"))
+    } catch (e: Exception) {
+        "" // jeśli coś pójdzie nie tak
+    }
     Row(
         modifier = Modifier.then(
             if (onClick != null) {
@@ -97,7 +108,7 @@ fun MessageItem(message: Message, room: RoomData? = null, ellipse: Boolean = fal
                 )
             }
             Text(
-                text = message.data,
+                text = message.message,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onPrimary,
                 maxLines = if (!ellipse) Int.MAX_VALUE else 1,

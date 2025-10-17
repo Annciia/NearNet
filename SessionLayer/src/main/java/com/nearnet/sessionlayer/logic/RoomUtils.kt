@@ -158,6 +158,7 @@ class RoomRepository(private val context: Context) {
 
     suspend fun addRoom(name: String,
                         description: String,
+                        avatar: String,
                         password: String,
                         isPrivate: Boolean,
                         isVisible: Boolean,
@@ -171,7 +172,7 @@ class RoomRepository(private val context: Context) {
         val request = AddRoomRequest(
             name = name.trim(),
             description = description.trim(),
-            avatar = "",
+            avatar = avatar.trim(),
             password = password.trim(),
             isPrivate = isPrivate,
             isVisible = isVisible,
