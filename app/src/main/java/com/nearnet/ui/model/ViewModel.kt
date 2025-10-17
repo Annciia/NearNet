@@ -268,7 +268,7 @@ class NearNetViewModel(): ViewModel() {
                     additionalSettings = if (additionalSettings.isNotBlank()) additionalSettings else currentUser.additionalSettings
                 )
 
-                repository.updateUser(userData)
+                repository.updateUser(userData, password, passwordConfirmation)
 
                 // update lokalnego usera w stanie UI
                 val updatedUser = currentUser.copy(name = userData.name)
