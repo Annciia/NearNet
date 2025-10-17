@@ -18,6 +18,7 @@ private val LightColorScheme = lightColorScheme(
     onPrimary = NetGreenDark,
     secondary = NetGreenMid,
     tertiary = NetGreenLight,
+    surface = NetGrayLight
 
     /* Other default colors to override
     background = Color(0xFFFFFBFE),

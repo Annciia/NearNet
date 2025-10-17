@@ -25,9 +25,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.nearnet.R
 import com.nearnet.ui.theme.standardIconStyleTransparent
 
 @Composable
@@ -81,8 +83,8 @@ fun MessageEditorField(
                 }
                 //trailing icon
                 Icon(
-                    imageVector = Icons.Default.Face,
-                    contentDescription = "Emogi",
+                    painter = painterResource(R.drawable.emoji),
+                    contentDescription = "Emoji",
                     tint = MaterialTheme.colorScheme.onPrimary,
                     modifier = Modifier
                         .standardIconStyleTransparent()

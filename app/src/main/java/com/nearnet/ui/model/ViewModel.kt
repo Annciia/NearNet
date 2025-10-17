@@ -244,10 +244,10 @@ class NearNetViewModel(): ViewModel() {
             }
         }
     }
-    // TODO tutaj chyba jakas oblusge/pola do additionalSettings: String musisz dorobic + nie ma aktualizacji avatara
-    fun updateUser(userName: String, password: String, passwordConfirmation: String, additionalSettings: String){
+    // TODO tutaj chyba jakas oblusge/pola do additionalSettings
+    fun updateUser(userName: String, currentPassword: String, newPassword: String, passwordConfirmation: String, avatar: String, additionalSettings: String){
         viewModelScope.launch {
-            if (!validateUpdate(userName, password, passwordConfirmation, additionalSettings)) {
+            if (!validateUpdate(userName, newPassword, passwordConfirmation, avatar, additionalSettings)) {
                 updateUserEventMutable.emit(ProcessEvent.Error("Failed to update account. Please try again."))
                 return@launch
             }
@@ -257,22 +257,20 @@ class NearNetViewModel(): ViewModel() {
                 updateUserEventMutable.emit(ProcessEvent.Error("No user logged in."))
                 return@launch
             }
-            //val status : Boolean = repository.updateUser(userName, password, additionalSettings)
             try {
                 val userData = com.nearnet.sessionlayer.data.model.UserData(
                     id = currentUser.id,
                     login = currentUser.login,
                     name = if (userName.isNotBlank()) userName else currentUser.name,
-                    avatar = currentUser.avatar,
+                    avatar = if (avatar.isNotBlank()) avatar else currentUser.avatar,
                     publicKey = currentUser.publicKey,
                     additionalSettings = if (additionalSettings.isNotBlank()) additionalSettings else currentUser.additionalSettings
                 )
 
-                repository.updateUser(userData, password, passwordConfirmation)
+                repository.updateUser(userData, currentPassword, newPassword)
 
                 // update lokalnego usera w stanie UI
-                val updatedUser = currentUser.copy(name = userData.name)
-                selectedUserMutable.value = updatedUser
+                selectedUserMutable.value = currentUser.copy(name = userName, avatar = avatar, additionalSettings = additionalSettings)
 
                 updateUserEventMutable.emit(ProcessEvent.Success(Unit))
             } catch (e: Exception) {
@@ -282,15 +280,17 @@ class NearNetViewModel(): ViewModel() {
         }
     }
 
-    fun validateUpdate(userName: String, password: String, passwordConfirmation: String, additionalSettings: String): Boolean {
+    fun validateUpdate(userName: String, password: String, passwordConfirmation: String, avatar: String, additionalSettings: String): Boolean {
         var result = true
         val user = selectedUser.value
         if (user == null) {
             return false
         }
-        val userNameChanged = userName != user.name;
+        val userNameChanged = userName != user.name
+        val avatarChanged = avatar != user.avatar
+        val additionalSettingsChanged = additionalSettings != user.additionalSettings
         val passwordChanged = password.isNotBlank() || passwordConfirmation.isNotBlank()
-        if (!userNameChanged && !passwordChanged) {
+        if (!userNameChanged && !avatarChanged && !passwordChanged && !additionalSettingsChanged) {
             return false
         }
         if (userNameChanged) {
@@ -347,17 +347,17 @@ class NearNetViewModel(): ViewModel() {
     }
 
     fun createRoom(
-        roomName: String,
-        roomDescription: String,
+        name: String,
+        description: String,
+        avatar: String,
         password: String?,
         passwordConfirmation: String?,
         isPrivate: Boolean,
         isVisible: Boolean,
         additionalSettings: String = "",
-        //avatar: String //TODO Marek
     ) {
         viewModelScope.launch {
-            if (!validateRoom(roomName, roomDescription, password, passwordConfirmation)) {
+            if (!validateRoom(name, description, password, passwordConfirmation)) {
                 registerRoomEventMutable.emit(ProcessEvent.Error("Something went wrong while creating the room."))
                 return@launch
             }
@@ -366,13 +366,13 @@ class NearNetViewModel(): ViewModel() {
                 try {
                     // jeśli pokój jest publiczny, hasło będzie puste
                     val createdRoomData = roomRepository.addRoom(
-                        name = roomName,
-                        description = roomDescription,
+                        name = name,
+                        description = description,
                         password = password ?: "",
                         isPrivate = isPrivate,
                         isVisible = isVisible,
                         additionalSettings = additionalSettings,
-                        avatar = "" //TODO Marek
+                        avatar = avatar
                     )
 
                     if (createdRoomData != null) {
@@ -422,11 +422,12 @@ class NearNetViewModel(): ViewModel() {
     fun updateRoom(
         name: String,
         description: String,
+        avatar: String,
         password: String?,
         passwordConfirmation: String?,
         isPrivate: Boolean,
         isVisible: Boolean,
-        avatar: String
+        additionalSettings: String
     ) {
         viewModelScope.launch {
 
@@ -444,10 +445,11 @@ class NearNetViewModel(): ViewModel() {
             val updatedRoomData = currentRoom.copy(
                 name = name.trim(),
                 description = description.trim(),
+                avatar = avatar,
                 password = password ?: currentRoom.password,
                 isPrivate = isPrivate,
                 isVisible = isVisible,
-                avatar = avatar
+                additionalSettings = additionalSettings
             )
 
             val result = roomRepository.updateRoom(updatedRoomData)

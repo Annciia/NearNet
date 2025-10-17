@@ -126,8 +126,8 @@ class UserRepository(private val context: Context) {
 
 
     suspend fun updateUser(user: UserData,
-                           password: String = "",
-                           passwordConfirmation: String = ""
+                           currentPassword: String = "",
+                           newPassword: String = ""
     ) = withContext(Dispatchers.IO) {
         val token = getTokenFromPreferences(context) ?: return@withContext
         Log.d("REST", "Updating user for token: $token")
@@ -146,9 +146,9 @@ class UserRepository(private val context: Context) {
         )
 
         // Dodanie obsługi zmiany hasła jeśli pola są wypełnione i zgodne
-        if (password.isNotEmpty() && password == passwordConfirmation) {
-            payload["password"] = password
-            payload["newPassword"] = password
+        if (newPassword.isNotEmpty() && currentPassword.isNotEmpty()) {
+            payload["password"] = currentPassword
+            payload["newPassword"] = newPassword
         }
 
         try {
