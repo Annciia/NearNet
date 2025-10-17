@@ -12,7 +12,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -26,8 +25,8 @@ fun LabeledSwitch(title: String, description: String, isChecked: Boolean, onChec
                 checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
                 checkedTrackColor = MaterialTheme.colorScheme.primary,
                 uncheckedThumbColor = MaterialTheme.colorScheme.primary,
-                uncheckedBorderColor = Color.LightGray,
-                uncheckedTrackColor = Color.LightGray
+                uncheckedBorderColor = MaterialTheme.colorScheme.surface,
+                uncheckedTrackColor = MaterialTheme.colorScheme.surface
             )
         )
         Spacer(Modifier.width(10.dp))

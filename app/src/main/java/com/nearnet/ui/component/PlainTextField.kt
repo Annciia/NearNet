@@ -6,13 +6,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -35,7 +35,7 @@ fun PlainTextField(
         onValueChange = { text -> if (text.length <= maxChars) onValueChange(text) },
         singleLine = singleLine,
         textStyle = LocalTextStyle.current.copy(
-            color = if(enable) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
+            color = if(enable) MaterialTheme.colorScheme.onPrimary else ButtonDefaults.buttonColors().disabledContentColor,
             fontSize = 14.sp,
             lineHeight = lineHeight,
         ),
@@ -47,7 +47,7 @@ fun PlainTextField(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .background(
-                        color = if(enable) MaterialTheme.colorScheme.primary else Color.LightGray,
+                        color = if(enable) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
                         shape = RoundedCornerShape(6.dp)
                     )
                     .padding(horizontal = 12.dp, vertical = 8.dp),
@@ -57,7 +57,7 @@ fun PlainTextField(
                         Text(
                             text = placeholderText,
                             style = LocalTextStyle.current.copy(
-                                color = if(enable) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
+                                color = if(enable) MaterialTheme.colorScheme.onPrimary else ButtonDefaults.buttonColors().disabledContentColor,
                                 fontSize = 14.sp,
                                 lineHeight = lineHeight,
                             )

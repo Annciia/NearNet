@@ -14,3 +14,5 @@ val NetGreenPastel = Color(0xFFB7C8C4)
 val NetGreenLight = Color(0xFF93ACA7)
 val NetGreenMid = Color(0xFF6F918A)
 val NetGreenDark = Color(0xFF374845)
+
+val NetGrayLight = Color(0xFFe3dce4)

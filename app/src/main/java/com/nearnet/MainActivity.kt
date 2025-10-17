@@ -9,6 +9,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -28,7 +29,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.twotone.PlayArrow
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Button
@@ -72,10 +72,12 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.nearnet.sessionlayer.logic.MessageUtils
 import com.nearnet.sessionlayer.data.model.RoomData
 import com.nearnet.sessionlayer.data.model.UserData
 import com.nearnet.sessionlayer.logic.RoomRepository
 import com.nearnet.sessionlayer.logic.UserRepository
+import com.nearnet.ui.component.AvatarPicker
 import com.nearnet.ui.component.ConversationPanel
 import com.nearnet.ui.component.LabeledSwitch
 import com.nearnet.ui.component.MessageItem
@@ -100,8 +102,6 @@ data class Room(val id: String, var name: String, var description: String, var a
 data class Message(val id: String, val userId: String, val roomId: String, val data: String, val timestamp: String, val messageType: String, var additionalData: String)
 data class User(val id: String, val login: String, val name: String, var avatar: String, var additionalSettings: String, var publicKey: String)
 data class Recent(val message: Message, val room: RoomData?, val username: String)
-
-
 
 class MainActivity : ComponentActivity() {
 
@@ -415,6 +415,7 @@ class MainActivity : ComponentActivity() {
         val vm = LocalViewModel.current
         val login = remember { mutableStateOf("") }
         val password = remember { mutableStateOf("") }
+        val inProgress = remember { mutableStateOf(false) }
 
         ScreenTitle("Log in or create account!")
         Column(
@@ -451,9 +452,11 @@ class MainActivity : ComponentActivity() {
                 Spacer(Modifier.height(10.dp))
                 Button(
                     onClick = {
+                        inProgress.value = true
                         vm.logInUser(login.value, password.value)
                         //tu animacja czekania na logowanie w postaci kota biegającego w kółko
                     },
+                    enabled = !inProgress.value,
                     modifier = Modifier.widthIn(max = 200.dp).fillMaxWidth()
                 ) {
                     Text(text = "Sign in")
@@ -493,6 +496,7 @@ class MainActivity : ComponentActivity() {
                         Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
                     }
                 }
+                inProgress.value = false
             }
         }
     }
@@ -504,6 +508,7 @@ class MainActivity : ComponentActivity() {
         val login = remember { mutableStateOf("") }
         val password = remember { mutableStateOf("") }
         val passwordConfirmation = remember { mutableStateOf("") }
+        val inProgress = remember { mutableStateOf(false) }
 
         ScreenTitle("Create your new account!")
         Column(
@@ -573,9 +578,11 @@ class MainActivity : ComponentActivity() {
                 Spacer(Modifier.height(20.dp))
                 Button(
                     onClick = {
+                        inProgress.value = true
                         vm.registerUser(login.value, password.value)
                         //tu animacja czekania na logowanie w postaci kota biegającego w kółko
                     },
+                    enabled = !inProgress.value,
                     modifier = Modifier.widthIn(max = 200.dp).fillMaxWidth()
                 ) {
                     Text(text = "Let's go!")
@@ -588,9 +595,11 @@ class MainActivity : ComponentActivity() {
                     when (event) {
                         is ProcessEvent.Success -> {
                             vm.logInUser(login.value, password.value)
+                            inProgress.value = false
                         }
                         is ProcessEvent.Error -> {
                             Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
+                            inProgress.value = false
                         }
                     }
                 }
@@ -666,6 +675,7 @@ class MainActivity : ComponentActivity() {
         val vm = LocalViewModel.current
         val rooms = vm.filteredMyRoomsList.collectAsState().value
         val searchText = vm.searchMyRoomsText.collectAsState().value
+        val inProgess = remember { mutableStateOf(false) }
         Column {
             ScreenTitle("My rooms")
             SearchField(placeholderText = "Search rooms...", searchText=searchText, onSearch = {
@@ -684,7 +694,9 @@ class MainActivity : ComponentActivity() {
             ) {
                 items(rooms) { room ->
                     RoomItem(room, onClick = { room ->
-                        vm.selectRoom(room)
+                        val progress = inProgess.value
+                        inProgess.value = true
+                        if (!progress) vm.selectRoom(room)
                         //tu animacja czekania na wejście do pokoju w postaci kota biegającego w kółko
                     })
                 }
@@ -702,6 +714,7 @@ class MainActivity : ComponentActivity() {
                         Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
                     }
                 }
+                inProgess.value = false
             }
         }
     }
@@ -787,14 +800,19 @@ class MainActivity : ComponentActivity() {
         var roomDescription by rememberSaveable { mutableStateOf(selectedRoom?.description ?: "") }
         var isCheckedPublic by rememberSaveable { mutableStateOf(if (selectedRoom != null) !selectedRoom.isPrivate else false) }
         var isCheckedVisible by rememberSaveable { mutableStateOf(if (selectedRoom != null) !selectedRoom.isVisible else false) }
+        val avatar = rememberSaveable { mutableStateOf(selectedRoom?.avatar ?: "") }
         val password = remember { mutableStateOf("") }
         val passwordConfirmation = remember { mutableStateOf("") }
+        val inProgress = remember { mutableStateOf(false) }
         fun getPassword(): String? {
             if (isCheckedPublic || (selectedRoom != null && password.value.isEmpty() && passwordConfirmation.value.isEmpty())) {
                 return null
             } else {
                 return password.value
             }
+        }
+        fun isAdminOrFree(): Boolean {
+            return selectedUser !== null && selectedRoom !== null && (selectedUser.id == selectedRoom.idAdmin || selectedRoom.idAdmin.isEmpty())
         }
         Column {
             if (selectedRoom != null) { //roomSettingsScreen
@@ -806,12 +824,7 @@ class MainActivity : ComponentActivity() {
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "Room icon",
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.size(100.dp).background(color = MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(6.dp))
-                )
+                AvatarPicker(avatar.value, onAvatarChange = { base64 -> avatar.value = base64 })
                 Spacer(Modifier.width(10.dp))
                 PlainTextField(
                     value = roomName,
@@ -832,37 +845,40 @@ class MainActivity : ComponentActivity() {
                 maxChars = ROOM_DESCRIPTION_MAX_LENGTH,
                 modifier = Modifier.fillMaxWidth()
             )
-            Spacer(Modifier.height(10.dp))
-            PlainTextField(
-                value = password.value,
-                onValueChange = { text -> password.value = text },
-                placeholderText = "password",
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                enable = !isCheckedPublic
-            )
-            Spacer(Modifier.height(10.dp))
-            PlainTextField(
-                value = passwordConfirmation.value,
-                onValueChange = { text -> passwordConfirmation.value = text },
-                placeholderText = "confirm password",
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                enable = !isCheckedPublic
-            )
-            Spacer(Modifier.height(20.dp))
-            //Switches
-            LabeledSwitch(
-                title = "Allow for public access",
-                description = "When enabled, everyone can join the room without your approval.",
-                isChecked = isCheckedPublic,
-                onCheckedChange = { switchState -> isCheckedPublic = switchState })
-            Spacer(Modifier.height(10.dp))
-            LabeledSwitch(
-                title="Visible only by name",
-                description="When enabled, the room can only be found by entering its full name.",
-                isChecked =isCheckedVisible,
-                onCheckedChange = { switchState -> isCheckedVisible = switchState  })
+
+            if (selectedRoom == null || isAdminOrFree()) {
+                Spacer(Modifier.height(10.dp))
+                PlainTextField(
+                    value = password.value,
+                    onValueChange = { text -> password.value = text },
+                    placeholderText = "password",
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    enable = !isCheckedPublic
+                )
+                Spacer(Modifier.height(10.dp))
+                PlainTextField(
+                    value = passwordConfirmation.value,
+                    onValueChange = { text -> passwordConfirmation.value = text },
+                    placeholderText = "confirm password",
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    enable = !isCheckedPublic
+                )
+                Spacer(Modifier.height(20.dp))
+                //Switches
+                LabeledSwitch(
+                    title = "Allow for public access",
+                    description = "When enabled, everyone can join the room without your approval.",
+                    isChecked = isCheckedPublic,
+                    onCheckedChange = { switchState -> isCheckedPublic = switchState })
+                Spacer(Modifier.height(10.dp))
+                LabeledSwitch(
+                    title = "Visible only by name",
+                    description = "When enabled, the room can only be found by entering its full name.",
+                    isChecked = isCheckedVisible,
+                    onCheckedChange = { switchState -> isCheckedVisible = switchState })
+            }
             Spacer(Modifier.height(20.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -876,14 +892,15 @@ class MainActivity : ComponentActivity() {
                 Spacer(Modifier.width(10.dp))
                 Button(
                     onClick = {
+                        inProgress.value = true
                         if (selectedRoom != null) { //roomSettingsScreen
-                            vm.updateRoom(roomName, roomDescription, getPassword(), passwordConfirmation.value, !isCheckedPublic, !isCheckedVisible, "")
+                            vm.updateRoom(roomName, roomDescription, avatar.value, getPassword(), passwordConfirmation.value, !isCheckedPublic, !isCheckedVisible, "")
                         } else { //createRoomScreen
-                            vm.createRoom(roomName, roomDescription, getPassword(), passwordConfirmation.value, !isCheckedPublic, !isCheckedVisible, "")
+                            vm.createRoom(roomName, roomDescription, avatar.value, getPassword(), passwordConfirmation.value, !isCheckedPublic, !isCheckedVisible, "")
                         }
                         //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
                     },
-                    enabled = vm.validateRoom(roomName, roomDescription, getPassword(), passwordConfirmation.value)
+                    enabled = vm.validateRoom(roomName, roomDescription, getPassword(), passwordConfirmation.value) && !inProgress.value
                 ) {
                     if (selectedRoom != null) { //roomSettingsScreen
                         Text("Accept")
@@ -915,9 +932,11 @@ class MainActivity : ComponentActivity() {
                         is ProcessEvent.Success -> {
                             val createdRoom = event.data
                             vm.selectRoom(createdRoom)
+                            inProgress.value = false
                         }
                         is ProcessEvent.Error -> {
                             Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
+                            inProgress.value = false
                         }
                     }
                 }
@@ -971,8 +990,10 @@ class MainActivity : ComponentActivity() {
         val context = LocalContext.current
         val vm = LocalViewModel.current
         var userName = rememberSaveable { mutableStateOf(vm.selectedUser.value?.name ?: "") }
-        val password = remember { mutableStateOf("") }
+        val currentPassword = remember { mutableStateOf("") }
+        val newPassword = remember { mutableStateOf("") }
         val passwordConfirmation = remember { mutableStateOf("") }
+        val avatar = remember { mutableStateOf(vm.selectedUser.value?.avatar ?: "") }
 
         //Wygląd ekranu
         Column {
@@ -981,15 +1002,7 @@ class MainActivity : ComponentActivity() {
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Default.AccountCircle,
-                    contentDescription = "User icon",
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.size(100.dp).background(
-                        color = MaterialTheme.colorScheme.primary,
-                        shape = RoundedCornerShape(6.dp)
-                    )
-                )
+                AvatarPicker(avatar.value, onAvatarChange = { base64 -> avatar.value = base64 })
                 Spacer(Modifier.width(10.dp))
                 PlainTextField(
                     value = userName.value,
@@ -1001,9 +1014,17 @@ class MainActivity : ComponentActivity() {
             }
             Spacer(Modifier.height(10.dp))
             PlainTextField(
-                value = password.value,
-                onValueChange = { text -> password.value = text },
-                placeholderText = "password",
+                value = currentPassword.value,
+                onValueChange = { text -> currentPassword.value = text },
+                placeholderText = "current password",
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(10.dp))
+            PlainTextField(
+                value = newPassword.value,
+                onValueChange = { text -> newPassword.value = text },
+                placeholderText = "new password",
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -1011,7 +1032,7 @@ class MainActivity : ComponentActivity() {
             PlainTextField(
                 value = passwordConfirmation.value,
                 onValueChange = { text -> passwordConfirmation.value = text },
-                placeholderText = "confirm password",
+                placeholderText = "confirm new password",
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -1036,10 +1057,10 @@ class MainActivity : ComponentActivity() {
                 Spacer(Modifier.width(10.dp))
                 Button(
                     onClick = {
-                        vm.updateUser(userName.value, password.value, passwordConfirmation.value, "")
+                        vm.updateUser(userName.value, currentPassword.value, newPassword.value, passwordConfirmation.value, avatar.value, "")
                         //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
                     },
-                    enabled = vm.validateUpdate(userName.value, password.value, passwordConfirmation.value, "")
+                    enabled = vm.validateUpdate(userName.value, newPassword.value, passwordConfirmation.value, avatar.value, "")
                 ) {
                     Text("Accept")
                 }
@@ -1163,7 +1184,6 @@ class MainActivity : ComponentActivity() {
         }
 
 
-
         Column {
             LazyColumn(
                 state = listState,
@@ -1192,6 +1212,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -1199,6 +1220,5 @@ class MainActivity : ComponentActivity() {
             App()
         }
     }
-
 
 }
