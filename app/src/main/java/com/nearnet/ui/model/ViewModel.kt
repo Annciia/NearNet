@@ -584,7 +584,7 @@ class NearNetViewModel(): ViewModel() {
     }
     fun selectRoom(room : RoomData) {
         viewModelScope.launch {
-            loadMessages(room)
+            //loadMessages(room)
             selectedRoomMutable.value = room
 
             if (selectedRoomMutable.value != null) {
@@ -595,8 +595,9 @@ class NearNetViewModel(): ViewModel() {
         }
     }
 
-    fun loadMessages(room: RoomData) {
-        viewModelScope.launch {
+    suspend fun loadMessages(room: RoomData) {
+        //viewModelScope.launch {
+
 //            if (!::messageUtils.isInitialized) {
 //                Log.e("loadMessages", "MessageUtils nie jest zainicjalizowany")
 //                return@launch
@@ -616,7 +617,7 @@ class NearNetViewModel(): ViewModel() {
 
             if (response == null) {
                 Log.e("loadMessages", "Serwer zwrócił pustą odpowiedź dla pokoju=${room.idRoom}")
-                return@launch
+                return
             }
 
             val messageList = response.`package`?.messageList
@@ -655,7 +656,7 @@ class NearNetViewModel(): ViewModel() {
             //aktualizacja stanu UI
             messagesMutable.value = messagesFromApi
             Log.d("loadMessages", "Załadowano ${messagesFromApi.size} wiadomości do UI")
-        }
+        //}
     }
 
 
@@ -728,7 +729,7 @@ class NearNetViewModel(): ViewModel() {
             },
             onReconnect = {
                 // jesli ktos recznie zatrzymal realtime — nie rob reconnect
-                if (stopRealtimeFlag) return@receiveMessagesStream
+                if (stopRealtimeFlag || room.idRoom != selectedRoom.value?.idRoom) return@receiveMessagesStream
 
                 reconnectJob?.cancel()
                 reconnectJob = viewModelScope.launch {

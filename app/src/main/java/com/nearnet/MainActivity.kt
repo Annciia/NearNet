@@ -33,6 +33,7 @@ import androidx.compose.material.icons.twotone.PlayArrow
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -55,6 +56,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.platform.LocalContext
@@ -1158,13 +1160,24 @@ class MainActivity : ComponentActivity() {
     fun RoomConversationScreen() {
         val vm = LocalViewModel.current
         val selectedRoom = vm.selectedRoom.collectAsState().value
-        val messages = vm.messages.collectAsState().value
+        val messages = vm.messages.collectAsState()
         val listState = rememberLazyListState()
+        val isLoaded = remember { mutableStateOf(false) }
+        val isReady = remember { mutableStateOf(false) }
 
-
-        LaunchedEffect(selectedRoom) {
+        LaunchedEffect(Unit) {
             selectedRoom?.let { room ->
                 vm.loadMessages(room)
+                isLoaded.value = true
+            }
+        }
+
+        LaunchedEffect(messages.value, isLoaded.value) {
+            if (isLoaded.value) {
+                if (messages.value.isNotEmpty()) {
+                    listState.scrollToItem(messages.value.lastIndex)
+                }
+                isReady.value = true
             }
         }
 
@@ -1187,47 +1200,26 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-
-        val messagesUI = remember(messages) {
-            messages.map { backendMessage ->
-                com.nearnet.Message(
-                    id = backendMessage.id,
-                    roomId = backendMessage.roomId,
-                    userId = backendMessage.userId,
-                    data = backendMessage.message,
-                    timestamp = backendMessage.timestamp,
-                    messageType = backendMessage.messageType,
-                    additionalData = backendMessage.additionalData
-                )
-            }
-        }
-
-
         Column {
-            LazyColumn(
-                state = listState,
+            Box(
                 modifier = Modifier.weight(1f).fillMaxWidth(),
-                reverseLayout = false //TODO
-
-            ){
-
-                items(messagesUI, key = { it.id }) { message ->
-                    MessageItem(message = com.nearnet.sessionlayer.data.model.Message(
-                        id = message.id,
-                        roomId = message.roomId,
-                        userId = message.userId,
-                        messageType = message.messageType,
-                        message = message.data,
-                        additionalData = message.additionalData,
-                        timestamp = message.timestamp))
+                contentAlignment = Alignment.Center
+            ) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize().alpha(if (isReady.value) 1f else 0f),
+                    reverseLayout = false
+                ) {
+                    items(messages.value, key = { it.id }) { message ->
+                        MessageItem(message = message)
+                    }
+                }
+                if (!isReady.value) {
+                    CircularProgressIndicator()
+                    //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
                 }
             }
             ConversationPanel()
-        }
-        LaunchedEffect(messages.size) {
-            if (messages.isNotEmpty()) {
-                listState.animateScrollToItem(messages.lastIndex)
-            }
         }
     }
 
