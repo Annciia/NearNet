@@ -195,20 +195,19 @@ class MainActivity : ComponentActivity() {
     fun TopBar(navController: NavHostController) :Unit {
         val navState = navController.currentBackStackEntryAsState().value
         TopAppBar(
-            navigationIcon = {IconButton(
-                onClick = {navController.popBackStack()},
-                content={Icon(
+            navigationIcon = {
+                Icon(
                     imageVector = Icons.TwoTone.PlayArrow,
                     contentDescription = "Go back",
-                    modifier = Modifier.scale(scaleX = -1f, scaleY =1f)
-                )},
-                colors = IconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    disabledContainerColor = MaterialTheme.colorScheme.primary,
-                    disabledContentColor = MaterialTheme.colorScheme.primary
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .padding(vertical = 8.dp, horizontal = 10.dp)
+                        .scale(scaleX = -1f, scaleY =1f)
+                        .clip(shape = RoundedCornerShape(6.dp))
+                        .clickable { navController.popBackStack() },
+                    tint = MaterialTheme.colorScheme.onPrimary
                 )
-            )},
+            },
             title = {
                 if (navState != null && (navState.destination.route == "roomConversationScreen" || navState.destination.route == "roomSettingsScreen")){
                     RoomTopBar(navController)
@@ -380,11 +379,16 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     fun NavigationButton(icon: Int, iconDescription: String, text: String, navController: NavHostController, screenName: String) :Unit {
-        Button(
-            onClick = { navController.navigate(screenName)},
-            modifier = Modifier.padding(4.dp)
+        Box(
+            modifier = Modifier
+                .padding(8.dp)
+                .fillMaxHeight()
+                .clip(RoundedCornerShape(6.dp))
+                .clickable { navController.navigate(screenName) }
         ) {
             Column(
+                modifier = Modifier
+                    .padding(vertical = 4.dp, horizontal = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
