@@ -37,7 +37,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonColors
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -465,6 +464,7 @@ class MainActivity : ComponentActivity() {
                 PlainTextField(
                     placeholderText = "password",
                     singleLine = true,
+                    passwordField = true,
                     value = password.value,
                     onValueChange = { password.value = it }
                 )
@@ -584,6 +584,7 @@ class MainActivity : ComponentActivity() {
                 PlainTextField(
                     placeholderText = "password",
                     singleLine = true,
+                    passwordField = true,
                     value = password.value,
                     onValueChange = { password.value = it }
                 )
@@ -591,6 +592,7 @@ class MainActivity : ComponentActivity() {
                 PlainTextField(
                     placeholderText = "confirm password",
                     singleLine = true,
+                    passwordField = true,
                     value = passwordConfirmation.value,
                     onValueChange = { passwordConfirmation.value = it }
                 )
@@ -872,6 +874,7 @@ class MainActivity : ComponentActivity() {
                     onValueChange = { text -> password.value = text },
                     placeholderText = "password",
                     singleLine = true,
+                    passwordField = true,
                     modifier = Modifier.fillMaxWidth(),
                     enable = !isCheckedPublic
                 )
@@ -881,6 +884,7 @@ class MainActivity : ComponentActivity() {
                     onValueChange = { text -> passwordConfirmation.value = text },
                     placeholderText = "confirm password",
                     singleLine = true,
+                    passwordField = true,
                     modifier = Modifier.fillMaxWidth(),
                     enable = !isCheckedPublic
                 )
@@ -1038,6 +1042,7 @@ class MainActivity : ComponentActivity() {
                 value = currentPassword.value,
                 onValueChange = { text -> currentPassword.value = text },
                 placeholderText = "current password",
+                passwordField = true,
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -1047,6 +1052,7 @@ class MainActivity : ComponentActivity() {
                 onValueChange = { text -> newPassword.value = text },
                 placeholderText = "new password",
                 singleLine = true,
+                passwordField = true,
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(Modifier.height(10.dp))
@@ -1055,6 +1061,7 @@ class MainActivity : ComponentActivity() {
                 onValueChange = { text -> passwordConfirmation.value = text },
                 placeholderText = "confirm new password",
                 singleLine = true,
+                passwordField = true,
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(Modifier.height(20.dp))

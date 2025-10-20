@@ -149,6 +149,7 @@ fun DeleteUserAuthorizationPopup() {
             onValueChange = { text -> password.value = text },
             placeholderText = "password",
             singleLine = true,
+            passwordField = true,
             modifier = Modifier.fillMaxWidth()
         )
     }
@@ -226,6 +227,7 @@ fun JoinRoomConfirmationPopup(popupContext: PopupContext) {
                     onValueChange = { text -> password.value = text },
                     placeholderText = "password",
                     singleLine = true,
+                    passwordField = true,
                     modifier = Modifier.fillMaxWidth()
                 )
                 Text(
