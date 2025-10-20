@@ -1088,7 +1088,7 @@ class MainActivity : ComponentActivity() {
                         vm.updateUser(userName.value, currentPassword.value, newPassword.value, passwordConfirmation.value, avatar.value, "")
                         //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
                     },
-                    enabled = vm.validateUpdate(userName.value, newPassword.value, passwordConfirmation.value, avatar.value, "")
+                    enabled = vm.validateUpdate(userName.value, currentPassword.value, newPassword.value, passwordConfirmation.value, avatar.value, "")
                 ) {
                     Text("Accept")
                 }

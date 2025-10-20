@@ -247,7 +247,7 @@ class NearNetViewModel(): ViewModel() {
     // TODO tutaj chyba jakas oblusge/pola do additionalSettings
     fun updateUser(userName: String, currentPassword: String, newPassword: String, passwordConfirmation: String, avatar: String, additionalSettings: String){
         viewModelScope.launch {
-            if (!validateUpdate(userName, newPassword, passwordConfirmation, avatar, additionalSettings)) {
+            if (!validateUpdate(userName, currentPassword, newPassword, passwordConfirmation, avatar, additionalSettings)) {
                 updateUserEventMutable.emit(ProcessEvent.Error("Failed to update account. Please try again."))
                 return@launch
             }
@@ -267,12 +267,15 @@ class NearNetViewModel(): ViewModel() {
                     additionalSettings = if (additionalSettings.isNotBlank()) additionalSettings else currentUser.additionalSettings
                 )
 
-                repository.updateUser(userData, currentPassword, newPassword)
+                val result = repository.updateUser(userData, currentPassword, newPassword)
 
-                // update lokalnego usera w stanie UI
-                selectedUserMutable.value = currentUser.copy(name = userName, avatar = avatar, additionalSettings = additionalSettings)
-
-                updateUserEventMutable.emit(ProcessEvent.Success(Unit))
+                if (result) {
+                    // update lokalnego usera w stanie UI
+                    selectedUserMutable.value = currentUser.copy(name = userName, avatar = avatar, additionalSettings = additionalSettings)
+                    updateUserEventMutable.emit(ProcessEvent.Success(Unit))
+                } else {
+                    updateUserEventMutable.emit(ProcessEvent.Error("Update failed."))
+                }
             } catch (e: Exception) {
                 Log.e("UpdateUser", "Update failed", e)
                 updateUserEventMutable.emit(ProcessEvent.Error("Update failed: ${e.message}"))
@@ -280,7 +283,7 @@ class NearNetViewModel(): ViewModel() {
         }
     }
 
-    fun validateUpdate(userName: String, password: String, passwordConfirmation: String, avatar: String, additionalSettings: String): Boolean {
+    fun validateUpdate(userName: String, currentPassword: String, newPassword: String, passwordConfirmation: String, avatar: String, additionalSettings: String): Boolean {
         var result = true
         val user = selectedUser.value
         if (user == null) {
@@ -289,7 +292,7 @@ class NearNetViewModel(): ViewModel() {
         val userNameChanged = userName != user.name
         val avatarChanged = avatar != user.avatar
         val additionalSettingsChanged = additionalSettings != user.additionalSettings
-        val passwordChanged = password.isNotBlank() || passwordConfirmation.isNotBlank()
+        val passwordChanged = newPassword.isNotBlank() || passwordConfirmation.isNotBlank()
         if (!userNameChanged && !avatarChanged && !passwordChanged && !additionalSettingsChanged) {
             return false
         }
@@ -297,7 +300,7 @@ class NearNetViewModel(): ViewModel() {
             result = result && userName.isNotBlank()
         }
         if (passwordChanged) {
-            result = result && (password == passwordConfirmation)
+            result = result && (newPassword == passwordConfirmation) && currentPassword.isNotBlank()
         }
         return result
     }
