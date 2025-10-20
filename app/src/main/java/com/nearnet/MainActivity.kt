@@ -195,6 +195,8 @@ class MainActivity : ComponentActivity() {
     @Composable
     fun TopBar(navController: NavHostController) :Unit {
         val navState = navController.currentBackStackEntryAsState().value
+        val currentScreen = navState?.destination?.route
+        if (currentScreen == null || currentScreen == "loginScreen" || currentScreen == "registerScreen") return
         TopAppBar(
             navigationIcon = {
                 Icon(
@@ -353,6 +355,9 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     fun BottomBar(navController: NavHostController) :Unit {
+        val navState = navController.currentBackStackEntryAsState().value
+        val currentScreen = navState?.destination?.route
+        if (currentScreen == null || currentScreen == "loginScreen" || currentScreen == "registerScreen") return
         BottomAppBar (
             containerColor = MaterialTheme.colorScheme.primary,
             contentPadding = PaddingValues(0.dp)
