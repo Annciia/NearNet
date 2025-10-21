@@ -5,7 +5,6 @@ import android.util.Log
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.gson.Gson
 import com.nearnet.Recent
 import com.nearnet.Room
 import com.nearnet.User
@@ -24,9 +23,10 @@ import kotlinx.coroutines.launch
 import com.nearnet.sessionlayer.data.model.Message
 import com.nearnet.sessionlayer.data.model.UserData
 import com.nearnet.sessionlayer.data.model.RoomData
+import com.nearnet.ui.component.PasswordValidationResult
+import com.nearnet.ui.component.validatePassword
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.update
 import java.util.LinkedList
 
@@ -247,7 +247,7 @@ class NearNetViewModel(): ViewModel() {
     // TODO tutaj chyba jakas oblusge/pola do additionalSettings
     fun updateUser(userName: String, currentPassword: String, newPassword: String, passwordConfirmation: String, avatar: String, additionalSettings: String){
         viewModelScope.launch {
-            if (!validateUpdate(userName, currentPassword, newPassword, passwordConfirmation, avatar, additionalSettings)) {
+            if (!validateUpdateUser(userName, currentPassword, newPassword, passwordConfirmation, avatar, additionalSettings)) {
                 updateUserEventMutable.emit(ProcessEvent.Error("Failed to update account. Please try again."))
                 return@launch
             }
@@ -283,7 +283,7 @@ class NearNetViewModel(): ViewModel() {
         }
     }
 
-    fun validateUpdate(userName: String, currentPassword: String, newPassword: String, passwordConfirmation: String, avatar: String, additionalSettings: String): Boolean {
+    fun validateUpdateUser(userName: String, currentPassword: String, newPassword: String, passwordConfirmation: String, avatar: String, additionalSettings: String): Boolean {
         var result = true
         val user = selectedUser.value
         if (user == null) {
@@ -300,7 +300,7 @@ class NearNetViewModel(): ViewModel() {
             result = result && userName.isNotBlank()
         }
         if (passwordChanged) {
-            result = result && (newPassword == passwordConfirmation) && currentPassword.isNotBlank()
+            result = result && validatePassword(newPassword, passwordConfirmation) == PasswordValidationResult.CORRECT && currentPassword.isNotBlank()
         }
         return result
     }
@@ -465,7 +465,6 @@ class NearNetViewModel(): ViewModel() {
             }
         }
     }
-
 
     fun validateRoom(name: String, description: String, password: String?, passwordConfirmation: String?): Boolean {
         if (name.isBlank()) {

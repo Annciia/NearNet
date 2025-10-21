@@ -82,11 +82,14 @@ import com.nearnet.ui.component.AvatarPicker
 import com.nearnet.ui.component.ConversationPanel
 import com.nearnet.ui.component.LabeledSwitch
 import com.nearnet.ui.component.MessageItem
+import com.nearnet.ui.component.PasswordValidationResult
+import com.nearnet.ui.component.PasswordValidationText
 import com.nearnet.ui.component.PlainTextField
 import com.nearnet.ui.component.PopupBox
 import com.nearnet.ui.component.RoomItem
 import com.nearnet.ui.component.ScreenTitle
 import com.nearnet.ui.component.SearchField
+import com.nearnet.ui.component.validatePassword
 import com.nearnet.ui.model.LocalViewModel
 import com.nearnet.ui.model.NearNetViewModel
 import com.nearnet.ui.model.PopupContextApprovalData
@@ -441,9 +444,9 @@ class MainActivity : ComponentActivity() {
         val inProgress = remember { mutableStateOf(false) }
 
         //ScreenTitle("Log in or create account!")
-        Column(
+        Box(
             modifier = Modifier.fillMaxSize().padding(40.dp),
-            verticalArrangement = Arrangement.Center
+            contentAlignment = Alignment.Center
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth().height(520.dp),
@@ -535,10 +538,9 @@ class MainActivity : ComponentActivity() {
         val inProgress = remember { mutableStateOf(false) }
 
         //ScreenTitle("Create your new account!")
-        Column(
+        Box(
             modifier = Modifier.fillMaxSize().padding(40.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            contentAlignment = Alignment.Center
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth().height(520.dp),
@@ -585,7 +587,9 @@ class MainActivity : ComponentActivity() {
                     value = login.value,
                     onValueChange = { login.value = it }
                 )
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(5.dp))
+                PasswordValidationText(password.value, passwordConfirmation.value)
+                Spacer(Modifier.height(5.dp))
                 PlainTextField(
                     placeholderText = "password",
                     singleLine = true,
@@ -608,7 +612,7 @@ class MainActivity : ComponentActivity() {
                         vm.registerUser(login.value, password.value)
                         //tu animacja czekania na logowanie w postaci kota biegającego w kółko
                     },
-                    enabled = !inProgress.value,
+                    enabled = !inProgress.value && login.value.isNotEmpty() && validatePassword(password.value, passwordConfirmation.value) == PasswordValidationResult.CORRECT,
                     modifier = Modifier.widthIn(max = 200.dp).fillMaxWidth()
                 ) {
                     Text(text = "Let's go!")
@@ -1051,7 +1055,11 @@ class MainActivity : ComponentActivity() {
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(5.dp))
+            if (newPassword.value.isNotEmpty()) {
+                PasswordValidationText(newPassword.value, passwordConfirmation.value)
+            }
+            Spacer(Modifier.height(5.dp))
             PlainTextField(
                 value = newPassword.value,
                 onValueChange = { text -> newPassword.value = text },
@@ -1093,7 +1101,7 @@ class MainActivity : ComponentActivity() {
                         vm.updateUser(userName.value, currentPassword.value, newPassword.value, passwordConfirmation.value, avatar.value, "")
                         //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
                     },
-                    enabled = vm.validateUpdate(userName.value, currentPassword.value, newPassword.value, passwordConfirmation.value, avatar.value, "")
+                    enabled = vm.validateUpdateUser(userName.value, currentPassword.value, newPassword.value, passwordConfirmation.value, avatar.value, "")
                 ) {
                     Text("Accept")
                 }
