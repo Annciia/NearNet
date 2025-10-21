@@ -290,6 +290,7 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     fun RoomTopBar(navController: NavController) {
+        val vm = LocalViewModel.current
         val navState = navController.currentBackStackEntryAsState().value
         val selectedRoom = LocalViewModel.current.selectedRoom.collectAsState().value
         Row(
@@ -329,6 +330,14 @@ class MainActivity : ComponentActivity() {
                 StandardButton(
                     image=R.drawable.printer,
                     onClick = { /*navController.navigate("printerScreen") or simply print messages */ }
+                )
+            }
+            if (navState != null && navState.destination.route == "roomSettingsScreen") {
+                StandardButton(
+                    image=R.drawable.leave_room,
+                    onClick = { //leave room
+                        vm.selectPopup(PopupType.LEAVE_ROOM_CONFIRMATION)
+                    }
                 )
             }
         }
@@ -1006,6 +1015,22 @@ class MainActivity : ComponentActivity() {
                         is ProcessEvent.Success -> {
                             Toast.makeText(context, "Room deleted.", Toast.LENGTH_SHORT).show()
                             navController.navigate("roomsScreen") {
+                                popUpTo(0) { inclusive = true }
+                                launchSingleTop = true
+                            }
+                        }
+                        is ProcessEvent.Error -> {
+                            Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            }
+            launch { //leave
+                vm.leaveRoomEvent.collect { event ->
+                    when (event) {
+                        is ProcessEvent.Success -> {
+                            Toast.makeText(context, "You have left the room.", Toast.LENGTH_SHORT).show()
+                            navController.navigate("roomsScreen"){
                                 popUpTo(0) { inclusive = true }
                                 launchSingleTop = true
                             }

@@ -74,6 +74,7 @@ fun PopupBox() {
                         PopupType.DELETE_ROOM_CONFIRMATION -> DeleteRoomConfirmationPopup()
                         PopupType.JOIN_ROOM_CONFIRMATION -> JoinRoomConfirmationPopup(popupContext)
                         PopupType.JOIN_ROOM_APPROVAL -> JoinRoomApprovalPopup(popupContext)
+                        PopupType.LEAVE_ROOM_CONFIRMATION -> LeaveRoomConfirmationPopup()
                     }
                 }
             }
@@ -282,4 +283,20 @@ fun JoinRoomApprovalPopup(popupContext: PopupContext) {
             approveInProgress.value = false
         }
     }
+}
+
+@Composable
+fun LeaveRoomConfirmationPopup() {
+    val vm = LocalViewModel.current
+    DialogPopup(
+        title = "Leaving the room",
+        text = "Are you sure you want to leave the room?",
+        onAccept = {
+            vm.closePopup()
+            vm.leaveRoom()
+        },
+        onCancel = {
+            vm.closePopup()
+        }
+    )
 }

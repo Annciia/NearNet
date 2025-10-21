@@ -68,7 +68,8 @@ enum class PopupType {
     LOGOUT_CONFIRMATION,
     DELETE_ROOM_CONFIRMATION,
     JOIN_ROOM_CONFIRMATION,
-    JOIN_ROOM_APPROVAL
+    JOIN_ROOM_APPROVAL,
+    LEAVE_ROOM_CONFIRMATION
 }
 class PopupContext(
     val type: PopupType,
@@ -173,6 +174,10 @@ class NearNetViewModel(): ViewModel() {
     //Join room admin approve
     private val joinRoomAdminApproveEventMutable = MutableSharedFlow<ProcessEvent<Unit>>()
     val joinRoomAdminApproveEvent = joinRoomAdminApproveEventMutable.asSharedFlow()
+
+    //Leave room
+    private val leaveRoomEventMutable = MutableSharedFlow<ProcessEvent<Unit>>()
+    val leaveRoomEvent = leaveRoomEventMutable.asSharedFlow()
 
     //Messages
     private val messagesMutable = MutableStateFlow(listOf<Message>())
@@ -575,6 +580,19 @@ class NearNetViewModel(): ViewModel() {
                 joinRoomAdminApproveEventMutable.emit(ProcessEvent.Success(Unit))
             } else { //błąd serwera
                 joinRoomAdminApproveEventMutable.emit(ProcessEvent.Error("Failed to send approve — please approve again."))
+            }
+        }
+    }
+    fun leaveRoom(){
+        viewModelScope.launch {
+            var isLeftRoom : Boolean = false
+            //TODO Marek Call asynchronous function to user leave their room.
+            //isLeftRoom = leaveRoom(idRoom, idUser) //Marek napisać opuszczanie pokoju
+            isLeftRoom = true //
+            if (isLeftRoom == true){
+                leaveRoomEventMutable.emit(ProcessEvent.Success(Unit))
+            } else { //błąd gdzieś i nie udało się
+                leaveRoomEventMutable.emit(ProcessEvent.Error("Failed to leave the room. Please try again."))
             }
         }
     }
