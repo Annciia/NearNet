@@ -6,11 +6,14 @@ import com.google.gson.annotations.SerializedName
 import com.nearnet.sessionlayer.data.model.RoomData
 import com.nearnet.sessionlayer.data.model.UserData
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.*
+import kotlin.io.encoding.Base64
 
 data class RoomsResponse(
     val rooms: List<RoomData>
@@ -70,6 +73,16 @@ data class AddMyselfToRoomResponse(
     val error: String? = null
 )
 
+data class AskForAccessRequest(
+    val idRoom: String
+)
+data class RequestAction(
+    val action: String // "accept" lub "reject"
+)
+
+data class RoomRequestsResponse(
+    val requests: List<Map<String, Any>>
+)
 
 
 interface RoomApiService {
@@ -79,6 +92,7 @@ interface RoomApiService {
 
     @GET("/api/rooms/mine")
     suspend fun getMyRooms(@Header("Authorization") token: String): Response<RoomsResponse>
+
 
     @POST("/api/rooms")
     suspend fun addRoom(
@@ -117,6 +131,28 @@ interface RoomApiService {
         @Header("Authorization") token: String,
         @Body body: AddMyselfToRoomRequest
     ): Response<AddMyselfToRoomResponse>
+
+    @POST("/api/rooms/askForAccess")
+    suspend fun askForAccess(
+        @Header("Authorization") token: String,
+        @Body request: AskForAccessRequest
+    ): Response<Unit>
+
+    @POST("api/rooms/{roomId}/requests/{userId}/respond")
+    suspend fun respondToJoinRequest(
+        @Header("Authorization") token: String,
+        @Path("roomId") roomId: String,
+        @Path("userId") userId: String,
+        @Body actionRequest: RequestAction
+    ): Response<Unit>
+
+    @GET("/api/rooms/{id}/requests")
+    suspend fun getRoomRequests(
+        @Header("Authorization") token: String,
+        @Path("id") roomId: String
+    ): Response<RoomRequestsResponse>
+
+
 
 
 }
@@ -358,7 +394,75 @@ class RoomRepository(private val context: Context) {
         }
     }
 
+    suspend fun getPendingRequests(roomId: String): List<UserData> = withContext(Dispatchers.IO) {
+        val token = getToken() ?: return@withContext emptyList()
+        try {
+            val response = api.getRoomRequests(token, roomId)
+            if (response.isSuccessful) {
+                val body = response.body()
+                Log.d("ROOM", "Pending requests raw: $body")
+                body?.requests?.mapNotNull { req ->
+                    val idUser = req["userId"]?.toString() ?: return@mapNotNull null
+                    UserData(
+                        id = idUser,
+                        login = req["login"]?.toString() ?: "",
+                        name = req["name"]?.toString() ?: "",
+                        avatar = req["avatar"]?.toString() ?: "",
+                        publicKey = "",
+                        additionalSettings = ""
+                    )
+                } ?: emptyList()
+            } else {
+                Log.e("ROOM", "getPendingRequests failed: ${response.code()} ${response.errorBody()?.string()}")
+                emptyList()
+            }
+        } catch (e: Exception) {
+            Log.e("ROOM", "Exception in getPendingRequests", e)
+            emptyList()
+        }
+    }
 
+    //prosba o dolaczenie
+    suspend fun sendJoinRequest(roomId: String): Boolean = withContext(Dispatchers.IO) {
+        val token = getToken()
+        if (token.isNullOrBlank()) {
+            Log.e("ROOM", "No token available")
+            return@withContext false
+        }
+        Log.d("ROOM", "Sending join request with token: $token")
+
+        return@withContext try {
+            val response = api.askForAccess(token, AskForAccessRequest(roomId))
+            Log.d("ROOM", "joinRoom response: ${response.code()} ${response.errorBody()?.string()}")
+            response.isSuccessful
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+
+    suspend fun respondToJoinRequest(roomId: String, userId: String, accept: Boolean): Boolean =
+        withContext(Dispatchers.IO) {
+            val token = getToken()
+            if (token.isNullOrBlank()) {
+                Log.e("ROOM", "No token available")
+                return@withContext false
+            }
+
+            val action = if (accept) "accept" else "reject"
+
+            Log.d("ROOM", "Sending respondToJoinRequest: roomId=$roomId, userId=$userId, action=$action")
+
+
+            return@withContext try {
+                val response = api.respondToJoinRequest(token, roomId, userId, RequestAction(action))
+                Log.d("ROOM", "Respond request: ${response.code()} ${response.errorBody()?.string()}")
+                response.isSuccessful
+            } catch (e: Exception) {
+                Log.e("ROOM", "Error in respondToJoinRequest", e)
+                false
+            }
+        }
 
 
     suspend fun getRoomIdByName(name: String): String? = withContext(Dispatchers.IO) {

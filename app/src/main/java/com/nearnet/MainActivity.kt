@@ -149,11 +149,11 @@ class MainActivity : ComponentActivity() {
         })*/
 
         //TODO - jest tymczasowo wygląd popup dla admina gdy ktoś prosi o dołączenie
-        val data = PopupContextApprovalData(
-            UserData(id = "", login = "", name = "Kotter", avatar = "", additionalSettings = "", publicKey = ""), //user który chce dołączyć
-            RoomData(idRoom = "", name = "Stormvik games", description = "Witaj! Jestem wikingiem.", avatar = "", additionalSettings = "", isPrivate = true, isVisible = true, idAdmin = "") //pokój gdzie chce dołączyć
-        )
-        vm.selectPopup(PopupType.JOIN_ROOM_APPROVAL, data)
+//        val data = PopupContextApprovalData(
+//            UserData(id = "", login = "", name = "Kotter", avatar = "", additionalSettings = "", publicKey = ""), //user który chce dołączyć
+//            RoomData(idRoom = "", name = "Stormvik games", description = "Witaj! Jestem wikingiem.", avatar = "", additionalSettings = "", isPrivate = true, isVisible = true, idAdmin = "") //pokój gdzie chce dołączyć
+//        )
+        //vm.selectPopup(PopupType.JOIN_ROOM_APPROVAL, data)
 
         ScreenObserver(navController, vm)
 
@@ -913,7 +913,7 @@ class MainActivity : ComponentActivity() {
                         }
                         //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
                     },
-                    enabled = vm.validateRoom(roomName, roomDescription, getPassword(), passwordConfirmation.value) && !inProgress.value
+                    enabled = vm.validateRoom(roomName, roomDescription, getPassword(), passwordConfirmation.value, !isCheckedPublic) && !inProgress.value
                 ) {
                     if (selectedRoom != null) { //roomSettingsScreen
                         Text("Accept")
@@ -1169,10 +1169,19 @@ class MainActivity : ComponentActivity() {
             val observer = LifecycleEventObserver { _, event ->
                 when (event) {
                     Lifecycle.Event.ON_START -> {
-                        selectedRoom?.let { vm.startRealtime(it) } // uruchamiamy SSE tylko jeśli jest wybrany pokój
+                        selectedRoom?.let { room ->
+                            vm.startRealtime(room)
+                            vm.startPendingRequestsPolling(room) // <-- tutaj start polling
+                        }
+                        //TODO
+                        //selectedRoom?.let { vm.startRealtime(it) } // uruchamiamy SSE tylko jeśli jest wybrany pokój
+
                     }
                     Lifecycle.Event.ON_STOP -> {
-                        vm.stopRealtime() // zatrzymujemy SSE
+                        vm.stopRealtime()
+                        vm.stopPendingRequestsPolling()
+                        //TODO
+                        //vm.stopRealtime() // zatrzymujemy SSE
                     }
                     else -> {}
                 }

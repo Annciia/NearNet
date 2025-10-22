@@ -289,6 +289,7 @@ object MessageUtils {
         }
     }
 
+
     val isRunning: Boolean
         get() = running
 
