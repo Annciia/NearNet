@@ -25,7 +25,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
@@ -78,6 +77,7 @@ import com.nearnet.sessionlayer.data.model.RoomData
 import com.nearnet.sessionlayer.data.model.UserData
 import com.nearnet.sessionlayer.logic.RoomRepository
 import com.nearnet.sessionlayer.logic.UserRepository
+import com.nearnet.ui.component.AvatarCircle
 import com.nearnet.ui.component.AvatarPicker
 import com.nearnet.ui.component.ConversationPanel
 import com.nearnet.ui.component.LabeledSwitch
@@ -254,22 +254,7 @@ class MainActivity : ComponentActivity() {
                         }
                     },
                     content = {
-                        if (selectedUser != null && selectedUser.avatar.isNotEmpty()) {
-                            Image(
-                                painter = painterResource(R.drawable.spacecat),
-                                contentDescription = "Avatar",
-                                modifier = Modifier.size(80.dp).clip(CircleShape)
-                                    .border(2.dp, MaterialTheme.colorScheme.onPrimary, CircleShape)
-                            )
-                        } else {
-                            Icon(
-                                painter = painterResource(R.drawable.spacecat),
-                                tint = MaterialTheme.colorScheme.onPrimary,
-                                contentDescription = "Avatar",
-                                modifier = Modifier.size(80.dp).clip(CircleShape)
-                                    .border(2.dp, MaterialTheme.colorScheme.onPrimary, CircleShape)
-                            )
-                        }
+                        AvatarCircle(selectedUser?.avatar ?: "", R.drawable.spacecat)
                     }
                 )
                 Spacer(Modifier.width(5.dp))
@@ -313,12 +298,7 @@ class MainActivity : ComponentActivity() {
                         }
                     },
                     content = {
-                        Image(
-                            painter = painterResource((R.drawable.ic_launcher_foreground)),
-                            contentDescription = "Avatar",
-                            modifier = Modifier.size(80.dp).clip(CircleShape)
-                                .border(2.dp, MaterialTheme.colorScheme.onPrimary, CircleShape)
-                        )
+                        AvatarCircle(selectedRoom?.avatar ?: "", R.drawable.image)
                     })
                 Spacer(Modifier.width(5.dp))
                 Text(
