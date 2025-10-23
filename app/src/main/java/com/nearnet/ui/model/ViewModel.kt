@@ -69,7 +69,8 @@ enum class PopupType {
     DELETE_ROOM_CONFIRMATION,
     JOIN_ROOM_CONFIRMATION,
     JOIN_ROOM_APPROVAL,
-    LEAVE_ROOM_CONFIRMATION
+    LEAVE_ROOM_CONFIRMATION,
+    EDIT_AVATAR
 }
 class PopupContext(
     val type: PopupType,

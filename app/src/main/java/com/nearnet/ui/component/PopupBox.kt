@@ -75,6 +75,7 @@ fun PopupBox() {
                         PopupType.JOIN_ROOM_CONFIRMATION -> JoinRoomConfirmationPopup(popupContext)
                         PopupType.JOIN_ROOM_APPROVAL -> JoinRoomApprovalPopup(popupContext)
                         PopupType.LEAVE_ROOM_CONFIRMATION -> LeaveRoomConfirmationPopup()
+                        PopupType.EDIT_AVATAR -> EditAvatarPopup(popupContext)
                     }
                 }
             }
@@ -85,9 +86,9 @@ fun PopupBox() {
 @Composable
 fun DialogPopup(
     title: String,
-    text: String,
+    text: String? = null,
     acceptEnabled: Boolean = true,
-    onAccept: () -> Unit = {},
+    onAccept: (() -> Unit)? = {},
     onCancel: () -> Unit = {},
     content: @Composable (() -> Unit)? = null
 ) {
@@ -99,11 +100,13 @@ fun DialogPopup(
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onPrimary
         )
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onPrimary
-        )
+        if (text != null) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onPrimary
+            )
+        }
         if (content !== null) {
             Spacer(Modifier.height(20.dp))
             content()
@@ -117,12 +120,18 @@ fun DialogPopup(
                 Text("✖\uFE0F Cancel")
             }
             Spacer(Modifier.width(10.dp))
-            Button(
-                modifier = Modifier.weight(1f),
-                onClick = { onAccept() },
-                enabled = acceptEnabled
-            ) {
-                Text("✔\uFE0F Accept")
+            if (onAccept != null) {
+                Button(
+                    modifier = Modifier.weight(1f),
+                    onClick = { onAccept() },
+                    enabled = acceptEnabled
+                ) {
+                    Text("✔\uFE0F Accept")
+                }
+            } else {
+                Spacer(
+                    modifier = Modifier.weight(1f)
+                )
             }
         }
     }
@@ -299,4 +308,47 @@ fun LeaveRoomConfirmationPopup() {
             vm.closePopup()
         }
     )
+}
+
+@Composable
+fun EditAvatarPopup(popupContext: PopupContext) {
+    val vm = LocalViewModel.current
+    val launchImagePicker : (String) -> Unit = popupContext.data as ((String) -> Unit)
+    DialogPopup(
+        title = "Edit Avatar",
+        acceptEnabled = false,
+        onAccept = null,
+        onCancel = {
+            vm.closePopup()
+        }
+    ) {
+        Column {
+            Button(
+                modifier = Modifier.fillMaxWidth(),
+                onClick = {
+                    vm.closePopup()
+                    launchImagePicker("changeImage")
+                },
+            ) {
+                Text("Change")
+            }
+            Text(
+                text = "or",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onPrimary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Button(
+                modifier = Modifier.fillMaxWidth(),
+                onClick = {
+                    vm.closePopup()
+                    launchImagePicker("removeImage")
+                },
+            ) {
+                Text("Remove")
+            }
+            Spacer(Modifier.height(20.dp))
+        }
+    }
 }

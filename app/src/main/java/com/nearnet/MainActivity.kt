@@ -863,7 +863,7 @@ class MainActivity : ComponentActivity() {
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                AvatarPicker(avatar.value, onAvatarChange = { base64 -> avatar.value = base64 })
+                AvatarPicker(R.drawable.image, avatar.value, onAvatarChange = { base64 -> avatar.value = base64 })
                 Spacer(Modifier.width(10.dp))
                 PlainTextField(
                     value = roomName,
@@ -1061,7 +1061,7 @@ class MainActivity : ComponentActivity() {
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                AvatarPicker(avatar.value, onAvatarChange = { base64 -> avatar.value = base64 })
+                AvatarPicker(R.drawable.spacecat, avatar.value, onAvatarChange = { base64 -> avatar.value = base64 })
                 Spacer(Modifier.width(10.dp))
                 PlainTextField(
                     value = userName.value,

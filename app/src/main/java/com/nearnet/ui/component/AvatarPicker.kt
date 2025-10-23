@@ -27,7 +27,8 @@ import androidx.compose.ui.unit.dp
 import java.io.IOException
 import androidx.core.graphics.scale
 import androidx.exifinterface.media.ExifInterface
-import com.nearnet.R
+import com.nearnet.ui.model.LocalViewModel
+import com.nearnet.ui.model.PopupType
 import java.io.ByteArrayOutputStream
 
 fun getBitmapFromUri(context: Context, uri: Uri): Bitmap {
@@ -74,8 +75,9 @@ fun decodeBase64(base64: String): Bitmap? {
 }
 
 @Composable
-fun AvatarPicker(avatarBase64: String, onAvatarChange: (String) -> Unit) {
+fun AvatarPicker(avatarDefault: Int, avatarBase64: String, onAvatarChange: (String) -> Unit) {
     val context = LocalContext.current
+    val vm = LocalViewModel.current
     val launcher = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -88,7 +90,7 @@ fun AvatarPicker(avatarBase64: String, onAvatarChange: (String) -> Unit) {
     val avatarBitmap = if (avatarBase64.isNotEmpty()) decodeBase64(avatarBase64) else null
     if (avatarBitmap == null) {
         Icon(
-            painter = painterResource(R.drawable.image),
+            painter = painterResource(avatarDefault),
             contentDescription = "Avatar",
             tint = MaterialTheme.colorScheme.onPrimary,
             modifier = Modifier
@@ -118,7 +120,12 @@ fun AvatarPicker(avatarBase64: String, onAvatarChange: (String) -> Unit) {
                 )
                 .clip(RoundedCornerShape(6.dp))
                 .border(2.dp, MaterialTheme.colorScheme.onPrimary, RoundedCornerShape(6.dp))
-                .clickable { launcher.launch("image/*") }
+                .clickable {
+                    vm.selectPopup(PopupType.EDIT_AVATAR, {imageAction : String ->
+                        if (imageAction =="changeImage") {launcher.launch("image/*")}
+                        if (imageAction =="removeImage") {onAvatarChange("")}
+                    })
+                }
         )
     }
 }
