@@ -297,8 +297,6 @@ class RoomRepository(private val context: Context) {
         }
     }
 
-
-
     suspend fun getRoomAndUsers(roomName: String): Pair<RoomData, List<UserData>>? = withContext(Dispatchers.IO) {
         val token = getToken() ?: return@withContext null
         val idRoom = getRoomIdByName(roomName) ?: return@withContext null
@@ -324,29 +322,6 @@ class RoomRepository(private val context: Context) {
         }
     }
 
-    //na razie nie uzywane
-    suspend fun addUserToRoom(roomName: String, login: String): Boolean = withContext(Dispatchers.IO) {
-        val token = getToken() ?: return@withContext false
-        val idRoom = getRoomIdByName(roomName) ?: return@withContext false
-        try {
-            val response = api.addUserToRoom(token, idRoom, AddUserToRoomRequest(login))
-
-            Log.d("ROOM", "Sending addUserToRoom request: roomId=$idRoom, login=$login")
-            Log.d("ROOM", "Response code: ${response.code()}")
-            Log.d("ROOM", "Response body: ${response.body()}")
-            Log.d("ROOM", "Response error body: ${response.errorBody()?.string()}")
-
-            if (response.isSuccessful) {
-                response.body()?.success == true
-            } else {
-                Log.e("ROOM", "addUserToRoom failed: ${response.code()} ${response.errorBody()?.string()}")
-                false
-            }
-        } catch (e: Exception) {
-            Log.e("ROOM", "Exception in addUserToRoom", e)
-            false
-        }
-    }
 
     suspend fun addMyselfToRoom(identifier: String, password: String): Boolean = withContext(Dispatchers.IO) {
         val token = getToken() ?: run {
@@ -495,21 +470,6 @@ class RoomRepository(private val context: Context) {
         }
     }
 
-
-    suspend fun addMyselfToRoomByName(name: String, password: String): Boolean {
-        val idRoom = getRoomIdByName(name) ?: return false
-        return addMyselfToRoom(idRoom, password)
-    }
-
-    suspend fun deleteRoomByName(name: String): Boolean {
-        val idRoom = getRoomIdByName(name) ?: return false
-        return deleteRoom(idRoom)
-    }
-
-//    suspend fun addUserToRoomByName(name: String, login: String): Boolean {
-//        val idRoom = getRoomIdByName(name) ?: return false
-//        return addUserToRoom(idRoom, login)
-//    }
 
 
 

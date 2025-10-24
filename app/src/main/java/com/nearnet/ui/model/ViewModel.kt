@@ -567,7 +567,7 @@ class NearNetViewModel(): ViewModel() {
             //TODO Marek funkcja dołączająca usera do pokoju
             if (approveSuccess){
                 joinRoomAdminApproveEventMutable.emit(ProcessEvent.Success(Unit))
-            } else { //błąd serwera
+            } else {
                 joinRoomAdminApproveEventMutable.emit(ProcessEvent.Error("Failed to send approve — please approve again."))
             }
         }
@@ -577,7 +577,6 @@ class NearNetViewModel(): ViewModel() {
     private val handledRequests = mutableSetOf<String>()
 
     fun startPendingRequestsPolling(room: RoomData) {
-        // Jeśli już działa polling, zatrzymaj poprzedni
         pendingRequestsJob?.cancel()
 
         pendingRequestsJob = viewModelScope.launch {
