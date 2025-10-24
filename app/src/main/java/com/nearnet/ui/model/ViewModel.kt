@@ -28,31 +28,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.LinkedList
 
-
-//var myRoomsList = listOf(
-//    Room(0, "Stormvik games", "Witaj! Jestem wikingiem.", true),
-//    Room(1, "You cat", "Meeeeeeeeeeeeeeeow!", false),
-//    Room(2, "虫籠のカガステル", "No comment needed. Just join!", false),
-//    Room(3, "Biohazard", "Be careful.", false),
-//    Room(4, "Mibik game server", "Mi mi mi! It's me.", false),
-//    Room(5, "Fallout", null, true),
-//    Room(6, "My new world", "Don't join. It's private", true),
-//    Room(7, "The Lord of the Rings: The Battle for the Middle Earth", "Elen", false),
-//)
-//var discoverRoomsList = listOf(
-//    Room(0, "Adventure cat games", "Dołącz do kociej przygody.", true),
-//    Room(1, "You cat", "Meeeeeeeeeeeeeeeow!", false),
-//    Room(2, "虫籠のカガステル", "No comment needed. Just join!", false),
-//    Room(3, "Mibik game server", "Mi mi mi! It's me.", false),
-//    Room(4, "My new world", "Don't join. It's private", true),
-//    Room(5, "Here is the best place.", "We need you.", false),
-//    Room(6, "Untitled room", "Join to title this room! ;)", false),
-//    Room(7, "Stormvik games", "Witaj! Jestem wikingiem.", true),
-//    Room(8, "Biohazard", "Be careful.", false),
-//    Room(9, "Fallout", null, true),
-//)
 
 var messagesListRecent = listOf(
     Message(id = "0", roomId = "0", userId = "0", message = "Lorem ipsum dolor sit amet, consectetur adipiscing elit.", timestamp = "2025-09-28 15:42:17.123", messageType = "TXT", additionalData = ""),
@@ -357,8 +336,8 @@ class NearNetViewModel(): ViewModel() {
         additionalSettings: String = "",
     ) {
         viewModelScope.launch {
-            if (!validateRoom(name, description, password, passwordConfirmation)) {
-                registerRoomEventMutable.emit(ProcessEvent.Error("Something went wrong while creating the room."))
+            if (!validateRoom(name, description, password, passwordConfirmation, isPrivate)) {
+                updateRoomEventMutable.emit(ProcessEvent.Error("Failed to update room. Please try again."))
                 return@launch
             }
 
@@ -431,7 +410,7 @@ class NearNetViewModel(): ViewModel() {
     ) {
         viewModelScope.launch {
 
-            if (!validateRoom(name, description, password, passwordConfirmation)) {
+            if (!validateRoom(name, description, password, passwordConfirmation, isPrivate)) {
                 updateRoomEventMutable.emit(ProcessEvent.Error("Failed to update room. Please try again."))
                 return@launch
             }
@@ -464,7 +443,7 @@ class NearNetViewModel(): ViewModel() {
     }
 
 
-    fun validateRoom(name: String, description: String, password: String?, passwordConfirmation: String?): Boolean {
+    fun validateRoom(name: String, description: String, password: String?, passwordConfirmation: String?, isPrivate: Boolean): Boolean {
         if (name.isBlank()) {
             return false
         }
@@ -474,14 +453,23 @@ class NearNetViewModel(): ViewModel() {
         if (description.length > ROOM_DESCRIPTION_MAX_LENGTH) {
             return false
         }
-        if (password != null) {
-            if (password.isBlank()) {
-                return false
+//        if (password != null) {
+//            if (password.isBlank()) {
+//                return false
+//            }
+//            if (password != passwordConfirmation) {
+//                return false
+//            }
+//        }
+        if (isPrivate) {
+            if (password != null && password.isNotBlank()) {
+                if (password != passwordConfirmation) {
+                    return false
+                }
             }
-            if (password != passwordConfirmation) {
-                return false
-            }
+            // jeśli prywatny i password null lub blank -> OK
         }
+
         return true
     }
     fun deleteRoom(room: RoomData?) {
@@ -554,28 +542,75 @@ class NearNetViewModel(): ViewModel() {
                 joinRoomEventMutable.emit(ProcessEvent.Error("Failed to send request — the room is public."))
                 return@launch
             }
-            var requestSuccess : Boolean = false
             //TODO Marek funkcja wysyłająca prośbę do Admina
-            if (requestSuccess) {
-                joinRoomEventMutable.emit(ProcessEvent.Success(Unit))
-            } else {
+            val requestSuccess = roomRepository.sendJoinRequest(roomId = room.idRoom)
+
+            if (!requestSuccess) {
                 joinRoomEventMutable.emit(ProcessEvent.Error("Failed to send request — please try again."))
+                return@launch
             }
-        }
-    }
+
+            joinRoomEventMutable.emit(ProcessEvent.Success(Unit))
+            Log.d("ROOM", "Request sent successfully, waiting for admin approval...")
+
+    }}
     //woła się, gdy admin zatwierdzi dołączenie jakiegoś usera do pokoju
     //TODO ponawianie zrobić na serwerze jak admin nieaktywny w danym momencie, by jak wejdzie to zobaczył popup, że ktoś go pyta o dołączenie
-    fun joinRoomAdminApprove(user: UserData, room: RoomData){ //jaki user i do jakiego pokoju chce dołączyć
+    fun joinRoomAdminApprove(user: UserData, room: RoomData, accept: Boolean){ //jaki user i do jakiego pokoju chce dołączyć
         viewModelScope.launch {
-            var approveSuccess : Boolean = false
+            //var approveSuccess : Boolean = false
+            val approveSuccess = roomRepository.respondToJoinRequest(
+                roomId = room.idRoom,
+                userId = user.id,
+                accept = accept
+            )
             //TODO Marek funkcja dołączająca usera do pokoju
             if (approveSuccess){
                 joinRoomAdminApproveEventMutable.emit(ProcessEvent.Success(Unit))
-            } else { //błąd serwera
+            } else {
                 joinRoomAdminApproveEventMutable.emit(ProcessEvent.Error("Failed to send approve — please approve again."))
             }
         }
     }
+
+    private var pendingRequestsJob: Job? = null
+    private val handledRequests = mutableSetOf<String>()
+
+    fun startPendingRequestsPolling(room: RoomData) {
+        pendingRequestsJob?.cancel()
+
+        pendingRequestsJob = viewModelScope.launch {
+            while (isActive) {
+                try {
+                    // GET /api/rooms/:id/requests
+                    val requests = roomRepository.getPendingRequests(room.idRoom)
+
+                    requests.forEach { user ->
+                        val requestKey = "${user.id}-${room.idRoom}"
+                        if (!handledRequests.contains(requestKey)) {
+                            handledRequests.add(requestKey)
+                            selectPopup(
+                                PopupType.JOIN_ROOM_APPROVAL,
+                                PopupContextApprovalData(user, room)
+                            )
+                        }
+                    }
+
+                } catch (e: Exception) {
+                    Log.e("NearNetVM", "Failed to fetch pending requests", e)
+                }
+
+                delay(5000) // sprawdzaj co 5 sekund
+            }
+        }
+    }
+
+    fun stopPendingRequestsPolling() {
+        pendingRequestsJob?.cancel()
+        pendingRequestsJob = null
+        handledRequests.clear()
+    }
+
     fun filterMyRooms(filterText: String){
         searchMyRoomsTextMutable.value = filterText
     }

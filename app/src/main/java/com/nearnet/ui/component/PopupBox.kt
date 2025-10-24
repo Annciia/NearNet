@@ -261,10 +261,12 @@ fun JoinRoomApprovalPopup(popupContext: PopupContext) {
         acceptEnabled = !approveInProgress.value,
         onAccept = {
             approveInProgress.value = true
-            vm.joinRoomAdminApprove(data.user, data.room)
+            vm.joinRoomAdminApprove(data.user, data.room, true)
         },
         onCancel = {
-            vm.closePopup()
+            //vm.closePopup()
+            approveInProgress.value = true
+            vm.joinRoomAdminApprove(data.user, data.room, false)
         }
     )
     LaunchedEffect(Unit) {
