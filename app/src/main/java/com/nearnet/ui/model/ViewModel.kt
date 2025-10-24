@@ -70,7 +70,8 @@ enum class PopupType {
     JOIN_ROOM_CONFIRMATION,
     JOIN_ROOM_APPROVAL,
     LEAVE_ROOM_CONFIRMATION,
-    EDIT_AVATAR
+    EDIT_AVATAR,
+    USER_LIST_IN_ROOM
 }
 class PopupContext(
     val type: PopupType,
@@ -179,6 +180,10 @@ class NearNetViewModel(): ViewModel() {
     //Leave room
     private val leaveRoomEventMutable = MutableSharedFlow<ProcessEvent<Unit>>()
     val leaveRoomEvent = leaveRoomEventMutable.asSharedFlow()
+
+    //Room users
+    private val roomUsersMutable = MutableStateFlow(listOf<UserData>())
+    val roomUsers = roomUsersMutable.asStateFlow()
 
     //Messages
     private val messagesMutable = MutableStateFlow(listOf<Message>())
@@ -597,6 +602,19 @@ class NearNetViewModel(): ViewModel() {
             }
         }
     }
+    fun removeUserFromRoom(user: UserData, room: RoomData) {
+        viewModelScope.launch {
+            var isUserRemoved: Boolean = false
+            //TODO Marek Call function to remove user from the room.
+            //isLeftRoom = leaveRoom(idRoom, idUser) //Marek napisać wyrzucanie z pokoju
+            isUserRemoved = true //
+            if (isUserRemoved == true) {
+                roomUsersMutable.value = roomUsersMutable.value.filter { it.id != user.id }
+            } else {
+                leaveRoomEventMutable.emit(ProcessEvent.Error("Failed to remove the user from the room."))
+            }
+        }
+    }
     fun filterMyRooms(filterText: String){
         searchMyRoomsTextMutable.value = filterText
     }
@@ -661,6 +679,12 @@ class NearNetViewModel(): ViewModel() {
             val userMap = userResponse?.userList?.rooms
                 ?.associateBy({ it.id }, { it.name })
                 ?: emptyMap()
+
+            //pobieranie listy użytkowników pokoju
+            userResponse?.userList?.rooms?.forEach({ kot ->
+                Log.e("KOT", ""+kot.name+" "+kot.login)  //Marek - tu wchodząc do pokoju login każdego użytkownika jest null
+            })
+            roomUsersMutable.value = userResponse?.userList?.rooms?.map { it.copy() } ?: listOf()
 
             Log.d("loadMessages", "👥 Utworzono mapę użytkowników: ${userMap.size} pozycji")
 

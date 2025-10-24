@@ -4,9 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import android.widget.Toast
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -835,7 +833,18 @@ class MainActivity : ComponentActivity() {
         }
         Column {
             if (selectedRoom != null) { //roomSettingsScreen
-                ScreenTitle("Room settings")
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    ScreenTitle("Room settings")
+                    Button(onClick = {
+                        vm.selectPopup(PopupType.USER_LIST_IN_ROOM)
+                    }) {
+                        Text("Users")
+                    }
+                }
             } else { //createRoomScreen
                 ScreenTitle("Create new room")
             }

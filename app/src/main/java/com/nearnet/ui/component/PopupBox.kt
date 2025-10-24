@@ -7,11 +7,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -76,6 +79,7 @@ fun PopupBox() {
                         PopupType.JOIN_ROOM_APPROVAL -> JoinRoomApprovalPopup(popupContext)
                         PopupType.LEAVE_ROOM_CONFIRMATION -> LeaveRoomConfirmationPopup()
                         PopupType.EDIT_AVATAR -> EditAvatarPopup(popupContext)
+                        PopupType.USER_LIST_IN_ROOM -> UserListInRoomPopup()
                     }
                 }
             }
@@ -349,6 +353,38 @@ fun EditAvatarPopup(popupContext: PopupContext) {
                 Text("Remove")
             }
             Spacer(Modifier.height(20.dp))
+        }
+    }
+}
+
+@Composable
+fun UserListInRoomPopup() {
+    val vm = LocalViewModel.current
+    val roomUsers = vm.roomUsers.collectAsState().value
+    val room = vm.selectedRoom.collectAsState().value
+    val selectedUser = vm.selectedUser.collectAsState().value
+    val isAdmin: Boolean = if(selectedUser != null && room != null) selectedUser.id == room.idAdmin else false
+    LaunchedEffect(Unit) {
+        if (room != null) {
+            vm.loadMessages(room)
+        }
+    }
+    DialogPopup(
+        title = "Room members",
+        text = "Curious who's in the room?",
+        onAccept = null,
+        onCancel = {
+            vm.closePopup()
+        }
+    ) {
+        LazyColumn(
+            Modifier.fillMaxWidth().fillMaxHeight(0.7f)
+        ) {
+            items(roomUsers) { user ->
+                if(room !=  null) {
+                    UserItem(user, room, isKickEnabled = isAdmin)
+                }
+            }
         }
     }
 }
