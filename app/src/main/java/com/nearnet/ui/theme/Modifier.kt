@@ -22,3 +22,9 @@ fun Modifier.standardIconStyleTransparent() : Modifier = this
     .size(22.dp)
     .clip(RoundedCornerShape(6.dp))
     .padding(1.dp)
+
+@Composable
+fun Modifier.smallIconStyleTransparent() : Modifier = this
+    .size(18.dp)
+    .clip(RoundedCornerShape(6.dp))
+    .padding(1.dp)

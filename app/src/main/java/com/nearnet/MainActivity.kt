@@ -4,9 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import android.widget.Toast
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,7 +23,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
@@ -33,10 +30,10 @@ import androidx.compose.material.icons.twotone.PlayArrow
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonColors
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -55,6 +52,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.platform.LocalContext
@@ -72,20 +70,25 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.nearnet.sessionlayer.data.model.Message
 import com.nearnet.sessionlayer.logic.MessageUtils
 import com.nearnet.sessionlayer.data.model.RoomData
 import com.nearnet.sessionlayer.data.model.UserData
 import com.nearnet.sessionlayer.logic.RoomRepository
 import com.nearnet.sessionlayer.logic.UserRepository
+import com.nearnet.ui.component.AvatarCircle
 import com.nearnet.ui.component.AvatarPicker
 import com.nearnet.ui.component.ConversationPanel
 import com.nearnet.ui.component.LabeledSwitch
 import com.nearnet.ui.component.MessageItem
+import com.nearnet.ui.component.PasswordValidationResult
+import com.nearnet.ui.component.PasswordValidationText
 import com.nearnet.ui.component.PlainTextField
 import com.nearnet.ui.component.PopupBox
 import com.nearnet.ui.component.RoomItem
 import com.nearnet.ui.component.ScreenTitle
 import com.nearnet.ui.component.SearchField
+import com.nearnet.ui.component.validatePassword
 import com.nearnet.ui.model.LocalViewModel
 import com.nearnet.ui.model.NearNetViewModel
 import com.nearnet.ui.model.PopupContextApprovalData
@@ -98,10 +101,10 @@ import com.nearnet.ui.theme.NearNetTheme
 import kotlinx.coroutines.launch
 
 
-data class Room(val id: String, var name: String, var description: String, var avatar: String, var additionalSettings: String, var isPrivate: Boolean, var isVisible: Boolean, var idAdmin: String, var users: List<String>)
-data class Message(val id: String, val userId: String, val roomId: String, val data: String, val timestamp: String, val messageType: String, var additionalData: String)
-data class User(val id: String, val login: String, val name: String, var avatar: String, var additionalSettings: String, var publicKey: String)
-data class Recent(val message: Message, val room: RoomData?, val username: String)
+//data class Room(val id: String, var name: String, var description: String, var avatar: String, var additionalSettings: String, var isPrivate: Boolean, var isVisible: Boolean, var idAdmin: String, var users: List<String>)
+//data class Message(val id: String, val userId: String, val roomId: String, val data: String, val timestamp: String, val messageType: String, var additionalData: String)
+//data class User(val id: String, val login: String, val name: String, var avatar: String, var additionalSettings: String, var publicKey: String)
+data class Recent(val message: Message, val room: RoomData?, val user: UserData?)
 
 class MainActivity : ComponentActivity() {
 
@@ -142,6 +145,7 @@ class MainActivity : ComponentActivity() {
         }
         vm.repository = UserRepository(this)
         vm.roomRepository = RoomRepository(this)
+
         // (UserData, RoomData) -> Unit
         /*vm.roomRepository = RoomRepository(this, { user, room -> //tego co prosi o dołączenie i ten pokój - wołana u admina, gdy info z serwera, że ktoś chce dołączyć
             val data = PopupContextApprovalData(user, room)
@@ -194,21 +198,22 @@ class MainActivity : ComponentActivity() {
     @Composable
     fun TopBar(navController: NavHostController) :Unit {
         val navState = navController.currentBackStackEntryAsState().value
+        val currentScreen = navState?.destination?.route
+        if (currentScreen == null || currentScreen == "loginScreen" || currentScreen == "registerScreen") return
         TopAppBar(
-            navigationIcon = {IconButton(
-                onClick = {navController.popBackStack()},
-                content={Icon(
+            navigationIcon = {
+                Icon(
                     imageVector = Icons.TwoTone.PlayArrow,
                     contentDescription = "Go back",
-                    modifier = Modifier.scale(scaleX = -1f, scaleY =1f)
-                )},
-                colors = IconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    disabledContainerColor = MaterialTheme.colorScheme.primary,
-                    disabledContentColor = MaterialTheme.colorScheme.primary
+                    modifier = Modifier
+                        .fillMaxHeight()
+                        .padding(vertical = 8.dp, horizontal = 10.dp)
+                        .scale(scaleX = -1f, scaleY =1f)
+                        .clip(shape = RoundedCornerShape(6.dp))
+                        .clickable { navController.popBackStack() },
+                    tint = MaterialTheme.colorScheme.onPrimary
                 )
-            )},
+            },
             title = {
                 if (navState != null && (navState.destination.route == "roomConversationScreen" || navState.destination.route == "roomSettingsScreen")){
                     RoomTopBar(navController)
@@ -249,22 +254,7 @@ class MainActivity : ComponentActivity() {
                         }
                     },
                     content = {
-                        if (selectedUser != null && selectedUser.avatar.isNotEmpty()) {
-                            Image(
-                                painter = painterResource(R.drawable.spacecat),
-                                contentDescription = "Avatar",
-                                modifier = Modifier.size(80.dp).clip(CircleShape)
-                                    .border(2.dp, MaterialTheme.colorScheme.onPrimary, CircleShape)
-                            )
-                        } else {
-                            Icon(
-                                painter = painterResource(R.drawable.spacecat),
-                                tint = MaterialTheme.colorScheme.onPrimary,
-                                contentDescription = "Avatar",
-                                modifier = Modifier.size(80.dp).clip(CircleShape)
-                                    .border(2.dp, MaterialTheme.colorScheme.onPrimary, CircleShape)
-                            )
-                        }
+                        AvatarCircle(selectedUser?.avatar ?: "", R.drawable.spacecat)
                     }
                 )
                 Spacer(Modifier.width(5.dp))
@@ -285,6 +275,7 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     fun RoomTopBar(navController: NavController) {
+        val vm = LocalViewModel.current
         val navState = navController.currentBackStackEntryAsState().value
         val selectedRoom = LocalViewModel.current.selectedRoom.collectAsState().value
         Row(
@@ -307,12 +298,7 @@ class MainActivity : ComponentActivity() {
                         }
                     },
                     content = {
-                        Image(
-                            painter = painterResource((R.drawable.ic_launcher_foreground)),
-                            contentDescription = "Avatar",
-                            modifier = Modifier.size(80.dp).clip(CircleShape)
-                                .border(2.dp, MaterialTheme.colorScheme.onPrimary, CircleShape)
-                        )
+                        AvatarCircle(selectedRoom?.avatar ?: "", R.drawable.image)
                     })
                 Spacer(Modifier.width(5.dp))
                 Text(
@@ -324,6 +310,14 @@ class MainActivity : ComponentActivity() {
                 StandardButton(
                     image=R.drawable.printer,
                     onClick = { /*navController.navigate("printerScreen") or simply print messages */ }
+                )
+            }
+            if (navState != null && navState.destination.route == "roomSettingsScreen") {
+                StandardButton(
+                    image=R.drawable.leave_room,
+                    onClick = { //leave room
+                        vm.selectPopup(PopupType.LEAVE_ROOM_CONFIRMATION)
+                    }
                 )
             }
         }
@@ -353,6 +347,9 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     fun BottomBar(navController: NavHostController) :Unit {
+        val navState = navController.currentBackStackEntryAsState().value
+        val currentScreen = navState?.destination?.route
+        if (currentScreen == null || currentScreen == "loginScreen" || currentScreen == "registerScreen") return
         BottomAppBar (
             containerColor = MaterialTheme.colorScheme.primary,
             contentPadding = PaddingValues(0.dp)
@@ -380,11 +377,16 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     fun NavigationButton(icon: Int, iconDescription: String, text: String, navController: NavHostController, screenName: String) :Unit {
-        Button(
-            onClick = { navController.navigate(screenName)},
-            modifier = Modifier.padding(4.dp)
+        Box(
+            modifier = Modifier
+                .padding(8.dp)
+                .fillMaxHeight()
+                .clip(RoundedCornerShape(6.dp))
+                .clickable { navController.navigate(screenName) }
         ) {
             Column(
+                modifier = Modifier
+                    .padding(vertical = 4.dp, horizontal = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
@@ -431,9 +433,9 @@ class MainActivity : ComponentActivity() {
         val inProgress = remember { mutableStateOf(false) }
 
         //ScreenTitle("Log in or create account!")
-        Column(
+        Box(
             modifier = Modifier.fillMaxSize().padding(40.dp),
-            verticalArrangement = Arrangement.Center
+            contentAlignment = Alignment.Center
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth().height(520.dp),
@@ -459,6 +461,7 @@ class MainActivity : ComponentActivity() {
                 PlainTextField(
                     placeholderText = "password",
                     singleLine = true,
+                    passwordField = true,
                     value = password.value,
                     onValueChange = { password.value = it }
                 )
@@ -524,10 +527,9 @@ class MainActivity : ComponentActivity() {
         val inProgress = remember { mutableStateOf(false) }
 
         //ScreenTitle("Create your new account!")
-        Column(
+        Box(
             modifier = Modifier.fillMaxSize().padding(40.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            contentAlignment = Alignment.Center
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth().height(520.dp),
@@ -574,10 +576,13 @@ class MainActivity : ComponentActivity() {
                     value = login.value,
                     onValueChange = { login.value = it }
                 )
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(5.dp))
+                PasswordValidationText(password.value, passwordConfirmation.value)
+                Spacer(Modifier.height(5.dp))
                 PlainTextField(
                     placeholderText = "password",
                     singleLine = true,
+                    passwordField = true,
                     value = password.value,
                     onValueChange = { password.value = it }
                 )
@@ -585,6 +590,7 @@ class MainActivity : ComponentActivity() {
                 PlainTextField(
                     placeholderText = "confirm password",
                     singleLine = true,
+                    passwordField = true,
                     value = passwordConfirmation.value,
                     onValueChange = { passwordConfirmation.value = it }
                 )
@@ -595,7 +601,7 @@ class MainActivity : ComponentActivity() {
                         vm.registerUser(login.value, password.value)
                         //tu animacja czekania na logowanie w postaci kota biegającego w kółko
                     },
-                    enabled = !inProgress.value,
+                    enabled = !inProgress.value && login.value.isNotEmpty() && validatePassword(password.value, passwordConfirmation.value) == PasswordValidationResult.CORRECT,
                     modifier = Modifier.widthIn(max = 200.dp).fillMaxWidth()
                 ) {
                     Text(text = "Let's go!")
@@ -648,22 +654,17 @@ class MainActivity : ComponentActivity() {
     @Composable
     fun RecentScreen(navController: NavController) : Unit {
         val vm = LocalViewModel.current
-        val recent = vm.recent.collectAsState().value
+        val recents = vm.recents.collectAsState().value
         Column {
             ScreenTitle("Recent activity")
             LazyColumn(
                 Modifier.weight(1f).fillMaxWidth()
             ) {
-                items(recent) { recent ->
-                    MessageItem(message = com.nearnet.sessionlayer.data.model.Message(
-                        id = recent.message.id,
-                        roomId = recent.message.roomId,
-                        userId = recent.message.userId,
-                        messageType = recent.message.messageType,
-                        message = recent.message.data, // bo w com.nearnet.Message pole nazywa się `data`
-                        additionalData = recent.message.additionalData,
-                        timestamp = recent.message.timestamp
-                    ), recent.room,
+                items(recents) { recent ->
+                    MessageItem(
+                        message = recent.message,
+                        user = recent.user,
+                        room = recent.room,
                         ellipse = true,
                         onClick = { message, room ->
                         if (room != null) {
@@ -829,7 +830,18 @@ class MainActivity : ComponentActivity() {
         }
         Column {
             if (selectedRoom != null) { //roomSettingsScreen
-                ScreenTitle("Room settings")
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    ScreenTitle("Room settings")
+                    Button(onClick = {
+                        vm.selectPopup(PopupType.USER_LIST_IN_ROOM)
+                    }) {
+                        Text("Users")
+                    }
+                }
             } else { //createRoomScreen
                 ScreenTitle("Create new room")
             }
@@ -837,7 +849,7 @@ class MainActivity : ComponentActivity() {
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                AvatarPicker(avatar.value, onAvatarChange = { base64 -> avatar.value = base64 })
+                AvatarPicker(R.drawable.image, avatar.value, onAvatarChange = { base64 -> avatar.value = base64 })
                 Spacer(Modifier.width(10.dp))
                 PlainTextField(
                     value = roomName,
@@ -866,6 +878,7 @@ class MainActivity : ComponentActivity() {
                     onValueChange = { text -> password.value = text },
                     placeholderText = "password",
                     singleLine = true,
+                    passwordField = true,
                     modifier = Modifier.fillMaxWidth(),
                     enable = !isCheckedPublic
                 )
@@ -875,6 +888,7 @@ class MainActivity : ComponentActivity() {
                     onValueChange = { text -> passwordConfirmation.value = text },
                     placeholderText = "confirm password",
                     singleLine = true,
+                    passwordField = true,
                     modifier = Modifier.fillMaxWidth(),
                     enable = !isCheckedPublic
                 )
@@ -997,6 +1011,22 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+            launch { //leave
+                vm.leaveRoomEvent.collect { event ->
+                    when (event) {
+                        is ProcessEvent.Success -> {
+                            Toast.makeText(context, "You have left the room.", Toast.LENGTH_SHORT).show()
+                            navController.navigate("roomsScreen"){
+                                popUpTo(0) { inclusive = true }
+                                launchSingleTop = true
+                            }
+                        }
+                        is ProcessEvent.Error -> {
+                            Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -1017,7 +1047,7 @@ class MainActivity : ComponentActivity() {
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                AvatarPicker(avatar.value, onAvatarChange = { base64 -> avatar.value = base64 })
+                AvatarPicker(R.drawable.spacecat, avatar.value, onAvatarChange = { base64 -> avatar.value = base64 })
                 Spacer(Modifier.width(10.dp))
                 PlainTextField(
                     value = userName.value,
@@ -1032,15 +1062,21 @@ class MainActivity : ComponentActivity() {
                 value = currentPassword.value,
                 onValueChange = { text -> currentPassword.value = text },
                 placeholderText = "current password",
+                passwordField = true,
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(5.dp))
+            if (newPassword.value.isNotEmpty()) {
+                PasswordValidationText(newPassword.value, passwordConfirmation.value)
+            }
+            Spacer(Modifier.height(5.dp))
             PlainTextField(
                 value = newPassword.value,
                 onValueChange = { text -> newPassword.value = text },
                 placeholderText = "new password",
                 singleLine = true,
+                passwordField = true,
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(Modifier.height(10.dp))
@@ -1049,6 +1085,7 @@ class MainActivity : ComponentActivity() {
                 onValueChange = { text -> passwordConfirmation.value = text },
                 placeholderText = "confirm new password",
                 singleLine = true,
+                passwordField = true,
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(Modifier.height(20.dp))
@@ -1075,7 +1112,7 @@ class MainActivity : ComponentActivity() {
                         vm.updateUser(userName.value, currentPassword.value, newPassword.value, passwordConfirmation.value, avatar.value, "")
                         //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
                     },
-                    enabled = vm.validateUpdate(userName.value, newPassword.value, passwordConfirmation.value, avatar.value, "")
+                    enabled = vm.validateUpdateUser(userName.value, currentPassword.value, newPassword.value, passwordConfirmation.value, avatar.value, "")
                 ) {
                     Text("Accept")
                 }
@@ -1155,12 +1192,24 @@ class MainActivity : ComponentActivity() {
         val vm = LocalViewModel.current
         val selectedRoom = vm.selectedRoom.collectAsState().value
         val messages = vm.messages.collectAsState().value
+        val roomUsers = vm.roomUsers.collectAsState().value
         val listState = rememberLazyListState()
+        val isLoaded = remember { mutableStateOf(false) }
+        val isReady = remember { mutableStateOf(false) }
 
-
-        LaunchedEffect(selectedRoom) {
+        LaunchedEffect(Unit) {
             selectedRoom?.let { room ->
                 vm.loadMessages(room)
+                isLoaded.value = true
+            }
+        }
+
+        LaunchedEffect(messages, isLoaded.value) {
+            if (isLoaded.value) {
+                if (messages.isNotEmpty()) {
+                    listState.scrollToItem(messages.lastIndex)
+                }
+                isReady.value = true
             }
         }
 
@@ -1192,47 +1241,28 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-
-        val messagesUI = remember(messages) {
-            messages.map { backendMessage ->
-                com.nearnet.Message(
-                    id = backendMessage.id,
-                    roomId = backendMessage.roomId,
-                    userId = backendMessage.userId,
-                    data = backendMessage.message,
-                    timestamp = backendMessage.timestamp,
-                    messageType = backendMessage.messageType,
-                    additionalData = backendMessage.additionalData
-                )
-            }
-        }
-
-
         Column {
-            LazyColumn(
-                state = listState,
+            Box(
                 modifier = Modifier.weight(1f).fillMaxWidth(),
-                reverseLayout = false //TODO
-
-            ){
-
-                items(messagesUI, key = { it.id }) { message ->
-                    MessageItem(message = com.nearnet.sessionlayer.data.model.Message(
-                        id = message.id,
-                        roomId = message.roomId,
-                        userId = message.userId,
-                        messageType = message.messageType,
-                        message = message.data,
-                        additionalData = message.additionalData,
-                        timestamp = message.timestamp))
+                contentAlignment = Alignment.Center
+            ) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize().alpha(if (isReady.value) 1f else 0f),
+                    reverseLayout = false
+                ) {
+                   items(messages, key = { it.id }) { message ->
+                       // Looking for a user who is the author of the message
+                       val user = roomUsers.find { user -> user.id == message.userId }
+                       MessageItem(message = message, user = user)
+                    }
+                }
+                if (!isReady.value) {
+                    CircularProgressIndicator()
+                    //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
                 }
             }
             ConversationPanel()
-        }
-        LaunchedEffect(messages.size) {
-            if (messages.isNotEmpty()) {
-                listState.animateScrollToItem(messages.lastIndex)
-            }
         }
     }
 

@@ -12,7 +12,9 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -27,7 +29,8 @@ import androidx.compose.ui.unit.dp
 import java.io.IOException
 import androidx.core.graphics.scale
 import androidx.exifinterface.media.ExifInterface
-import com.nearnet.R
+import com.nearnet.ui.model.LocalViewModel
+import com.nearnet.ui.model.PopupType
 import java.io.ByteArrayOutputStream
 
 fun getBitmapFromUri(context: Context, uri: Uri): Bitmap {
@@ -74,8 +77,9 @@ fun decodeBase64(base64: String): Bitmap? {
 }
 
 @Composable
-fun AvatarPicker(avatarBase64: String, onAvatarChange: (String) -> Unit) {
+fun AvatarPicker(avatarDefault: Int, avatarBase64: String, onAvatarChange: (String) -> Unit) {
     val context = LocalContext.current
+    val vm = LocalViewModel.current
     val launcher = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -88,7 +92,7 @@ fun AvatarPicker(avatarBase64: String, onAvatarChange: (String) -> Unit) {
     val avatarBitmap = if (avatarBase64.isNotEmpty()) decodeBase64(avatarBase64) else null
     if (avatarBitmap == null) {
         Icon(
-            painter = painterResource(R.drawable.image),
+            painter = painterResource(avatarDefault),
             contentDescription = "Avatar",
             tint = MaterialTheme.colorScheme.onPrimary,
             modifier = Modifier
@@ -100,10 +104,6 @@ fun AvatarPicker(avatarBase64: String, onAvatarChange: (String) -> Unit) {
                 .clip(RoundedCornerShape(6.dp))
                 .border(2.dp, MaterialTheme.colorScheme.onPrimary, RoundedCornerShape(6.dp))
                 .clickable { launcher.launch("image/*") }
-
-                //.background(color = MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(6.dp))
-                //.clip(RoundedCornerShape(6.dp))
-                //.border(2.dp, MaterialTheme.colorScheme.onPrimary, RoundedCornerShape(6.dp)),
         )
     } else {
         Image(
@@ -118,18 +118,61 @@ fun AvatarPicker(avatarBase64: String, onAvatarChange: (String) -> Unit) {
                 )
                 .clip(RoundedCornerShape(6.dp))
                 .border(2.dp, MaterialTheme.colorScheme.onPrimary, RoundedCornerShape(6.dp))
-                .clickable { launcher.launch("image/*") }
+                .clickable {
+                    vm.selectPopup(PopupType.EDIT_AVATAR, {imageAction : String ->
+                        if (imageAction =="changeImage") {launcher.launch("image/*")}
+                        if (imageAction =="removeImage") {onAvatarChange("")}
+                    })
+                }
         )
     }
 }
 
 @Composable
-fun Avatar(avatarBase64: String) {
+fun AvatarCircle(avatarBase64: String, defaultAvatar: Int) {
     val avatarBitmap = if (avatarBase64.isNotEmpty()) decodeBase64(avatarBase64) else null
     if (avatarBitmap != null) {
         Image(
             painter = BitmapPainter(avatarBitmap.asImageBitmap()),
-            contentDescription = "avatar"
+            contentDescription = "Avatar",
+            modifier = Modifier.size(80.dp).clip(CircleShape)
+                .border(2.dp, MaterialTheme.colorScheme.onPrimary, CircleShape)
+        )
+    } else {
+        Icon(
+            painter = painterResource(defaultAvatar),
+            tint = MaterialTheme.colorScheme.onPrimary,
+            contentDescription = "Avatar",
+            modifier = Modifier.size(80.dp).clip(CircleShape)
+            //.border(2.dp, MaterialTheme.colorScheme.onPrimary, CircleShape)
+            .padding(2.dp)
+        )
+    }
+}
+
+@Composable
+fun AvatarSquare(avatarBase64: String, defaultAvatar: Int) {
+    val avatarBitmap = if (avatarBase64.isNotEmpty()) decodeBase64(avatarBase64) else null
+    if (avatarBitmap != null) {
+        Image(
+            painter = BitmapPainter(avatarBitmap.asImageBitmap()),
+            contentDescription = "Avatar",
+            modifier = Modifier
+                .size(50.dp)
+                .background(color = MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(6.dp))
+                .clip(RoundedCornerShape(6.dp))
+                .border(2.dp, MaterialTheme.colorScheme.onPrimary, RoundedCornerShape(6.dp)),
+        )
+    } else {
+        Icon(
+            painter = painterResource(defaultAvatar),
+            tint = MaterialTheme.colorScheme.onPrimary,
+            contentDescription = "Avatar",
+            modifier = Modifier
+                .size(50.dp)
+                .background(color = MaterialTheme.colorScheme.primary, shape = RoundedCornerShape(6.dp))
+                .clip(RoundedCornerShape(6.dp))
+                .border(2.dp, MaterialTheme.colorScheme.onPrimary, RoundedCornerShape(6.dp)),
         )
     }
 }

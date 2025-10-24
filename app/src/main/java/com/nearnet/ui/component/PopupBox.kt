@@ -7,11 +7,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -74,6 +77,9 @@ fun PopupBox() {
                         PopupType.DELETE_ROOM_CONFIRMATION -> DeleteRoomConfirmationPopup()
                         PopupType.JOIN_ROOM_CONFIRMATION -> JoinRoomConfirmationPopup(popupContext)
                         PopupType.JOIN_ROOM_APPROVAL -> JoinRoomApprovalPopup(popupContext)
+                        PopupType.LEAVE_ROOM_CONFIRMATION -> LeaveRoomConfirmationPopup()
+                        PopupType.EDIT_AVATAR -> EditAvatarPopup(popupContext)
+                        PopupType.USER_LIST_IN_ROOM -> UserListInRoomPopup()
                     }
                 }
             }
@@ -84,9 +90,9 @@ fun PopupBox() {
 @Composable
 fun DialogPopup(
     title: String,
-    text: String,
+    text: String? = null,
     acceptEnabled: Boolean = true,
-    onAccept: () -> Unit = {},
+    onAccept: (() -> Unit)? = {},
     onCancel: () -> Unit = {},
     content: @Composable (() -> Unit)? = null
 ) {
@@ -98,11 +104,13 @@ fun DialogPopup(
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onPrimary
         )
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onPrimary
-        )
+        if (text != null) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onPrimary
+            )
+        }
         if (content !== null) {
             Spacer(Modifier.height(20.dp))
             content()
@@ -116,12 +124,18 @@ fun DialogPopup(
                 Text("✖\uFE0F Cancel")
             }
             Spacer(Modifier.width(10.dp))
-            Button(
-                modifier = Modifier.weight(1f),
-                onClick = { onAccept() },
-                enabled = acceptEnabled
-            ) {
-                Text("✔\uFE0F Accept")
+            if (onAccept != null) {
+                Button(
+                    modifier = Modifier.weight(1f),
+                    onClick = { onAccept() },
+                    enabled = acceptEnabled
+                ) {
+                    Text("✔\uFE0F Accept")
+                }
+            } else {
+                Spacer(
+                    modifier = Modifier.weight(1f)
+                )
             }
         }
     }
@@ -149,6 +163,7 @@ fun DeleteUserAuthorizationPopup() {
             onValueChange = { text -> password.value = text },
             placeholderText = "password",
             singleLine = true,
+            passwordField = true,
             modifier = Modifier.fillMaxWidth()
         )
     }
@@ -226,6 +241,7 @@ fun JoinRoomConfirmationPopup(popupContext: PopupContext) {
                     onValueChange = { text -> password.value = text },
                     placeholderText = "password",
                     singleLine = true,
+                    passwordField = true,
                     modifier = Modifier.fillMaxWidth()
                 )
                 Text(
@@ -280,6 +296,97 @@ fun JoinRoomApprovalPopup(popupContext: PopupContext) {
                 }
             }
             approveInProgress.value = false
+        }
+    }
+}
+
+@Composable
+fun LeaveRoomConfirmationPopup() {
+    val vm = LocalViewModel.current
+    DialogPopup(
+        title = "Leaving the room",
+        text = "Are you sure you want to leave the room?",
+        onAccept = {
+            vm.closePopup()
+            vm.leaveRoom()
+        },
+        onCancel = {
+            vm.closePopup()
+        }
+    )
+}
+
+@Composable
+fun EditAvatarPopup(popupContext: PopupContext) {
+    val vm = LocalViewModel.current
+    val launchImagePicker : (String) -> Unit = popupContext.data as ((String) -> Unit)
+    DialogPopup(
+        title = "Edit Avatar",
+        acceptEnabled = false,
+        onAccept = null,
+        onCancel = {
+            vm.closePopup()
+        }
+    ) {
+        Column {
+            Button(
+                modifier = Modifier.fillMaxWidth(),
+                onClick = {
+                    vm.closePopup()
+                    launchImagePicker("changeImage")
+                },
+            ) {
+                Text("Change")
+            }
+            Text(
+                text = "or",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onPrimary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Button(
+                modifier = Modifier.fillMaxWidth(),
+                onClick = {
+                    vm.closePopup()
+                    launchImagePicker("removeImage")
+                },
+            ) {
+                Text("Remove")
+            }
+            Spacer(Modifier.height(20.dp))
+        }
+    }
+}
+
+@Composable
+fun UserListInRoomPopup() {
+    val vm = LocalViewModel.current
+    val roomUsers = vm.roomUsers.collectAsState().value
+    val room = vm.selectedRoom.collectAsState().value
+    val selectedUser = vm.selectedUser.collectAsState().value
+    val isAdmin: Boolean = if(selectedUser != null && room != null) selectedUser.id == room.idAdmin else false
+    LaunchedEffect(Unit) {
+        if (room != null) {
+            vm.loadMessages(room)
+        }
+    }
+    DialogPopup(
+        title = "Room members",
+        text = "Curious who's in the room?",
+        onAccept = null,
+        onCancel = {
+            vm.closePopup()
+        }
+    ) {
+        LazyColumn(
+            Modifier.fillMaxWidth().fillMaxHeight(0.7f)
+        ) {
+            items(roomUsers) { user ->
+                if(room !=  null) {
+                    UserItem(user, room, isKickEnabled = isAdmin)
+                }
+            }
         }
     }
 }

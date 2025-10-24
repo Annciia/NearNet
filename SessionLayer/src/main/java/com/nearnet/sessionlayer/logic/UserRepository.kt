@@ -128,8 +128,8 @@ class UserRepository(private val context: Context) {
     suspend fun updateUser(user: UserData,
                            currentPassword: String = "",
                            newPassword: String = ""
-    ) = withContext(Dispatchers.IO) {
-        val token = getTokenFromPreferences(context) ?: return@withContext
+    ): Boolean = withContext(Dispatchers.IO) {
+        val token = getTokenFromPreferences(context) ?: return@withContext false
         Log.d("REST", "Updating user for token: $token")
 //        val body = mapOf(
 //            "name" to user.name,
@@ -161,6 +161,8 @@ class UserRepository(private val context: Context) {
                 if (json.trimStart().startsWith("<html", ignoreCase = true)) {
                     Log.w("REST", "Server returned HTML instead of JSON (possible error page).")
                 }
+                Log.e("KOT", ""+json)
+                return@withContext true
             } else {
                 val errorText = response.errorBody()?.string() ?: "Unknown error"
                 Log.e("REST", "Update failed: ${response.code()} $errorText")
@@ -168,6 +170,7 @@ class UserRepository(private val context: Context) {
         } catch (e: Exception) {
             Log.e("REST", "Exception during update: ${e.message}")
         }
+        return@withContext false
 
 //        try {
 //            val response = api.updateUser("Bearer $token", body)
