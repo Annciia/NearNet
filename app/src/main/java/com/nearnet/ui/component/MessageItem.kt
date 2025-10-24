@@ -26,12 +26,13 @@ import com.nearnet.sessionlayer.data.model.RoomData
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import com.nearnet.sessionlayer.data.model.Message
+import com.nearnet.sessionlayer.data.model.UserData
 import java.time.Instant
 import java.time.ZoneId
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun MessageItem(message: com.nearnet.sessionlayer.data.model.Message, room: RoomData? = null, ellipse: Boolean = false, onClick: ((message:  com.nearnet.sessionlayer.data.model.Message, room: RoomData?)->Unit)? = null) {
+fun MessageItem(message: Message, user: UserData? = null, room: RoomData? = null, ellipse: Boolean = false, onClick: ((message:  com.nearnet.sessionlayer.data.model.Message, room: RoomData?)->Unit)? = null) {
 //    var date = ""
 //    if (message.timestamp.isNotEmpty()) {
 //        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
@@ -55,8 +56,7 @@ fun MessageItem(message: com.nearnet.sessionlayer.data.model.Message, room: Room
         if (room != null) {
             AvatarSquare(room.avatar, R.drawable.image)
         } else {
-            //AvatarSquare(message.userAvatar, R.drawable.spacecat)
-            AvatarSquare("", R.drawable.spacecat)
+            AvatarSquare(user?.avatar ?: "", R.drawable.spacecat)
         }
         Spacer(Modifier.width(10.dp))
         Column(
@@ -84,7 +84,7 @@ fun MessageItem(message: com.nearnet.sessionlayer.data.model.Message, room: Room
                         )
                     }
                     Text(
-                        text = message.userId,
+                        text = user?.name ?: "Unknown",
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.onPrimary,
                     )

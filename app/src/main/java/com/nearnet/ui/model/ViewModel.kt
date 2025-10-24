@@ -190,8 +190,8 @@ class NearNetViewModel(): ViewModel() {
     val messages = messagesMutable.asStateFlow()
 
     //Recent
-    private val recentMutable = MutableStateFlow(listOf<Recent>())
-    val recent = recentMutable.asStateFlow()
+    private val recentsMutable = MutableStateFlow(listOf<Recent>())
+    val recents = recentsMutable.asStateFlow()
 
     //Reconnect chat
     private var reconnectJob: Job? = null
@@ -676,31 +676,33 @@ class NearNetViewModel(): ViewModel() {
             }
 
             //mapowanie ID → nazw użytkowników
-            val userMap = userResponse?.userList?.rooms
+            /*val userMap = userResponse?.userList?.rooms
                 ?.associateBy({ it.id }, { it.name })
-                ?: emptyMap()
+                ?: emptyMap()*/
 
             //pobieranie listy użytkowników pokoju
+            /*var str = ""
             userResponse?.userList?.rooms?.forEach({ kot ->
-                Log.e("KOT", ""+kot.name+" "+kot.login)  //Marek - tu wchodząc do pokoju login każdego użytkownika jest null
+                str += "---" + kot.id + " "+kot.name+" "+kot.login + "\n"  //tu wchodząc do pokoju login każdego użytkownika jest null
             })
+            Log.e("KOT", str)*///Ania
             roomUsersMutable.value = userResponse?.userList?.rooms?.map { it.copy() } ?: listOf()
 
-            Log.d("loadMessages", "👥 Utworzono mapę użytkowników: ${userMap.size} pozycji")
+            //Log.d("loadMessages", "👥 Utworzono mapę użytkowników: ${userMap.size} pozycji")
 
             //mapowanie wiadomości i zamiana userId na nickname
-            val messagesFromApi = MessageUtils.mapPayloadToMessages(
+            messagesMutable.value = MessageUtils.mapPayloadToMessages(
                 room.idRoom,
                 messageList ?: emptyList()
-            ).map { msg ->
+            )/*.map { msg ->
                 msg.copy(
                     userId = userMap[msg.userId] ?: msg.userId // jeśli nie znaleziono, zostaje ID
                 )
-            }
+            }*/
 
             //aktualizacja stanu UI
-            messagesMutable.value = messagesFromApi
-            Log.d("loadMessages", "Załadowano ${messagesFromApi.size} wiadomości do UI")
+            //messagesMutable.value = messagesFromApi
+            //Log.d("loadMessages", "Załadowano ${messagesFromApi.size} wiadomości do UI")
         //}
     }
 
@@ -716,13 +718,15 @@ class NearNetViewModel(): ViewModel() {
 //                return@launch
 //            }
 
-            val userName = selectedUser.value?.name ?: "brak usera"
+            val user = selectedUser.value
+            if (user == null) return@launch
+            //val userName = selectedUser.value?.name ?: "brak usera"
             val timestamp = System.currentTimeMillis().toString()
 
-            val newMessage = com.nearnet.sessionlayer.data.model.Message(
+            val newMessage = Message(
                 id = timestamp,
                 roomId = room.idRoom,
-                userId = userName,
+                userId = user.id,
                 messageType = "TXT",
                 message = messageText,
                 additionalData = "",
@@ -829,17 +833,17 @@ class NearNetViewModel(): ViewModel() {
                     }
                     //mapowanie id -> name
                     val userMap = userResponse?.userList?.rooms
-                        ?.associate { user -> user.id to user.name }
+                        ?.associate { user -> user.id to user }
                         ?: emptyMap()
 
                     val messages = MessageUtils.mapPayloadToMessages(
                         room.idRoom,
                         response?.`package`?.messageList ?: emptyList()
-                    ).map { msg ->
+                    )/*.map { msg ->
                         msg.copy(
                             userId = userMap[msg.userId] ?: msg.userId
                         )
-                    }
+                    }*/
 
 
                     val latest = messages.maxByOrNull { it.timestamp } ?: continue
@@ -857,14 +861,15 @@ class NearNetViewModel(): ViewModel() {
                     val recentItem = Recent(
                         message = latestMessageUI,
                         room = room,
-                        username = latest.userId
+                        user = userMap[latest.userId]
+                        //username = latest.userId
                     )
 
                     allRecents.add(recentItem)
                 }
 
                 val sorted = allRecents.sortedByDescending { it.message.timestamp }
-                recentMutable.value = sorted
+                recentsMutable.value = sorted
 
                 Log.d("NearNetVM", "loadRecentMessages: Loaded ${sorted.size} recents")
 

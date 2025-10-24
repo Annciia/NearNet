@@ -103,7 +103,7 @@ import kotlinx.coroutines.launch
 data class Room(val id: String, var name: String, var description: String, var avatar: String, var additionalSettings: String, var isPrivate: Boolean, var isVisible: Boolean, var idAdmin: String, var users: List<String>)
 data class Message(val id: String, val userId: String, val roomId: String, val data: String, val timestamp: String, val messageType: String, var additionalData: String)
 data class User(val id: String, val login: String, val name: String, var avatar: String, var additionalSettings: String, var publicKey: String)
-data class Recent(val message: Message, val room: RoomData?, val username: String)
+data class Recent(val message: Message, val room: RoomData?, val user: UserData?)
 
 class MainActivity : ComponentActivity() {
 
@@ -144,18 +144,20 @@ class MainActivity : ComponentActivity() {
         }
         vm.repository = UserRepository(this)
         vm.roomRepository = RoomRepository(this)
+
+        //TODO - jest tymczasowo wygląd popup dla admina gdy ktoś prosi o dołączenie//-----
+
         // (UserData, RoomData) -> Unit
         /*vm.roomRepository = RoomRepository(this, { user, room -> //tego co prosi o dołączenie i ten pokój - wołana u admina, gdy info z serwera, że ktoś chce dołączyć
             val data = PopupContextApprovalData(user, room)
             vm.selectPopup(PopupType.JOIN_ROOM_APPROVAL, data)
         })*/
-
-        //TODO - jest tymczasowo wygląd popup dla admina gdy ktoś prosi o dołączenie
         val data = PopupContextApprovalData(
             UserData(id = "", login = "", name = "Kotter", avatar = "", additionalSettings = "", publicKey = ""), //user który chce dołączyć
             RoomData(idRoom = "", name = "Stormvik games", description = "Witaj! Jestem wikingiem.", avatar = "", additionalSettings = "", isPrivate = true, isVisible = true, idAdmin = "") //pokój gdzie chce dołączyć
         )
         vm.selectPopup(PopupType.JOIN_ROOM_APPROVAL, data)
+        //----------
 
         ScreenObserver(navController, vm)
 
@@ -652,13 +654,13 @@ class MainActivity : ComponentActivity() {
     @Composable
     fun RecentScreen(navController: NavController) : Unit {
         val vm = LocalViewModel.current
-        val recent = vm.recent.collectAsState().value
+        val recents = vm.recents.collectAsState().value
         Column {
             ScreenTitle("Recent activity")
             LazyColumn(
                 Modifier.weight(1f).fillMaxWidth()
             ) {
-                items(recent) { recent ->
+                items(recents) { recent ->
                     MessageItem(message = com.nearnet.sessionlayer.data.model.Message(
                         id = recent.message.id,
                         roomId = recent.message.roomId,
@@ -667,7 +669,8 @@ class MainActivity : ComponentActivity() {
                         message = recent.message.data, // bo w com.nearnet.Message pole nazywa się `data`
                         additionalData = recent.message.additionalData,
                         timestamp = recent.message.timestamp
-                    ), recent.room,
+                    ), user = recent.user,
+                        room = recent.room,
                         ellipse = true,
                         onClick = { message, room ->
                         if (room != null) {
@@ -1194,7 +1197,8 @@ class MainActivity : ComponentActivity() {
     fun RoomConversationScreen() {
         val vm = LocalViewModel.current
         val selectedRoom = vm.selectedRoom.collectAsState().value
-        val messages = vm.messages.collectAsState()
+        val messages = vm.messages.collectAsState().value
+        val roomUsers = vm.roomUsers.collectAsState().value
         val listState = rememberLazyListState()
         val isLoaded = remember { mutableStateOf(false) }
         val isReady = remember { mutableStateOf(false) }
@@ -1206,10 +1210,10 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        LaunchedEffect(messages.value, isLoaded.value) {
+        LaunchedEffect(messages, isLoaded.value) {
             if (isLoaded.value) {
-                if (messages.value.isNotEmpty()) {
-                    listState.scrollToItem(messages.value.lastIndex)
+                if (messages.isNotEmpty()) {
+                    listState.scrollToItem(messages.lastIndex)
                 }
                 isReady.value = true
             }
@@ -1244,8 +1248,10 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize().alpha(if (isReady.value) 1f else 0f),
                     reverseLayout = false
                 ) {
-                    items(messages.value, key = { it.id }) { message ->
-                        MessageItem(message = message)
+                   items(messages, key = { it.id }) { message ->
+                       // Looking for a user who is the author of the message
+                       val user = roomUsers.find { user -> user.id == message.userId }
+                       MessageItem(message = message, user = user)
                     }
                 }
                 if (!isReady.value) {
