@@ -6,8 +6,6 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nearnet.Recent
-import com.nearnet.Room
-import com.nearnet.User
 import com.nearnet.sessionlayer.logic.MessageUtils
 import com.nearnet.sessionlayer.logic.RoomRepository
 import com.nearnet.sessionlayer.logic.UserRepository
@@ -120,7 +118,7 @@ class NearNetViewModel(): ViewModel() {
     val updateUserEvent = updateUserEventMutable.asSharedFlow()
 
     //Delete user
-    private val deleteUserEventMutable = MutableSharedFlow<ProcessEvent<User?>>()
+    private val deleteUserEventMutable = MutableSharedFlow<ProcessEvent<Unit>>()
     val deleteUserEvent = deleteUserEventMutable.asSharedFlow()
 
     //Welcome state
@@ -326,7 +324,7 @@ class NearNetViewModel(): ViewModel() {
 
             if (status) {
                 selectedUserMutable.value = null
-                deleteUserEventMutable.emit(ProcessEvent.Success(null))
+                deleteUserEventMutable.emit(ProcessEvent.Success(Unit))
             } else {
                 deleteUserEventMutable.emit(ProcessEvent.Error("Something went wrong while deleting account."))
             }
@@ -635,75 +633,51 @@ class NearNetViewModel(): ViewModel() {
     }
 
     suspend fun loadMessages(room: RoomData) {
-        //viewModelScope.launch {
 
 //            if (!::messageUtils.isInitialized) {
 //                Log.e("loadMessages", "MessageUtils nie jest zainicjalizowany")
 //                return@launch
 //            }
 
-            //Log.d("loadMessages", "MessageUtils jest zainicjalizowany — startuję pobieranie wiadomości")
+        //Log.d("loadMessages", "MessageUtils jest zainicjalizowany — startuję pobieranie wiadomości")
 
-            //pobranie wiadomości z serwera
+        //Pobranie wiadomości z serwera
+        Log.d("loadMessages", "Pobieram wiadomości dla pokoju=${room.idRoom}")
+        val response = try {
             Log.d("loadMessages", "Pobieram wiadomości dla pokoju=${room.idRoom}")
-            val response = try {
-                Log.d("loadMessages", "Pobieram wiadomości dla pokoju=${room.idRoom}")
-                MessageUtils.requestLastMessages(room.idRoom)
-            } catch (e: Exception) {
-                Log.e("loadMessages", "Błąd podczas pobierania wiadomości dla pokoju=${room.idRoom}", e)
-                null
-            }
+            MessageUtils.requestLastMessages(room.idRoom)
+        } catch (e: Exception) {
+            Log.e("loadMessages", "Błąd podczas pobierania wiadomości dla pokoju=${room.idRoom}", e)
+            null
+        }
 
-            if (response == null) {
-                Log.e("loadMessages", "Serwer zwrócił pustą odpowiedź dla pokoju=${room.idRoom}")
-                return
-            }
+        if (response == null) {
+            Log.e("loadMessages", "Serwer zwrócił pustą odpowiedź dla pokoju=${room.idRoom}")
+            return
+        }
 
-            val messageList = response.`package`?.messageList
-            if (messageList.isNullOrEmpty()) {
-                Log.w("loadMessages", "Brak wiadomości w historii dla pokoju=${room.idRoom}")
-            } else {
-                Log.d("loadMessages", "Otrzymano ${messageList.size} wiadomości dla pokoju=${room.idRoom}")
-            }
+        val messageList = response.`package`?.messageList
+        if (messageList.isNullOrEmpty()) {
+            Log.w("loadMessages", "Brak wiadomości w historii dla pokoju=${room.idRoom}")
+        } else {
+            Log.d("loadMessages", "Otrzymano ${messageList.size} wiadomości dla pokoju=${room.idRoom}")
+        }
 
-            //pobranie listy użytkowników (żeby zamienić ID → nick)
-            val userResponse = try {
-                Log.d("loadMessages", "Pobieram użytkowników dla pokoju=${room.idRoom}")
-                MessageUtils.requestRoomUsers(room.idRoom)
-            } catch (e: Exception) {
-                Log.e("loadMessages", "Błąd podczas pobierania listy użytkowników dla pokoju=${room.idRoom}", e)
-                null
-            }
+        //Pobranie listy użytkowników pokoju
+        val userResponse = try {
+            Log.d("loadMessages", "Pobieram użytkowników dla pokoju=${room.idRoom}")
+            MessageUtils.requestRoomUsers(room.idRoom)
+        } catch (e: Exception) {
+            Log.e("loadMessages", "Błąd podczas pobierania listy użytkowników dla pokoju=${room.idRoom}", e)
+            null
+        }
 
-            //mapowanie ID → nazw użytkowników
-            /*val userMap = userResponse?.userList?.rooms
-                ?.associateBy({ it.id }, { it.name })
-                ?: emptyMap()*/
-
-            //pobieranie listy użytkowników pokoju
-            /*var str = ""
-            userResponse?.userList?.rooms?.forEach({ kot ->
-                str += "---" + kot.id + " "+kot.name+" "+kot.login + "\n"  //tu wchodząc do pokoju login każdego użytkownika jest null
-            })
-            Log.e("KOT", str)*///Ania
-            roomUsersMutable.value = userResponse?.userList?.rooms?.map { it.copy() } ?: listOf()
-
-            //Log.d("loadMessages", "👥 Utworzono mapę użytkowników: ${userMap.size} pozycji")
-
-            //mapowanie wiadomości i zamiana userId na nickname
-            messagesMutable.value = MessageUtils.mapPayloadToMessages(
-                room.idRoom,
-                messageList ?: emptyList()
-            )/*.map { msg ->
-                msg.copy(
-                    userId = userMap[msg.userId] ?: msg.userId // jeśli nie znaleziono, zostaje ID
-                )
-            }*/
-
-            //aktualizacja stanu UI
-            //messagesMutable.value = messagesFromApi
-            //Log.d("loadMessages", "Załadowano ${messagesFromApi.size} wiadomości do UI")
-        //}
+        //Zapisywanie listy userów i wiadomości do zmiennych
+        roomUsersMutable.value = userResponse?.userList?.rooms?.map { it.copy() } ?: listOf()
+        messagesMutable.value = MessageUtils.mapPayloadToMessages(
+            room.idRoom,
+            messageList ?: emptyList()
+        )
     }
 
 
@@ -720,7 +694,6 @@ class NearNetViewModel(): ViewModel() {
 
             val user = selectedUser.value
             if (user == null) return@launch
-            //val userName = selectedUser.value?.name ?: "brak usera"
             val timestamp = System.currentTimeMillis().toString()
 
             val newMessage = Message(
@@ -747,19 +720,6 @@ class NearNetViewModel(): ViewModel() {
                 Log.e("sendMessage", "Exception w sendMessage", e)
             }
         }
-    }
-    fun Room.toRoomData(): RoomData {
-        return RoomData(
-            idRoom = this.id,
-            name = this.name,
-            description = this.description,
-            avatar = this.avatar,
-            password = "",
-            isPrivate = this.isPrivate,
-            isVisible = this.isVisible,
-            idAdmin = this.idAdmin,
-            additionalSettings = this.additionalSettings
-        )
     }
 
     fun startRealtime(room: RoomData) {
@@ -810,7 +770,7 @@ class NearNetViewModel(): ViewModel() {
     fun loadRecentMessages() {
         viewModelScope.launch {
             // TODO Call asynchronous function to fetch recent messages here.
-            //recentMutable.value = getRecentMessages(idUser) //zwraca listę trójek (Room, lastMessage,username)
+            //recentMutable.value = getRecentMessages(idUser) //zwraca listę trójek (Room, lastMessage,user)
             //funkcja: grupuje wiadomości po pokojach, dla każdej grupy uzyskuje dane pokoju, a następnie tworzy trójki
             //typu (wiadomość, pokój, nazwa użytkownika), w SQL join pokoju do wiadomości i do usera, i groupby po pokojach ,
             //a potem select na te trójki
@@ -831,7 +791,7 @@ class NearNetViewModel(): ViewModel() {
                         Log.e("loadRecentMessages", "Błąd przy pobieraniu użytkowników pokoju=${room.idRoom}", e)
                         null
                     }
-                    //mapowanie id -> name
+                    //mapowanie id -> user
                     val userMap = userResponse?.userList?.rooms
                         ?.associate { user -> user.id to user }
                         ?: emptyMap()
@@ -839,30 +799,14 @@ class NearNetViewModel(): ViewModel() {
                     val messages = MessageUtils.mapPayloadToMessages(
                         room.idRoom,
                         response?.`package`?.messageList ?: emptyList()
-                    )/*.map { msg ->
-                        msg.copy(
-                            userId = userMap[msg.userId] ?: msg.userId
-                        )
-                    }*/
-
+                    )
 
                     val latest = messages.maxByOrNull { it.timestamp } ?: continue
 
-                    val latestMessageUI = com.nearnet.Message(
-                        id = latest.id,
-                        roomId = latest.roomId,
-                        userId = latest.userId,
-                        data = latest.message,
-                        timestamp = latest.timestamp,
-                        messageType = latest.messageType,
-                        additionalData = latest.additionalData
-                    )
-
                     val recentItem = Recent(
-                        message = latestMessageUI,
+                        message = latest,
                         room = room,
                         user = userMap[latest.userId]
-                        //username = latest.userId
                     )
 
                     allRecents.add(recentItem)

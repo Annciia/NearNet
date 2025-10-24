@@ -70,6 +70,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.nearnet.sessionlayer.data.model.Message
 import com.nearnet.sessionlayer.logic.MessageUtils
 import com.nearnet.sessionlayer.data.model.RoomData
 import com.nearnet.sessionlayer.data.model.UserData
@@ -100,9 +101,9 @@ import com.nearnet.ui.theme.NearNetTheme
 import kotlinx.coroutines.launch
 
 
-data class Room(val id: String, var name: String, var description: String, var avatar: String, var additionalSettings: String, var isPrivate: Boolean, var isVisible: Boolean, var idAdmin: String, var users: List<String>)
-data class Message(val id: String, val userId: String, val roomId: String, val data: String, val timestamp: String, val messageType: String, var additionalData: String)
-data class User(val id: String, val login: String, val name: String, var avatar: String, var additionalSettings: String, var publicKey: String)
+//data class Room(val id: String, var name: String, var description: String, var avatar: String, var additionalSettings: String, var isPrivate: Boolean, var isVisible: Boolean, var idAdmin: String, var users: List<String>)
+//data class Message(val id: String, val userId: String, val roomId: String, val data: String, val timestamp: String, val messageType: String, var additionalData: String)
+//data class User(val id: String, val login: String, val name: String, var avatar: String, var additionalSettings: String, var publicKey: String)
 data class Recent(val message: Message, val room: RoomData?, val user: UserData?)
 
 class MainActivity : ComponentActivity() {
@@ -661,15 +662,9 @@ class MainActivity : ComponentActivity() {
                 Modifier.weight(1f).fillMaxWidth()
             ) {
                 items(recents) { recent ->
-                    MessageItem(message = com.nearnet.sessionlayer.data.model.Message(
-                        id = recent.message.id,
-                        roomId = recent.message.roomId,
-                        userId = recent.message.userId,
-                        messageType = recent.message.messageType,
-                        message = recent.message.data, // bo w com.nearnet.Message pole nazywa się `data`
-                        additionalData = recent.message.additionalData,
-                        timestamp = recent.message.timestamp
-                    ), user = recent.user,
+                    MessageItem(
+                        message = recent.message,
+                        user = recent.user,
                         room = recent.room,
                         ellipse = true,
                         onClick = { message, room ->
