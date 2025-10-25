@@ -125,8 +125,20 @@ class NearNetViewModel(): ViewModel() {
     private val searchDiscoverTextMutable = MutableStateFlow("")
     val searchDiscoverText = searchDiscoverTextMutable.asStateFlow()
     var filteredDiscoverList : StateFlow<List<RoomData>> = combine(discoverRooms, searchDiscoverText) { rooms, searchText ->
-        if (searchText.isEmpty()) rooms
-        else rooms.filter { it.name.contains(searchText, ignoreCase = true) }
+        //if (searchText.isEmpty()) rooms
+        //else rooms.filter { it.name.contains(searchText, ignoreCase = true) }
+        Log.d("FilteredDiscover", "discoverRooms=${rooms.map { it.name }} searchText=$searchText")
+        if (searchText.isEmpty()) {
+            rooms.filter { it.isVisible }
+        } else {
+            rooms.filter { room ->
+                if (room.isVisible) {
+                    room.name.contains(searchText, ignoreCase = true)
+                } else {
+                    room.name.equals(searchText, ignoreCase = true)
+                }
+            }
+        }
     }.stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
     //Selected room
@@ -330,8 +342,26 @@ class NearNetViewModel(): ViewModel() {
         viewModelScope.launch {
             // TODO Call asynchronous function to fetch discover rooms here.
             if (::roomRepository.isInitialized) {
-                val roomsFromApi = roomRepository.getAllRooms()
-                discoverRoomsMutable.value = roomsFromApi
+                val allRooms = roomRepository.getAllRooms()
+                val myRooms = roomRepository.getMyRooms()
+                val myRoomIds = myRooms.map { it.idRoom }.toSet()
+                val discoverRooms = allRooms.filter { it.idRoom !in myRoomIds }
+                //sprawdzenie czemu nie pokazuje niewidocznych pokoi
+                Log.d("NearNetVM", "All rooms from server")
+                allRooms.forEach { room ->
+                    Log.d(
+                        "Rooms",
+                        "Room: name='${room.name}', id='${room.idRoom}', isVisible=${room.isVisible}, isPrivate=${room.isPrivate}, idAdmin=${room.idAdmin}"
+                    )
+                }
+                Log.d("NearNetVM", "Discover rooms")
+                discoverRooms.forEach { room ->
+                    Log.d(
+                        "Rooms",
+                        "Discover Room: name='${room.name}', id='${room.idRoom}', isVisible=${room.isVisible}, isPrivate=${room.isPrivate}, idAdmin=${room.idAdmin}"
+                    )
+                }
+                discoverRoomsMutable.value = discoverRooms
             } else {
                 Log.e("loadDiscoverRooms", "RoomRepository is not initialized!")
             }
@@ -625,10 +655,11 @@ class NearNetViewModel(): ViewModel() {
     fun leaveRoom(){
         viewModelScope.launch {
             var isLeftRoom : Boolean = false
+            val room = selectedRoom.value!!
             //TODO Marek Call asynchronous function to user leave their room.
-            //isLeftRoom = leaveRoom(idRoom, idUser) //Marek napisać opuszczanie pokoju
-            isLeftRoom = true //
-            if (isLeftRoom == true){
+            isLeftRoom = roomRepository.leaveRoom(room.idRoom) //Marek napisać opuszczanie pokoju
+            //isLeftRoom = true //
+            if (isLeftRoom){
                 leaveRoomEventMutable.emit(ProcessEvent.Success(Unit))
             } else { //błąd gdzieś i nie udało się
                 leaveRoomEventMutable.emit(ProcessEvent.Error("Failed to leave the room. Please try again."))
@@ -637,11 +668,12 @@ class NearNetViewModel(): ViewModel() {
     }
     fun removeUserFromRoom(user: UserData, room: RoomData) {
         viewModelScope.launch {
-            var isUserRemoved: Boolean = false
+            //var isUserRemoved: Boolean = false
             //TODO Marek Call function to remove user from the room.
-            //isLeftRoom = leaveRoom(idRoom, idUser) //Marek napisać wyrzucanie z pokoju
-            isUserRemoved = true //
-            if (isUserRemoved == true) {
+            //isLeftRoom = leaveRoom(idRoom, idUser)
+            //isUserRemoved = true //
+            val isUserRemoved = roomRepository.removeUserFromRoom(room.idRoom, user.id)
+            if (isUserRemoved) {
                 roomUsersMutable.value = roomUsersMutable.value.filter { it.id != user.id }
             } else {
                 leaveRoomEventMutable.emit(ProcessEvent.Error("Failed to remove the user from the room."))
