@@ -237,6 +237,7 @@ class NearNetViewModel(): ViewModel() {
                 status = repository.logOutUser() //M - tu po prostu czyszcze token przez co juz nic nie dostanie od serwera
             }
             selectedUserMutable.value = null
+            clearAppState()
             if (status == true){
                 selectedUserEventMutable.emit(ProcessEvent.Success(null))
             }
@@ -244,6 +245,21 @@ class NearNetViewModel(): ViewModel() {
                 selectedUserEventMutable.emit(ProcessEvent.Error("Something went wrong while logging out."))
             }
         }
+    }
+    fun clearAppState(){
+        selectedUserMutable.value = null
+        welcomeStateMutable.value = false
+        myRoomsMutable.value = listOf<RoomData>()
+        discoverRoomsMutable.value = listOf<RoomData>()
+        searchMyRoomsTextMutable.value =""
+        searchDiscoverTextMutable.value =""
+        selectedRoomMutable.value = null
+        roomUsersMutable.value = listOf<UserData>()
+        messagesMutable.value = listOf<Message>()
+        recentsMutable.value = listOf<Recent>()
+        selectedPopupMutable.value = null
+        clearQueuedPopups()
+        stopRealtime()
     }
     // TODO tutaj chyba jakas oblusge/pola do additionalSettings
     fun updateUser(userName: String, currentPassword: String, newPassword: String, passwordConfirmation: String, avatar: String, additionalSettings: String){
@@ -316,6 +332,7 @@ class NearNetViewModel(): ViewModel() {
 
             if (status) {
                 selectedUserMutable.value = null
+                clearAppState()
                 deleteUserEventMutable.emit(ProcessEvent.Success(Unit))
             } else {
                 deleteUserEventMutable.emit(ProcessEvent.Error("Something went wrong while deleting account."))
