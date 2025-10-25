@@ -84,6 +84,17 @@ data class RoomRequestsResponse(
     val requests: List<Map<String, Any>>
 )
 
+data class RemoveUserRequest(
+    val userId: String
+)
+
+data class SimpleResponse(
+    val success: Boolean,
+    val error: String? = null
+)
+
+
+
 
 interface RoomApiService {
 
@@ -151,6 +162,19 @@ interface RoomApiService {
         @Header("Authorization") token: String,
         @Path("id") roomId: String
     ): Response<RoomRequestsResponse>
+
+    @POST("/api/rooms/{id}/remove-user")
+    suspend fun removeUserFromRoom(
+        @Header("Authorization") token: String,
+        @Path("id") roomId: String,
+        @Body body: RemoveUserRequest
+    ): Response<SimpleResponse>
+
+    @POST("/api/rooms/{id}/leave")
+    suspend fun leaveRoom(
+        @Header("Authorization") token: String,
+        @Path("id") roomId: String
+    ): Response<SimpleResponse>
 
 
 
@@ -470,14 +494,41 @@ class RoomRepository(private val context: Context) {
         }
     }
 
+    suspend fun removeUserFromRoom(roomId: String, userId: String): Boolean = withContext(Dispatchers.IO) {
+        val token = getToken()
+        if (token.isNullOrBlank()) return@withContext false
+        try {
+            val response = api.removeUserFromRoom(token, roomId, RemoveUserRequest(userId))
+            if (response.isSuccessful && response.body()?.success == true) {
+                Log.d("ROOM", "User $userId removed from room $roomId")
+                true
+            } else {
+                Log.e("ROOM", "removeUserFromRoom failed: ${response.code()} ${response.errorBody()?.string()}")
+                false
+            }
+        } catch (e: Exception) {
+            Log.e("ROOM", "Exception in removeUserFromRoom", e)
+            false
+        }
+    }
 
-
-
-
-
-
-
-
+    suspend fun leaveRoom(roomId: String): Boolean = withContext(Dispatchers.IO) {
+        val token = getToken()
+        if (token.isNullOrBlank()) return@withContext false
+        try {
+            val response = api.leaveRoom(token, roomId)
+            if (response.isSuccessful && response.body()?.success == true) {
+                Log.d("ROOM", "Successfully left room $roomId")
+                true
+            } else {
+                Log.e("ROOM", "leaveRoom failed: ${response.code()} ${response.errorBody()?.string()}")
+                false
+            }
+        } catch (e: Exception) {
+            Log.e("ROOM", "Exception in leaveRoom", e)
+            false
+        }
+    }
 
 }
 
