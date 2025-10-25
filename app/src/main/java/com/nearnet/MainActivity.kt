@@ -496,6 +496,7 @@ class MainActivity : ComponentActivity() {
             }
         }
         LaunchedEffect(Unit) {
+            vm.clearAppState()
             vm.selectedUserEvent.collect { event ->
                 when (event) {
                     is ProcessEvent.Success -> {
