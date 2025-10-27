@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -142,13 +143,15 @@ fun MessageItem(message: Message, user: UserData? = null, room: RoomData? = null
             }
             if (message.messageType == MessageType.TEXT.name || message.messageType == "text") {
                 if (message.message.length > MESSAGE_MAX_LENGTH) return
-                Text(
-                    text = message.message,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    maxLines = if (!ellipse) Int.MAX_VALUE else 1,
-                    overflow = if (!ellipse) TextOverflow.Clip else TextOverflow.Ellipsis,
-                )
+                SelectionContainer {
+                    Text(
+                        text = message.message,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        maxLines = if (!ellipse) Int.MAX_VALUE else 1,
+                        overflow = if (!ellipse) TextOverflow.Clip else TextOverflow.Ellipsis,
+                    )
+                }
             } else if (message.messageType == MessageType.IMAGE.name) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),

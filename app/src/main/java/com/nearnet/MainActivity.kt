@@ -24,6 +24,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.LocalTextSelectionColors
+import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.twotone.PlayArrow
@@ -55,6 +57,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -148,10 +151,18 @@ class MainActivity : ComponentActivity() {
         vm.repository = UserRepository(this)
         vm.roomRepository = RoomRepository(this)
 
+        val customSelectionColors = TextSelectionColors(
+            handleColor = Color.Black.copy(alpha=0.3f),
+            backgroundColor = Color.Black.copy(alpha=0.15f)
+        )
+
         ScreenObserver(navController, vm)
 
         NearNetTheme {
-            CompositionLocalProvider(LocalViewModel provides vm) {
+            CompositionLocalProvider(
+                LocalViewModel provides vm,
+                LocalTextSelectionColors provides customSelectionColors
+            ) {
                 Scaffold(
                     topBar = { TopBar(navController) },
                     bottomBar = { BottomBar(navController) },
