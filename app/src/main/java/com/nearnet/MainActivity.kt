@@ -71,7 +71,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.nearnet.sessionlayer.data.model.Message
-import com.nearnet.sessionlayer.logic.MessageUtils
 import com.nearnet.sessionlayer.data.model.RoomData
 import com.nearnet.sessionlayer.data.model.UserData
 import com.nearnet.sessionlayer.logic.RoomRepository
@@ -91,7 +90,6 @@ import com.nearnet.ui.component.SearchField
 import com.nearnet.ui.component.validatePassword
 import com.nearnet.ui.model.LocalViewModel
 import com.nearnet.ui.model.NearNetViewModel
-import com.nearnet.ui.model.PopupContextApprovalData
 import com.nearnet.ui.model.PopupType
 import com.nearnet.ui.model.ProcessEvent
 import com.nearnet.ui.model.ROOM_DESCRIPTION_MAX_LENGTH
@@ -145,19 +143,6 @@ class MainActivity : ComponentActivity() {
         }
         vm.repository = UserRepository(this)
         vm.roomRepository = RoomRepository(this)
-
-        // (UserData, RoomData) -> Unit
-        /*vm.roomRepository = RoomRepository(this, { user, room -> //tego co prosi o dołączenie i ten pokój - wołana u admina, gdy info z serwera, że ktoś chce dołączyć
-            val data = PopupContextApprovalData(user, room)
-            vm.selectPopup(PopupType.JOIN_ROOM_APPROVAL, data)
-        })*/
-
-        //TODO - jest tymczasowo wygląd popup dla admina gdy ktoś prosi o dołączenie
-//        val data = PopupContextApprovalData(
-//            UserData(id = "", login = "", name = "Kotter", avatar = "", additionalSettings = "", publicKey = ""), //user który chce dołączyć
-//            RoomData(idRoom = "", name = "Stormvik games", description = "Witaj! Jestem wikingiem.", avatar = "", additionalSettings = "", isPrivate = true, isVisible = true, idAdmin = "") //pokój gdzie chce dołączyć
-//        )
-        //vm.selectPopup(PopupType.JOIN_ROOM_APPROVAL, data)
 
         ScreenObserver(navController, vm)
 
@@ -363,7 +348,6 @@ class MainActivity : ComponentActivity() {
                 ){}
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    //verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceEvenly
 
                 ){
@@ -397,7 +381,6 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier
                         .size(30.dp)
                         .padding(vertical = 2.dp)
-                        //.background(MaterialTheme.colorScheme.secondary)
                 )
                 Text(
                     text= text,
@@ -697,8 +680,6 @@ class MainActivity : ComponentActivity() {
             SearchField(placeholderText = "Search rooms...", searchText=searchText, onSearch = {
                 searchText ->
                     vm.filterMyRooms(searchText)
-                    //Log.e("SEARCHED ROOM", searchText)
-                    //Toast.makeText(this@MainActivity, searchText, Toast.LENGTH_SHORT).show()
             })
             Spacer(Modifier.height(8.dp).fillMaxWidth())
             Text(
@@ -768,8 +749,6 @@ class MainActivity : ComponentActivity() {
             ) {
                 items(rooms) { room ->
                     RoomItem(room, onClick = {
-                        //TODO Dołączanie do pokoju - odkomentowalem(Marek)
-                        //vm.joinRoom(room,"") //tu hasło będę z pop up podawać, na razie na sztywno, ale przyjmuj je w funkcji
                         vm.selectPopup(PopupType.JOIN_ROOM_CONFIRMATION, room)
                     })
                 }
@@ -929,7 +908,7 @@ class MainActivity : ComponentActivity() {
                         }
                         //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
                     },
-                    enabled = vm.validateRoom(roomName, roomDescription, getPassword(), passwordConfirmation.value, !isCheckedPublic) && !inProgress.value
+                    enabled = vm.validateRoom(roomName, roomDescription, getPassword(), passwordConfirmation.value) && !inProgress.value
                 ) {
                     if (selectedRoom != null) { //roomSettingsScreen
                         Text("Accept")
@@ -945,7 +924,6 @@ class MainActivity : ComponentActivity() {
                     verticalArrangement = Arrangement.Bottom
                 ) {
                     Button(onClick = {
-                        //vm.deleteRoom(selectedRoom)
                         vm.selectPopup(PopupType.DELETE_ROOM_CONFIRMATION)
                         //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
                     }) {
@@ -1125,8 +1103,6 @@ class MainActivity : ComponentActivity() {
                 verticalArrangement = Arrangement.Bottom
             ) {
                 Button(onClick = {
-                    //TODO dodalem vm.deleteUser(password.value) zamiast vm.deleteUser() - zczytuje w compose wartosc pola password
-                    //vm.deleteUser(password.value)
                     vm.selectPopup(PopupType.DELETE_USER_AUTHORIZATION)
                     //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
                 }) {
@@ -1191,6 +1167,7 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     fun RoomConversationScreen() {
+        val context = LocalContext.current
         val vm = LocalViewModel.current
         val selectedRoom = vm.selectedRoom.collectAsState().value
         val messages = vm.messages.collectAsState().value
@@ -1265,6 +1242,14 @@ class MainActivity : ComponentActivity() {
                 }
             }
             ConversationPanel()
+        }
+
+        LaunchedEffect(Unit) {
+            vm.sendMessageEvent.collect { event ->
+                if (event is ProcessEvent.Error) {
+                    Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
+                }
+            }
         }
     }
 
