@@ -60,6 +60,12 @@ class PopupContextApprovalData(
     val room: RoomData
 )
 
+enum class MessageType(val type: String) {
+    TEXT("TEXT"),
+    IMAGE("IMAGE"),
+    FILE("FILE")
+}
+
 //event dotyczący wyniku przetwarzania jakiejś operacji asynchronicznej
 sealed class ProcessEvent<out T> {
     data class Success<T>(val data: T): ProcessEvent<T>()
@@ -765,7 +771,7 @@ class NearNetViewModel(): ViewModel() {
     }
 
 
-    fun sendMessage(messageText : String, room : RoomData){
+    fun sendMessage(messageText : String, room : RoomData, messageType: MessageType){
         viewModelScope.launch{
             //val message = Message (id = -1, userNameSender = "Orci Kätter", content = messageText)
             //messagesMutable.value += message
@@ -784,7 +790,7 @@ class NearNetViewModel(): ViewModel() {
                 id = timestamp,
                 roomId = room.idRoom,
                 userId = user.id,
-                messageType = "TXT",
+                messageType = messageType.name,
                 message = messageText,
                 additionalData = "",
                 timestamp = timestamp

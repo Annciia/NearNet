@@ -667,6 +667,7 @@ class MainActivity : ComponentActivity() {
                         user = recent.user,
                         room = recent.room,
                         ellipse = true,
+                        attachmentClickable = false,
                         onClick = { message, room ->
                         if (room != null) {
                             vm.selectRoom(room)

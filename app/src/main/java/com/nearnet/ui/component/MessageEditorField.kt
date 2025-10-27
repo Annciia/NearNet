@@ -34,12 +34,12 @@ import com.nearnet.ui.theme.standardIconStyleTransparent
 
 @Composable
 fun MessageEditorField(
-                       modifier: Modifier = Modifier,
-                       placeholderText: String = "",
-                       minHeight: Dp = 36.dp,
-                       maxHeight: Dp = 140.dp,
-                       value: String,
-                       onValueChange: ((String) -> Unit)
+    modifier: Modifier = Modifier,
+    placeholderText: String = "",
+    minHeight: Dp = 36.dp,
+    maxHeight: Dp = 140.dp,
+    value: String,
+    onValueChange: ((String) -> Unit)
 ){
     var lineCount by rememberSaveable { mutableIntStateOf(1) }
     val lineHeight = 18.sp
