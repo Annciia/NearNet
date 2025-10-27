@@ -39,6 +39,8 @@ import com.nearnet.ui.model.PopupContext
 import com.nearnet.ui.model.PopupContextApprovalData
 import com.nearnet.ui.model.PopupType
 import com.nearnet.ui.model.ProcessEvent
+import com.nearnet.ui.model.ROOM_PASSWORD_MAX_LENGTH
+import com.nearnet.ui.model.USER_PASSWORD_MAX_LENGTH
 
 @Composable
 fun PopupBox() {
@@ -163,6 +165,7 @@ fun DeleteUserAuthorizationPopup() {
             onValueChange = { text -> password.value = text },
             placeholderText = "password",
             singleLine = true,
+            maxChars = USER_PASSWORD_MAX_LENGTH,
             passwordField = true,
             modifier = Modifier.fillMaxWidth()
         )
@@ -241,6 +244,7 @@ fun JoinRoomConfirmationPopup(popupContext: PopupContext) {
                     onValueChange = { text -> password.value = text },
                     placeholderText = "password",
                     singleLine = true,
+                    maxChars = ROOM_PASSWORD_MAX_LENGTH,
                     passwordField = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -280,7 +284,6 @@ fun JoinRoomApprovalPopup(popupContext: PopupContext) {
             vm.joinRoomAdminApprove(data.user, data.room, true)
         },
         onCancel = {
-            //vm.closePopup()
             approveInProgress.value = true
             vm.joinRoomAdminApprove(data.user, data.room, false)
         }

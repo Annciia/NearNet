@@ -95,6 +95,10 @@ import com.nearnet.ui.model.ProcessEvent
 import com.nearnet.ui.model.ROOM_DESCRIPTION_MAX_LENGTH
 import com.nearnet.ui.model.ROOM_DESCRIPTION_MAX_LINES
 import com.nearnet.ui.model.ROOM_NAME_MAX_LENGTH
+import com.nearnet.ui.model.ROOM_PASSWORD_MAX_LENGTH
+import com.nearnet.ui.model.USER_LOGIN_MAX_LENGTH
+import com.nearnet.ui.model.USER_NAME_MAX_LENGTH
+import com.nearnet.ui.model.USER_PASSWORD_MAX_LENGTH
 import com.nearnet.ui.theme.NearNetTheme
 import kotlinx.coroutines.launch
 
@@ -437,6 +441,7 @@ class MainActivity : ComponentActivity() {
                 PlainTextField(
                     placeholderText = "login",
                     singleLine = true,
+                    maxChars = USER_LOGIN_MAX_LENGTH,
                     value = login.value,
                     onValueChange = { login.value = it } // {x -> login.value = x }
                 )
@@ -444,6 +449,7 @@ class MainActivity : ComponentActivity() {
                 PlainTextField(
                     placeholderText = "password",
                     singleLine = true,
+                    maxChars = USER_PASSWORD_MAX_LENGTH,
                     passwordField = true,
                     value = password.value,
                     onValueChange = { password.value = it }
@@ -557,6 +563,7 @@ class MainActivity : ComponentActivity() {
                 PlainTextField(
                     placeholderText = "login",
                     singleLine = true,
+                    maxChars = USER_LOGIN_MAX_LENGTH,
                     value = login.value,
                     onValueChange = { login.value = it }
                 )
@@ -566,6 +573,7 @@ class MainActivity : ComponentActivity() {
                 PlainTextField(
                     placeholderText = "password",
                     singleLine = true,
+                    maxChars = USER_PASSWORD_MAX_LENGTH,
                     passwordField = true,
                     value = password.value,
                     onValueChange = { password.value = it }
@@ -574,6 +582,7 @@ class MainActivity : ComponentActivity() {
                 PlainTextField(
                     placeholderText = "confirm password",
                     singleLine = true,
+                    maxChars = USER_PASSWORD_MAX_LENGTH,
                     passwordField = true,
                     value = passwordConfirmation.value,
                     onValueChange = { passwordConfirmation.value = it }
@@ -677,10 +686,12 @@ class MainActivity : ComponentActivity() {
         val inProgess = remember { mutableStateOf(false) }
         Column {
             ScreenTitle("My rooms")
-            SearchField(placeholderText = "Search rooms...", searchText=searchText, onSearch = {
-                searchText ->
-                    vm.filterMyRooms(searchText)
-            })
+            SearchField(
+                placeholderText = "Search rooms...",
+                maxChars = ROOM_NAME_MAX_LENGTH,
+                searchText=searchText,
+                onSearch = { searchText -> vm.filterMyRooms(searchText) }
+            )
             Spacer(Modifier.height(8.dp).fillMaxWidth())
             Text(
                 text = "Found "+ rooms.size +" rooms"
@@ -735,10 +746,12 @@ class MainActivity : ComponentActivity() {
                     Text("Create room")
                 }
             }
-            SearchField(placeholderText = "Search rooms...", searchText = searchText, onSearch = {
-                searchText ->
-                    vm.filterDiscoverRooms(searchText)
-            })
+            SearchField(
+                placeholderText = "Search rooms...",
+                maxChars = ROOM_NAME_MAX_LENGTH,
+                searchText = searchText,
+                onSearch = { searchText -> vm.filterDiscoverRooms(searchText) }
+            )
             Spacer(Modifier.height(8.dp).fillMaxWidth())
             Text(
                 text = "Found "+ rooms.size +" rooms"
@@ -859,6 +872,7 @@ class MainActivity : ComponentActivity() {
                     onValueChange = { text -> password.value = text },
                     placeholderText = "password",
                     singleLine = true,
+                    maxChars = ROOM_PASSWORD_MAX_LENGTH,
                     passwordField = true,
                     modifier = Modifier.fillMaxWidth(),
                     enable = !isCheckedPublic
@@ -869,6 +883,7 @@ class MainActivity : ComponentActivity() {
                     onValueChange = { text -> passwordConfirmation.value = text },
                     placeholderText = "confirm password",
                     singleLine = true,
+                    maxChars = ROOM_PASSWORD_MAX_LENGTH,
                     passwordField = true,
                     modifier = Modifier.fillMaxWidth(),
                     enable = !isCheckedPublic
@@ -1034,6 +1049,7 @@ class MainActivity : ComponentActivity() {
                     onValueChange = { text -> userName.value = text },
                     placeholderText = "user name",
                     singleLine = true,
+                    maxChars = USER_NAME_MAX_LENGTH,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -1042,8 +1058,9 @@ class MainActivity : ComponentActivity() {
                 value = currentPassword.value,
                 onValueChange = { text -> currentPassword.value = text },
                 placeholderText = "current password",
-                passwordField = true,
                 singleLine = true,
+                maxChars = USER_PASSWORD_MAX_LENGTH,
+                passwordField = true,
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(Modifier.height(5.dp))
@@ -1056,6 +1073,7 @@ class MainActivity : ComponentActivity() {
                 onValueChange = { text -> newPassword.value = text },
                 placeholderText = "new password",
                 singleLine = true,
+                maxChars = USER_PASSWORD_MAX_LENGTH,
                 passwordField = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -1065,6 +1083,7 @@ class MainActivity : ComponentActivity() {
                 onValueChange = { text -> passwordConfirmation.value = text },
                 placeholderText = "confirm new password",
                 singleLine = true,
+                maxChars = USER_PASSWORD_MAX_LENGTH,
                 passwordField = true,
                 modifier = Modifier.fillMaxWidth()
             )
