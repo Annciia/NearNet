@@ -100,7 +100,7 @@ object MessageUtils {
     }
 
     private val retrofit = Retrofit.Builder()
-        .baseUrl("http://95.108.77.201:3001")
+        .baseUrl("http://95.108.77.201:3002")
         .addConverterFactory(GsonConverterFactory.create())
         .build()
 
@@ -208,7 +208,7 @@ object MessageUtils {
         stopReceivingMessages()
 
         val token = tokenProvider?.invoke() ?: return
-        val url = "http://95.108.77.201:3001/api/messages/stream/$roomId?userId=$userId"
+        val url = "http://95.108.77.201:3002/api/messages/stream/$roomId?userId=$userId"
 
         val request = Request.Builder()
             .url(url)

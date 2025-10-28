@@ -22,6 +22,11 @@ data class LoginResponse(
     val userData: UserData?
 )
 
+data class PublicKeyResponse(
+    val id: String,
+    val publicKey: String
+)
+
 
 interface ApiService {
     @POST("/api/register")
@@ -42,38 +47,138 @@ interface ApiService {
         @Header("Authorization") auth: String,
         @Body body: Map<String, String>
     ): Response<RegisterResponse>
+
+    @GET("/api/users/{id}/publicKey")
+    suspend fun getUserPublicKey(
+        @Path("id") userId: String,
+        @Header("Authorization") auth: String
+    ): Response<PublicKeyResponse>
 }
 
 class UserRepository(private val context: Context) {
     //private val db = AppDatabase.getDatabase(context)
 
     private val retrofit = Retrofit.Builder()
-        .baseUrl("http://95.108.77.201:3001")
+        .baseUrl("http://95.108.77.201:3002")
         .addConverterFactory(GsonConverterFactory.create())
         .build()
 
     private val api = retrofit.create(ApiService::class.java)
 
 
+//    suspend fun registerUser(login: String, password: String): Boolean = withContext(Dispatchers.IO) {
+//        val body = mapOf("login" to login.trim(), "password" to password.trim())
+//
+//
+//        return@withContext try {
+//            val response = api.register(body)
+//
+//            if (response.isSuccessful) {
+//                Log.d("REST", "Rejestracja OK dla loginu: $login")
+//                true
+//            } else {
+//                val errorMsg = response.errorBody()?.string() ?: "Unknown error"
+//                Log.d("REST", "Rejestracja nieudana: $errorMsg (HTTP ${response.code()})")
+//                false
+//            }
+//
+//        } catch (e: Exception) {
+//            Log.e("REST", "Wyjątek podczas rejestracji: ${e.message}", e)
+//            false
+//        }
+//    }
+
     suspend fun registerUser(login: String, password: String): Boolean = withContext(Dispatchers.IO) {
-        val body = mapOf("login" to login.trim(), "password" to password.trim())
+        Log.d("REST", "====== ROZPOCZĘCIE REJESTRACJI ======")
+        Log.d("REST", "Login: $login")
+        Log.d("REST", "Długość hasła: ${password.length}")
 
+        try {
+            // Krok 1: Generowanie kluczy RSA
+            Log.d("REST", "--- Krok 1: Generowanie kluczy RSA ---")
+            val keyPair = CryptoUtils.generateRSAKeys()
+            Log.d("REST", "✓ Para kluczy wygenerowana pomyślnie")
 
-        return@withContext try {
+            // Krok 2: Konwersja klucza publicznego do Base64
+            Log.d("REST", "--- Krok 2: Konwersja klucza publicznego ---")
+            val publicKeyString = CryptoUtils.publicKeyToString(keyPair.public)
+            Log.d("REST", "✓ Klucz publiczny (Base64, długość: ${publicKeyString.length})")
+            Log.d("REST", "  Początek: ${publicKeyString.take(50)}...")
+            Log.d("REST", "  Koniec: ...${publicKeyString.takeLast(50)}")
+
+            // Krok 3: Przygotowanie danych do wysłania
+            Log.d("REST", "--- Krok 3: Przygotowanie żądania rejestracji ---")
+            val body = mapOf(
+                "login" to login.trim(),
+                "password" to password.trim(),
+                "publicKey" to publicKeyString
+            )
+            Log.d("REST", "Body request:")
+            Log.d("REST", "  - login: ${body["login"]}")
+            Log.d("REST", "  - password: [HIDDEN]")
+            Log.d("REST", "  - publicKey: ${publicKeyString.take(30)}...${publicKeyString.takeLast(30)}")
+
+            // Krok 4: Wysłanie żądania do serwera
+            Log.d("REST", "--- Krok 4: Wysyłanie żądania do serwera ---")
             val response = api.register(body)
+            Log.d("REST", "Otrzymano odpowiedź HTTP: ${response.code()}")
 
             if (response.isSuccessful) {
-                Log.d("REST", "Rejestracja OK dla loginu: $login")
-                true
+                val registerResponse = response.body()
+                Log.d("REST", "✓ Rejestracja zakończona pomyślnie!")
+                Log.d("REST", "  Response body: $registerResponse")
+                Log.d("REST", "  Success: ${registerResponse?.success}")
+
+                // Krok 5: Zapisanie klucza prywatnego lokalnie
+                // Ponieważ serwer nie zwraca userId, używamy loginu jako identyfikatora
+                Log.d("REST", "--- Krok 5: Zapisywanie klucza prywatnego ---")
+                Log.d("REST", "Serwer nie zwraca userId - używam loginu jako identyfikatora")
+                val keyIdentifier = login.trim()
+                Log.d("REST", "Identyfikator kluczy: $keyIdentifier")
+
+                CryptoUtils.savePrivateKey(context, keyIdentifier, keyPair.private)
+                CryptoUtils.savePublicKey(context, keyIdentifier, keyPair.public)
+                Log.d("REST", "✓ Klucze zapisane dla identyfikatora: $keyIdentifier")
+
+                // Weryfikacja zapisu
+                Log.d("REST", "--- Weryfikacja zapisanych kluczy ---")
+                val hasKeys = CryptoUtils.hasKeysForUser(context, keyIdentifier)
+                Log.d("REST", "Klucze zapisane dla '$keyIdentifier': $hasKeys")
+
+                if (hasKeys) {
+                    Log.d("REST", "✓ Weryfikacja pozytywna - klucze są dostępne")
+
+                    // Dodatkowa weryfikacja - spróbuj odczytać klucz
+                    val retrievedPrivateKey = CryptoUtils.getPrivateKey(context, keyIdentifier)
+                    if (retrievedPrivateKey != null) {
+                        Log.d("REST", "✓✓ Klucz prywatny można odczytać z SharedPreferences")
+                    } else {
+                        Log.e("REST", "✗✗ BŁĄD: Nie można odczytać klucza prywatnego!")
+                    }
+                } else {
+                    Log.e("REST", "✗ Weryfikacja negatywna - problem z zapisem kluczy!")
+                }
+
+                Log.d("REST", "====== REJESTRACJA ZAKOŃCZONA SUKCESEM ======")
+                return@withContext true
+
             } else {
                 val errorMsg = response.errorBody()?.string() ?: "Unknown error"
-                Log.d("REST", "Rejestracja nieudana: $errorMsg (HTTP ${response.code()})")
-                false
+                Log.e("REST", "✗ Rejestracja nieudana!")
+                Log.e("REST", "  HTTP Code: ${response.code()}")
+                Log.e("REST", "  Error Body: $errorMsg")
+                Log.d("REST", "====== REJESTRACJA ZAKOŃCZONA NIEPOWODZENIEM ======")
+                return@withContext false
             }
 
         } catch (e: Exception) {
-            Log.e("REST", "Wyjątek podczas rejestracji: ${e.message}", e)
-            false
+            Log.e("REST", "✗✗ WYJĄTEK podczas rejestracji!", e)
+            Log.e("REST", "  Typ wyjątku: ${e.javaClass.simpleName}")
+            Log.e("REST", "  Wiadomość: ${e.message}")
+            Log.e("REST", "  Stack trace:")
+            e.printStackTrace()
+            Log.d("REST", "====== REJESTRACJA ZAKOŃCZONA BŁĘDEM ======")
+            return@withContext false
         }
     }
 
@@ -236,6 +341,60 @@ class UserRepository(private val context: Context) {
         fun getTokenFromPreferences(context: Context): String? {
             val sharedPref = context.getSharedPreferences("UserPrefs", Context.MODE_PRIVATE)
             return sharedPref.getString("user_token", null)
+        }
+    }
+
+    suspend fun getUserPublicKey(userId: String): String? = withContext(Dispatchers.IO) {
+        Log.d("REST", "====== POBIERANIE KLUCZA PUBLICZNEGO ======")
+        Log.d("REST", "UserId: $userId")
+
+        val token = getTokenFromPreferences(context)
+        if (token == null) {
+            Log.e("REST", "✗ Brak tokena - użytkownik niezalogowany")
+            return@withContext null
+        }
+
+        try {
+            Log.d("REST", "Wysyłanie żądania do serwera...")
+            val response = api.getUserPublicKey(userId, "Bearer $token")
+            Log.d("REST", "HTTP response code: ${response.code()}")
+
+            if (response.isSuccessful) {
+                val publicKeyResponse = response.body()
+                Log.d("REST", "✓ Odpowiedź otrzymana pomyślnie")
+                Log.d("REST", "  UserId: ${publicKeyResponse?.id}")
+                Log.d("REST", "  PublicKey długość: ${publicKeyResponse?.publicKey?.length ?: 0}")
+
+                if (publicKeyResponse?.publicKey.isNullOrEmpty()) {
+                    Log.w("REST", "⚠ Użytkownik nie ma klucza publicznego")
+                    Log.d("REST", "====== POBIERANIE ZAKOŃCZONE (BRAK KLUCZA) ======")
+                    return@withContext null
+                }
+
+                Log.d("REST", "  PublicKey (pierwsze 50 znaków): ${publicKeyResponse?.publicKey?.take(50)}...")
+                Log.d("REST", "====== POBIERANIE ZAKOŃCZONE SUKCESEM ======")
+                return@withContext publicKeyResponse?.publicKey
+
+            } else {
+                val errorBody = response.errorBody()?.string() ?: "Unknown error"
+                Log.e("REST", "✗ Błąd HTTP podczas pobierania klucza")
+                Log.e("REST", "  HTTP Code: ${response.code()}")
+                Log.e("REST", "  Error Body: $errorBody")
+
+                if (response.code() == 404) {
+                    Log.e("REST", "  Powód: Użytkownik nie został znaleziony")
+                }
+
+                Log.d("REST", "====== POBIERANIE ZAKOŃCZONE BŁĘDEM ======")
+                return@withContext null
+            }
+
+        } catch (e: Exception) {
+            Log.e("REST", "✗✗ WYJĄTEK podczas pobierania klucza!", e)
+            Log.e("REST", "  Typ: ${e.javaClass.simpleName}")
+            Log.e("REST", "  Wiadomość: ${e.message}")
+            Log.d("REST", "====== POBIERANIE ZAKOŃCZONE BŁĘDEM ======")
+            return@withContext null
         }
     }
 }

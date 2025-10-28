@@ -1,6 +1,7 @@
 package com.nearnet
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import android.widget.Toast
 import androidx.activity.compose.setContent
@@ -74,6 +75,7 @@ import com.nearnet.sessionlayer.data.model.Message
 import com.nearnet.sessionlayer.logic.MessageUtils
 import com.nearnet.sessionlayer.data.model.RoomData
 import com.nearnet.sessionlayer.data.model.UserData
+import com.nearnet.sessionlayer.logic.CryptoUtils
 import com.nearnet.sessionlayer.logic.RoomRepository
 import com.nearnet.sessionlayer.logic.UserRepository
 import com.nearnet.ui.component.AvatarCircle
@@ -432,6 +434,8 @@ class MainActivity : ComponentActivity() {
         val password = remember { mutableStateOf("") }
         val inProgress = remember { mutableStateOf(false) }
 
+        val userRepository = remember { UserRepository(context) }
+
         //ScreenTitle("Log in or create account!")
         Box(
             modifier = Modifier.fillMaxSize().padding(40.dp),
@@ -501,6 +505,88 @@ class MainActivity : ComponentActivity() {
                 when (event) {
                     is ProcessEvent.Success -> {
                         if (event.data !== null) {
+
+                            // ============================================
+                            //TODO TESTY KLUCZY RSA
+                            // ============================================
+                            Log.d("LOGIN_TEST", "========================================")
+                            Log.d("LOGIN_TEST", "TESTY KLUCZY RSA DLA: ${login.value}")
+                            Log.d("LOGIN_TEST", "========================================")
+
+                            // TEST 1: Sprawdź czy użytkownik ma klucze
+                            val hasKeys = CryptoUtils.hasKeysForUser(context, login.value)
+                            Log.d("LOGIN_TEST", "TEST 1: Sprawdzanie kluczy")
+                            Log.d("LOGIN_TEST", "  ✓ Użytkownik ma klucze RSA: $hasKeys")
+
+                            if (hasKeys) {
+                                // TEST 2: Odczytaj klucz prywatny
+                                Log.d("LOGIN_TEST", "TEST 2: Odczyt klucza prywatnego")
+                                val privateKey = CryptoUtils.getPrivateKey(context, login.value)
+                                if (privateKey != null) {
+                                    Log.d("LOGIN_TEST", "  ✓ Klucz prywatny DOSTĘPNY")
+                                    Log.d("LOGIN_TEST", "    - Algorytm: ${privateKey.algorithm}")
+                                    Log.d("LOGIN_TEST", "    - Format: ${privateKey.format}")
+                                    Log.d("LOGIN_TEST", "    - Rozmiar: ${privateKey.encoded.size} bajtów")
+                                } else {
+                                    Log.e("LOGIN_TEST", "  ✗ Klucz prywatny NIEDOSTĘPNY")
+                                }
+
+                                // TEST 3: Odczytaj klucz publiczny
+                                Log.d("LOGIN_TEST", "TEST 3: Odczyt klucza publicznego")
+                                val publicKey = CryptoUtils.getPublicKey(context, login.value)
+                                if (publicKey != null) {
+                                    Log.d("LOGIN_TEST", "  ✓ Klucz publiczny DOSTĘPNY")
+                                    Log.d("LOGIN_TEST", "    - Algorytm: ${publicKey.algorithm}")
+                                    Log.d("LOGIN_TEST", "    - Format: ${publicKey.format}")
+                                    Log.d("LOGIN_TEST", "    - Rozmiar: ${publicKey.encoded.size} bajtów")
+                                } else {
+                                    Log.e("LOGIN_TEST", "  ✗ Klucz publiczny NIEDOSTĘPNY")
+                                }
+                            } else {
+                                Log.w("LOGIN_TEST", "  ⚠ Użytkownik nie ma kluczy - możliwa stara rejestracja")
+                            }
+
+                            Log.d("LOGIN_TEST", "========================================")
+                            Log.d("LOGIN_TEST", "KONIEC TESTÓW")
+                            Log.d("LOGIN_TEST", "========================================")
+                            Log.d("LOGIN_TEST", "TEST 4: Pobieranie klucza publicznego z serwera")
+
+                            // Pobierz userId z userData (jeśli dostępne)
+                            val userId = event.data.id
+                            if (userId != null) {
+                                try {
+                                    val publicKeyFromServer = userRepository.getUserPublicKey(userId)
+
+                                    if (publicKeyFromServer != null) {
+                                        Log.d("LOGIN_TEST", "  ✓ Klucz pobrany z serwera")
+                                        Log.d("LOGIN_TEST", "    - Długość: ${publicKeyFromServer.length}")
+                                        Log.d("LOGIN_TEST", "    - Pierwsze 50 znaków: ${publicKeyFromServer.take(50)}...")
+
+                                        // Porównaj z lokalnym kluczem
+                                        val localPublicKey = CryptoUtils.getPublicKey(context, login.value)
+                                        if (localPublicKey != null) {
+                                            val localBase64 = CryptoUtils.publicKeyToString(localPublicKey)
+
+                                            if (localBase64 == publicKeyFromServer) {
+                                                Log.d("LOGIN_TEST", "  ✓✓ Klucze IDENTYCZNE (serwer = lokalny)")
+                                            } else {
+                                                Log.w("LOGIN_TEST", "  ⚠ Klucze SIĘ RÓŻNIĄ!")
+                                                Log.w("LOGIN_TEST", "    Lokalny:  ${localBase64.take(50)}...")
+                                                Log.w("LOGIN_TEST", "    Z serwera: ${publicKeyFromServer.take(50)}...")
+                                            }
+                                        }
+                                    } else {
+                                        Log.e("LOGIN_TEST", "  ✗ Nie udało się pobrać klucza z serwera")
+                                    }
+                                } catch (e: Exception) {
+                                    Log.e("LOGIN_TEST", "  ✗ Błąd podczas pobierania klucza: ${e.message}")
+                                }
+                            } else {
+                                Log.w("LOGIN_TEST", "  ⚠ Brak userId - nie można przetestować pobierania z serwera")
+                            }
+                            // ============================================
+                            // KONIEC TESTÓW
+                            // ============================================
                             navController.navigate("recentScreen") {
                                 popUpTo(0) { inclusive = true }
                             }
