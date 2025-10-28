@@ -381,7 +381,11 @@ class MainActivity : ComponentActivity() {
                 .padding(8.dp)
                 .fillMaxHeight()
                 .clip(RoundedCornerShape(6.dp))
-                .clickable { navController.navigate(screenName) }
+                .clickable {
+                    navController.navigate(screenName) {
+                        launchSingleTop = true
+                    }
+                }
         ) {
             Column(
                 modifier = Modifier
@@ -487,7 +491,9 @@ class MainActivity : ComponentActivity() {
                 Spacer(Modifier.height(10.dp))
                 Button(
                     onClick = {
-                        navController.navigate("registerScreen")
+                        navController.navigate("registerScreen") {
+                            launchSingleTop = true
+                        }
                     },
                     modifier = Modifier.widthIn(max = 200.dp).fillMaxWidth()
                 ) {
@@ -502,7 +508,8 @@ class MainActivity : ComponentActivity() {
                     is ProcessEvent.Success -> {
                         if (event.data !== null) {
                             navController.navigate("recentScreen") {
-                                popUpTo(0) { inclusive = true }
+                                popUpTo(0) { inclusive = false }
+                                launchSingleTop = true
                             }
                             Toast.makeText(context, event.data.name, Toast.LENGTH_SHORT).show()
                         } else {
@@ -633,20 +640,23 @@ class MainActivity : ComponentActivity() {
                         is ProcessEvent.Success -> {
                             if (event.data != null) {
                                 navController.navigate("userProfileScreen") {
-                                    popUpTo(0) { inclusive = true }
+                                    popUpTo(0) { inclusive = false }
+                                    launchSingleTop = true
                                 }
                                 Toast.makeText(context, event.data.name, Toast.LENGTH_SHORT).show()
                             } else {
                                 Toast.makeText(context, "Failed to log in.", Toast.LENGTH_SHORT).show()
                                 navController.navigate("loginScreen") {
-                                    popUpTo(0) { inclusive = true }
+                                    popUpTo(0) { inclusive = false}
+                                    launchSingleTop = true
                                 }
                             }
                         }
                         is ProcessEvent.Error -> {
                             Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
                             navController.navigate("loginScreen") {
-                                popUpTo(0) { inclusive = true }
+                                popUpTo(0) { inclusive = false }
+                                launchSingleTop = true
                             }
                         }
                     }
@@ -674,7 +684,9 @@ class MainActivity : ComponentActivity() {
                         onClick = { message, room ->
                         if (room != null) {
                             vm.selectRoom(room)
-                            navController.navigate("roomConversationScreen")
+                            navController.navigate("roomConversationScreen") {
+                                launchSingleTop = true
+                            }
                         }
                         else {
                             throw Error("MessageItem has null room.")
@@ -727,7 +739,9 @@ class MainActivity : ComponentActivity() {
             vm.selectedRoomEvent.collect { event ->
                 when (event) {
                     is ProcessEvent.Success -> {
-                        navController.navigate("roomConversationScreen")
+                        navController.navigate("roomConversationScreen") {
+                            launchSingleTop = true
+                        }
                     }
                     is ProcessEvent.Error -> {
                         Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
@@ -752,7 +766,9 @@ class MainActivity : ComponentActivity() {
             ) {
                 ScreenTitle("Discover")
                 Button(onClick = {
-                    navController.navigate("createRoomScreen")
+                    navController.navigate("createRoomScreen") {
+                        launchSingleTop = true
+                    }
                 }) {
                     Text("Create room")
                 }
@@ -785,7 +801,9 @@ class MainActivity : ComponentActivity() {
                 vm.selectedRoomEvent.collect { event ->
                     when (event) {
                         is ProcessEvent.Success -> {
-                            navController.navigate("roomConversationScreen")
+                            navController.navigate("roomConversationScreen") {
+                                launchSingleTop = true
+                            }
                             Toast.makeText(context, "Welcome to the room!", Toast.LENGTH_SHORT).show()
                         }
                         is ProcessEvent.Error -> {
@@ -934,7 +952,7 @@ class MainActivity : ComponentActivity() {
                         }
                         //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
                     },
-                    enabled = vm.validateRoom(roomName, roomDescription, getPassword(), passwordConfirmation.value) && !inProgress.value
+                    enabled = vm.validateRoom(roomName, roomDescription, getPassword(), passwordConfirmation.value, avatar.value, !isCheckedPublic, !isCheckedVisible, "", selectedRoom != null) && !inProgress.value
                 ) {
                     if (selectedRoom != null) { //roomSettingsScreen
                         Text("Accept")
@@ -978,7 +996,9 @@ class MainActivity : ComponentActivity() {
                 vm.selectedRoomEvent.collect { event ->
                     when (event) {
                         is ProcessEvent.Success -> {
-                            navController.navigate("roomConversationScreen")
+                            navController.navigate("roomConversationScreen") {
+                                launchSingleTop = true
+                            }
                         }
                         is ProcessEvent.Error -> {
                             Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
@@ -1007,7 +1027,7 @@ class MainActivity : ComponentActivity() {
                         is ProcessEvent.Success -> {
                             Toast.makeText(context, "Room deleted.", Toast.LENGTH_SHORT).show()
                             navController.navigate("roomsScreen") {
-                                popUpTo(0) { inclusive = true }
+                                popUpTo(0) { inclusive = false }
                                 launchSingleTop = true
                             }
                         }
@@ -1023,7 +1043,7 @@ class MainActivity : ComponentActivity() {
                         is ProcessEvent.Success -> {
                             Toast.makeText(context, "You have left the room.", Toast.LENGTH_SHORT).show()
                             navController.navigate("roomsScreen"){
-                                popUpTo(0) { inclusive = true }
+                                popUpTo(0) { inclusive = false }
                                 launchSingleTop = true
                             }
                         }
@@ -1111,7 +1131,9 @@ class MainActivity : ComponentActivity() {
                     }
                 } else{
                     Button(onClick = {
-                        navController.navigate("discoverScreen")
+                        navController.navigate("discoverScreen") {
+                            launchSingleTop = true
+                        }
                     }) {
                         Text("Skip")
                     }
@@ -1146,14 +1168,14 @@ class MainActivity : ComponentActivity() {
                     when (event) {
                         is ProcessEvent.Success -> {
                             navController.navigate("loginScreen") {
-                                popUpTo(0) { inclusive = true }
+                                popUpTo(0) { inclusive = false }
                                 launchSingleTop = true
                             }
                         }
                         is ProcessEvent.Error -> {
                             Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
                             navController.navigate("loginScreen") {
-                                popUpTo(0) { inclusive = true }
+                                popUpTo(0) { inclusive = false }
                                 launchSingleTop = true
                             }
                         }
@@ -1165,7 +1187,7 @@ class MainActivity : ComponentActivity() {
                     when (event) {
                         is ProcessEvent.Success -> {
                             navController.navigate("loginScreen") {
-                                popUpTo(0) { inclusive = true }
+                                popUpTo(0) { inclusive = false }
                                 launchSingleTop = true
                             }
                         }
@@ -1183,7 +1205,9 @@ class MainActivity : ComponentActivity() {
                             if (vm.welcomeState.value == false) {
                                 navController.popBackStack()
                             } else {
-                                navController.navigate("discoverScreen")
+                                navController.navigate("discoverScreen") {
+                                    launchSingleTop = true
+                                }
                             }
                         }
                         is ProcessEvent.Error -> {

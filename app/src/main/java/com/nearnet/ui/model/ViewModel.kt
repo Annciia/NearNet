@@ -300,7 +300,6 @@ class NearNetViewModel(): ViewModel() {
     }
 
     fun validateUpdateUser(userName: String, currentPassword: String, newPassword: String, passwordConfirmation: String, avatar: String, additionalSettings: String): Boolean {
-        var result = true
         val user = selectedUser.value
         if (user == null) {
             return false
@@ -312,13 +311,18 @@ class NearNetViewModel(): ViewModel() {
         if (!userNameChanged && !avatarChanged && !passwordChanged && !additionalSettingsChanged) {
             return false
         }
-        if (userNameChanged) {
-            result = result && userName.isNotBlank()
+        if (userNameChanged && userName.isBlank()) {
+            return false
         }
         if (passwordChanged) {
-            result = result && validatePassword(newPassword, passwordConfirmation) == PasswordValidationResult.CORRECT && currentPassword.isNotBlank()
+            if (currentPassword.isBlank()) {
+                return false
+            }
+            if (validatePassword(newPassword, passwordConfirmation) != PasswordValidationResult.CORRECT) {
+                return false
+            }
         }
-        return result
+        return true
     }
     fun deleteUser(password: String){
         viewModelScope.launch {
@@ -394,7 +398,7 @@ class NearNetViewModel(): ViewModel() {
         additionalSettings: String = "",
     ) {
         viewModelScope.launch {
-            if (!validateRoom(name, description, password, passwordConfirmation)) {
+            if (!validateRoom(name, description, password, passwordConfirmation, avatar, isPrivate, isVisible, additionalSettings, false)) {
                 registerRoomEventMutable.emit(ProcessEvent.Error("Something went wrong while creating the room."))
                 return@launch
             }
@@ -468,7 +472,7 @@ class NearNetViewModel(): ViewModel() {
     ) {
         viewModelScope.launch {
 
-            if (!validateRoom(name, description, password, passwordConfirmation)) {
+            if (!validateRoom(name, description, password, passwordConfirmation, avatar, isPrivate, isVisible, additionalSettings, true)) {
                 updateRoomEventMutable.emit(ProcessEvent.Error("Failed to update room. Please try again."))
                 return@launch
             }
@@ -500,17 +504,40 @@ class NearNetViewModel(): ViewModel() {
         }
     }
 
-    fun validateRoom(name: String, description: String, password: String?, passwordConfirmation: String?) : Boolean {
-        if (name.isBlank()) {
+    fun validateRoom(name: String, description: String, password: String?, passwordConfirmation: String?, avatar: String, isPrivate: Boolean, isVisible: Boolean, additionalSettings: String, update: Boolean) : Boolean {
+        var nameChanged = true
+        var descriptionChanged = true
+        var passwordChanged = true
+        var avatarChanged = true
+        var isPrivateChanged = true
+        var isVisibleChanged = true
+        var additionalSettingsChanged = true
+        if (update) {
+            val room = selectedRoom.value
+            if (room == null) {
+                return false
+            }
+            nameChanged = name != room.name
+            descriptionChanged = description != room.description
+            passwordChanged = password != null && password.isNotEmpty()
+            avatarChanged = avatar != room.avatar
+            isPrivateChanged = isPrivate != room.isPrivate
+            isVisibleChanged = isVisible != room.isVisible
+            additionalSettingsChanged = additionalSettings != room.additionalSettings
+            if (!nameChanged && !descriptionChanged && !passwordChanged && !avatarChanged && !isPrivateChanged && !isVisibleChanged && !additionalSettingsChanged) {
+                return false
+            }
+        }
+        if (nameChanged && name.isBlank()) {
             return false
         }
-        if (name.length > ROOM_NAME_MAX_LENGTH) {
+        if (nameChanged && name.length > ROOM_NAME_MAX_LENGTH) {
             return false
         }
-        if (description.length > ROOM_DESCRIPTION_MAX_LENGTH) {
+        if (descriptionChanged && description.length > ROOM_DESCRIPTION_MAX_LENGTH) {
             return false
         }
-        if (password != null) {
+        if (passwordChanged && password != null) {
             if (password.isBlank()) {
                 return false
             }
