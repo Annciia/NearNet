@@ -1,5 +1,6 @@
 package com.nearnet
 
+import android.content.Context
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -56,6 +57,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.BlendMode.Companion.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -147,6 +149,7 @@ class MainActivity : ComponentActivity() {
         }
         vm.repository = UserRepository(this)
         vm.roomRepository = RoomRepository(this)
+
 
         // (UserData, RoomData) -> Unit
         /*vm.roomRepository = RoomRepository(this, { user, room -> //tego co prosi o dołączenie i ten pokój - wołana u admina, gdy info z serwera, że ktoś chce dołączyć
@@ -1274,89 +1277,189 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    @Composable
-    fun RoomConversationScreen() {
-        val vm = LocalViewModel.current
-        val selectedRoom = vm.selectedRoom.collectAsState().value
-        val messages = vm.messages.collectAsState().value
-        val roomUsers = vm.roomUsers.collectAsState().value
-        val listState = rememberLazyListState()
-        val isLoaded = remember { mutableStateOf(false) }
-        val isReady = remember { mutableStateOf(false) }
+//    @Composable
+//    fun RoomConversationScreen() {
+//        val vm = LocalViewModel.current
+//        val selectedRoom = vm.selectedRoom.collectAsState().value
+//        val messages = vm.messages.collectAsState().value
+//        val roomUsers = vm.roomUsers.collectAsState().value
+//        val listState = rememberLazyListState()
+//        val isLoaded = remember { mutableStateOf(false) }
+//        val isReady = remember { mutableStateOf(false) }
+//
+//        LaunchedEffect(Unit) {
+//            selectedRoom?.let { room ->
+//                vm.loadMessages(room)
+//                isLoaded.value = true
+//            }
+//        }
+//
+//        LaunchedEffect(messages, isLoaded.value) {
+//            if (isLoaded.value) {
+//                if (messages.isNotEmpty()) {
+//                    listState.scrollToItem(messages.lastIndex)
+//                }
+//                isReady.value = true
+//            }
+//        }
+//
+//        val lifecycleOwner = LocalLifecycleOwner.current
+//        DisposableEffect(lifecycleOwner, selectedRoom) {
+//            val observer = LifecycleEventObserver { _, event ->
+//                when (event) {
+//                    Lifecycle.Event.ON_START -> {
+//                        selectedRoom?.let { room ->
+//                            vm.startRealtime(room)
+//                            vm.startPendingRequestsPolling(room) // <-- tutaj start polling
+//                        }
+//                        //TODO
+//                        //selectedRoom?.let { vm.startRealtime(it) } // uruchamiamy SSE tylko jeśli jest wybrany pokój
+//
+//                    }
+//                    Lifecycle.Event.ON_STOP -> {
+//                        vm.stopRealtime()
+//                        vm.stopPendingRequestsPolling()
+//                        //TODO
+//                        //vm.stopRealtime() // zatrzymujemy SSE
+//                    }
+//                    else -> {}
+//                }
+//            }
+//            lifecycleOwner.lifecycle.addObserver(observer)
+//            onDispose {
+//                lifecycleOwner.lifecycle.removeObserver(observer)
+//            }
+//        }
+//
+//        Column {
+//            Box(
+//                modifier = Modifier.weight(1f).fillMaxWidth(),
+//                contentAlignment = Alignment.Center
+//            ) {
+//                LazyColumn(
+//                    state = listState,
+//                    modifier = Modifier.fillMaxSize().alpha(if (isReady.value) 1f else 0f),
+//                    reverseLayout = false
+//                ) {
+//                   items(messages, key = { it.id }) { message ->
+//                       // Looking for a user who is the author of the message
+//                       val user = roomUsers.find { user -> user.id == message.userId }
+//                       MessageItem(message = message, user = user)
+//                    }
+//                }
+//                if (!isReady.value) {
+//                    CircularProgressIndicator()
+//                    //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
+//                }
+//            }
+//            ConversationPanel()
+//        }
+//    }
+@Composable
+fun RoomConversationScreen() {
+    val vm = LocalViewModel.current
+    val context = LocalContext.current
+    val selectedRoom = vm.selectedRoom.collectAsState().value
+    val messages = vm.messages.collectAsState().value
+    val roomUsers = vm.roomUsers.collectAsState().value
+    val listState = rememberLazyListState()
+    val isLoaded = remember { mutableStateOf(false) }
+    val isReady = remember { mutableStateOf(false) }
 
-        LaunchedEffect(Unit) {
-            selectedRoom?.let { room ->
-                vm.loadMessages(room)
-                isLoaded.value = true
-            }
-        }
+    // ============================================
+    // NOWE: Pobieranie klucza pokoju (w tle, bez UI)
+    // ============================================
+    LaunchedEffect(selectedRoom) {
+        selectedRoom?.let { room ->
+            if (room.isPrivate) {
+                // Sprawdź czy mamy klucz dla tego pokoju
+                val roomRepository = RoomRepository(context)
+                val existingKey = roomRepository.getRoomAESKey(room.idRoom)
 
-        LaunchedEffect(messages, isLoaded.value) {
-            if (isLoaded.value) {
-                if (messages.isNotEmpty()) {
-                    listState.scrollToItem(messages.lastIndex)
+                if (existingKey == null) {
+                    // Nie mamy klucza - spróbuj pobrać z serwera
+                    Log.d("ROOM_CHAT", "Pobieranie klucza pokoju w tle...")
+                    roomRepository.fetchAndDecryptRoomKey(room.idRoom)
                 }
-                isReady.value = true
             }
-        }
-
-        val lifecycleOwner = LocalLifecycleOwner.current
-        DisposableEffect(lifecycleOwner, selectedRoom) {
-            val observer = LifecycleEventObserver { _, event ->
-                when (event) {
-                    Lifecycle.Event.ON_START -> {
-                        selectedRoom?.let { room ->
-                            vm.startRealtime(room)
-                            vm.startPendingRequestsPolling(room) // <-- tutaj start polling
-                        }
-                        //TODO
-                        //selectedRoom?.let { vm.startRealtime(it) } // uruchamiamy SSE tylko jeśli jest wybrany pokój
-
-                    }
-                    Lifecycle.Event.ON_STOP -> {
-                        vm.stopRealtime()
-                        vm.stopPendingRequestsPolling()
-                        //TODO
-                        //vm.stopRealtime() // zatrzymujemy SSE
-                    }
-                    else -> {}
-                }
-            }
-            lifecycleOwner.lifecycle.addObserver(observer)
-            onDispose {
-                lifecycleOwner.lifecycle.removeObserver(observer)
-            }
-        }
-
-        Column {
-            Box(
-                modifier = Modifier.weight(1f).fillMaxWidth(),
-                contentAlignment = Alignment.Center
-            ) {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.fillMaxSize().alpha(if (isReady.value) 1f else 0f),
-                    reverseLayout = false
-                ) {
-                   items(messages, key = { it.id }) { message ->
-                       // Looking for a user who is the author of the message
-                       val user = roomUsers.find { user -> user.id == message.userId }
-                       MessageItem(message = message, user = user)
-                    }
-                }
-                if (!isReady.value) {
-                    CircularProgressIndicator()
-                    //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
-                }
-            }
-            ConversationPanel()
         }
     }
+    // ============================================
+
+    LaunchedEffect(Unit) {
+        selectedRoom?.let { room ->
+            vm.loadMessages(room)
+            isLoaded.value = true
+        }
+    }
+
+    LaunchedEffect(messages, isLoaded.value) {
+        if (isLoaded.value) {
+            if (messages.isNotEmpty()) {
+                listState.scrollToItem(messages.lastIndex)
+            }
+            isReady.value = true
+        }
+    }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, selectedRoom) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_START -> {
+                    selectedRoom?.let { room ->
+                        vm.startRealtime(room)
+                        vm.startPendingRequestsPolling(room)
+                    }
+                }
+                Lifecycle.Event.ON_STOP -> {
+                    vm.stopRealtime()
+                    vm.stopPendingRequestsPolling()
+                }
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    Column {
+        Box(
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            contentAlignment = Alignment.Center
+        ) {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize().alpha(if (isReady.value) 1f else 0f),
+                reverseLayout = false
+            ) {
+                items(messages, key = { it.id }) { message ->
+                    // Looking for a user who is the author of the message
+                    val user = roomUsers.find { user -> user.id == message.userId }
+                    MessageItem(message = message, user = user)
+                }
+            }
+            if (!isReady.value) {
+                CircularProgressIndicator()
+            }
+        }
+        ConversationPanel()
+    }
+}
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        MessageUtils.init(
+            tokenProv = {
+                getSharedPreferences("auth", Context.MODE_PRIVATE)
+                    .getString("auth_token", null)
+            },
+            contextProv = { applicationContext }
+        )
         setContent {
             App()
         }

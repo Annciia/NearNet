@@ -214,6 +214,7 @@ class UserRepository(private val context: Context) {
 
         if (res.success && res.token != null && res.userData != null) {
             saveTokenToPreferences(res.token)
+            saveLoginToPreferences(login.trim())
 
             //TODO dodalem w UserData @SerializedName, zeby dopasowac nazwy z backendu do nas
             val userData = res.userData.copy(login = login.trim())
@@ -342,6 +343,11 @@ class UserRepository(private val context: Context) {
             val sharedPref = context.getSharedPreferences("UserPrefs", Context.MODE_PRIVATE)
             return sharedPref.getString("user_token", null)
         }
+
+        fun getLoginFromPreferences(context: Context): String? {
+            val sharedPref = context.getSharedPreferences("UserPrefs", Context.MODE_PRIVATE)
+            return sharedPref.getString("user_login", null)
+        }
     }
 
     suspend fun getUserPublicKey(userId: String): String? = withContext(Dispatchers.IO) {
@@ -397,6 +403,16 @@ class UserRepository(private val context: Context) {
             return@withContext null
         }
     }
+    private fun saveLoginToPreferences(login: String) {
+        val sharedPref = context.getSharedPreferences("UserPrefs", Context.MODE_PRIVATE)
+        with(sharedPref.edit()) {
+            putString("user_login", login)
+            apply()
+        }
+    }
+
+
+
 }
 
 

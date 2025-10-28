@@ -79,8 +79,14 @@ class NearNetViewModel(): ViewModel() {
 //        }
 //    }
     //przerobienie class na object
+//    fun initMessageUtils(context: Context) {
+//        MessageUtils.init { UserRepository.getTokenFromPreferences(context) }
+//    }
     fun initMessageUtils(context: Context) {
-        MessageUtils.init { UserRepository.getTokenFromPreferences(context) }
+        MessageUtils.init(
+            tokenProv = { UserRepository.getTokenFromPreferences(context) },
+            contextProv = { context } // ← DODAJ
+        )
     }
 
     //Selected user
@@ -777,9 +783,12 @@ class NearNetViewModel(): ViewModel() {
 //            }
 
             val user = selectedUser.value
-            if (user == null) return@launch
+            if (user == null){
+                Log.e("sendMessage", "❌ selectedUser jest NULL!")
+                return@launch
+            }
             val timestamp = System.currentTimeMillis().toString()
-
+            Log.d("sendMessage", "👤 Użytkownik: id='${user.id}', nazwa='${user.name}'")
             val newMessage = Message(
                 id = timestamp,
                 roomId = room.idRoom,
@@ -790,7 +799,8 @@ class NearNetViewModel(): ViewModel() {
                 timestamp = timestamp
             )
 
-            Log.d("sendMessage", "Wysyłam wiadomość na backend: $newMessage")
+            //Log.d("sendMessage", "Wysyłam wiadomość na backend: $newMessage")
+            Log.d("sendMessage", "📤 Wysyłam wiadomość: userId='${newMessage.userId}'")
 
             try {
                 val success = MessageUtils.sendMessage(room.idRoom, newMessage)
