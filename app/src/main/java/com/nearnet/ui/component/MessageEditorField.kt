@@ -10,8 +10,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Face
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
@@ -30,22 +28,23 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.nearnet.R
+import com.nearnet.ui.model.MESSAGE_MAX_LENGTH
 import com.nearnet.ui.theme.standardIconStyleTransparent
 
 @Composable
 fun MessageEditorField(
-                       modifier: Modifier = Modifier,
-                       placeholderText: String = "",
-                       minHeight: Dp = 36.dp,
-                       maxHeight: Dp = 140.dp,
-                       value: String,
-                       onValueChange: ((String) -> Unit)
+    modifier: Modifier = Modifier,
+    placeholderText: String = "",
+    minHeight: Dp = 36.dp,
+    maxHeight: Dp = 140.dp,
+    value: String,
+    onValueChange: ((String) -> Unit)
 ){
     var lineCount by rememberSaveable { mutableIntStateOf(1) }
     val lineHeight = 18.sp
     BasicTextField(
         value = value,
-        onValueChange = onValueChange,
+        onValueChange = { text -> if (text.length <= MESSAGE_MAX_LENGTH) onValueChange(text) },
         onTextLayout = { textLayoutResult ->
             lineCount = textLayoutResult.lineCount
         },

@@ -28,17 +28,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
-import kotlinx.coroutines.withTimeoutOrNull
 import java.util.LinkedList
 
-
-var messagesListRecent = listOf(
-    Message(id = "0", roomId = "0", userId = "0", message = "Lorem ipsum dolor sit amet, consectetur adipiscing elit.", timestamp = "2025-09-28 15:42:17.123", messageType = "TXT", additionalData = ""),
-    Message(id = "1", roomId = "0", userId = "Mauris ", message = "Proin a eros quam. Ut sit amet ultrices nisi. Pellentesque ac tristique nisl, id imperdiet est. Integer scelerisque leo at blandit blandit.", timestamp = "2025-09-28 10:15:32.849", messageType = "TXT", additionalData = ""),
-    Message(id = "2", roomId = "0", userId ="Orci Kätter", message = "Fusce sed ligula turpis. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Curabitur ac consequat nisi. Phasellus libero nibh, finibus non egestas in, egestas in lorem. Pellentesque nec facilisis erat, in pulvinar ipsum. Morbi congue viverra lectus quis fermentum. Duis sagittis est dapibus venenatis vestibulum.", timestamp = "2025-09-28 14:42:01.102", messageType = "TXT", additionalData = ""),
-    Message(id = "0", roomId = "hNdyfw6w0pFiWf8vAEkhe", userId = "Orci Kätter", message = "Curabitur ac consequat nisi. Phasellus libero nibh, finibus non egestas in, egestas in lorem.", timestamp = "2025-09-28 18:03:44.565", messageType = "TXT", additionalData = ""),
-    Message(id = "0", roomId = "7", userId ="Orci Kätter", message = "Duis sagittis est dapibus venenatis vestibulum. Non egestas in.", timestamp = "2025-09-28 18:03:44.565", messageType = "TXT", additionalData = ""),
-)
 
 //Popup's type, popup's structure
 enum class PopupType {
@@ -59,6 +50,13 @@ class PopupContextApprovalData(
     val user: UserData,
     val room: RoomData
 )
+
+//Message structure
+enum class MessageType(val type: String) {
+    TEXT("TEXT"),
+    IMAGE("IMAGE"),
+    FILE("FILE")
+}
 
 //event dotyczący wyniku przetwarzania jakiejś operacji asynchronicznej
 sealed class ProcessEvent<out T> {
@@ -131,8 +129,6 @@ class NearNetViewModel(): ViewModel() {
     private val searchDiscoverTextMutable = MutableStateFlow("")
     val searchDiscoverText = searchDiscoverTextMutable.asStateFlow()
     var filteredDiscoverList : StateFlow<List<RoomData>> = combine(discoverRooms, searchDiscoverText) { rooms, searchText ->
-        //if (searchText.isEmpty()) rooms
-        //else rooms.filter { it.name.contains(searchText, ignoreCase = true) }
         Log.d("FilteredDiscover", "discoverRooms=${rooms.map { it.name }} searchText=$searchText")
         if (searchText.isEmpty()) {
             rooms.filter { it.isVisible }
@@ -185,6 +181,10 @@ class NearNetViewModel(): ViewModel() {
     //Messages
     private val messagesMutable = MutableStateFlow(listOf<Message>())
     val messages = messagesMutable.asStateFlow()
+
+    //Send Message
+    private val sendMessageEventMutable = MutableSharedFlow<ProcessEvent<Unit>>()
+    val sendMessageEvent = sendMessageEventMutable.asSharedFlow()
 
     //Recent
     private val recentsMutable = MutableStateFlow(listOf<Recent>())
@@ -240,8 +240,7 @@ class NearNetViewModel(): ViewModel() {
             val user = selectedUser.value
             var status : Boolean = false
             if (user != null) {
-                //status = repository.logOutUser(user.id) //M
-                status = repository.logOutUser() //M - tu po prostu czyszcze token przez co juz nic nie dostanie od serwera
+                status = repository.logOutUser() //tu po prostu czyszcze token przez co juz nic nie dostanie od serwera
             }
             selectedUserMutable.value = null
             clearAppState()
@@ -283,7 +282,7 @@ class NearNetViewModel(): ViewModel() {
                 return@launch
             }
             try {
-                val userData = com.nearnet.sessionlayer.data.model.UserData(
+                val userData = UserData(
                     id = currentUser.id,
                     login = currentUser.login,
                     name = if (userName.isNotBlank()) userName else currentUser.name,
@@ -309,7 +308,6 @@ class NearNetViewModel(): ViewModel() {
     }
 
     fun validateUpdateUser(userName: String, currentPassword: String, newPassword: String, passwordConfirmation: String, avatar: String, additionalSettings: String): Boolean {
-        var result = true
         val user = selectedUser.value
         if (user == null) {
             return false
@@ -321,13 +319,18 @@ class NearNetViewModel(): ViewModel() {
         if (!userNameChanged && !avatarChanged && !passwordChanged && !additionalSettingsChanged) {
             return false
         }
-        if (userNameChanged) {
-            result = result && userName.isNotBlank()
+        if (userNameChanged && userName.isBlank()) {
+            return false
         }
         if (passwordChanged) {
-            result = result && validatePassword(newPassword, passwordConfirmation) == PasswordValidationResult.CORRECT && currentPassword.isNotBlank()
+            if (currentPassword.isBlank()) {
+                return false
+            }
+            if (validatePassword(newPassword, passwordConfirmation) != PasswordValidationResult.CORRECT) {
+                return false
+            }
         }
-        return result
+        return true
     }
     fun deleteUser(password: String){
         viewModelScope.launch {
@@ -353,7 +356,6 @@ class NearNetViewModel(): ViewModel() {
     fun loadMyRooms() {
         viewModelScope.launch {
             // TODO Call asynchronous function to fetch my rooms here.
-            //roomsMutable.value = getUserRoomList(idUser)
             if (::roomRepository.isInitialized) {
                 val roomsFromApi = roomRepository.getMyRooms()
                 myRoomsMutable.value = roomsFromApi
@@ -404,7 +406,7 @@ class NearNetViewModel(): ViewModel() {
         additionalSettings: String = "",
     ) {
         viewModelScope.launch {
-            if (!validateRoom(name, description, password, passwordConfirmation, isPrivate)) {
+            if (!validateRoom(name, description, password, passwordConfirmation, avatar, isPrivate, isVisible, additionalSettings, false)) {
                 registerRoomEventMutable.emit(ProcessEvent.Error("Something went wrong while creating the room."))
                 return@launch
             }
@@ -454,7 +456,7 @@ class NearNetViewModel(): ViewModel() {
     ) {
         viewModelScope.launch {
 
-            if (!validateRoom(name, description, password, passwordConfirmation, isPrivate)) {
+            if (!validateRoom(name, description, password, passwordConfirmation, avatar, isPrivate, isVisible, additionalSettings, true)) {
                 updateRoomEventMutable.emit(ProcessEvent.Error("Failed to update room. Please try again."))
                 return@launch
             }
@@ -486,17 +488,53 @@ class NearNetViewModel(): ViewModel() {
         }
     }
 
-    fun validateRoom(name: String, description: String, password: String?, passwordConfirmation: String?, isPrivate: Boolean): Boolean {
-        if (name.isBlank()) {
+    fun updateRoomAdmin(idAdmin: String){
+        viewModelScope.launch {
+            var result = false
+            // result = updateRoomAdmin(idAdmin)
+            result = true
+            if (result) {
+                updateRoomEventMutable.emit(ProcessEvent.Success(Unit))
+            } else {
+                updateRoomEventMutable.emit(ProcessEvent.Error("Failed to update room. Please try again."))
+            }
+        }
+    }
+
+    fun validateRoom(name: String, description: String, password: String?, passwordConfirmation: String?, avatar: String, isPrivate: Boolean, isVisible: Boolean, additionalSettings: String, update: Boolean) : Boolean {
+        var nameChanged = true
+        var descriptionChanged = true
+        var passwordChanged = true
+        var avatarChanged = true
+        var isPrivateChanged = true
+        var isVisibleChanged = true
+        var additionalSettingsChanged = true
+        if (update) {
+            val room = selectedRoom.value
+            if (room == null) {
+                return false
+            }
+            nameChanged = name != room.name
+            descriptionChanged = description != room.description
+            passwordChanged = password != null && password.isNotEmpty()
+            avatarChanged = avatar != room.avatar
+            isPrivateChanged = isPrivate != room.isPrivate
+            isVisibleChanged = isVisible != room.isVisible
+            additionalSettingsChanged = additionalSettings != room.additionalSettings
+            if (!nameChanged && !descriptionChanged && !passwordChanged && !avatarChanged && !isPrivateChanged && !isVisibleChanged && !additionalSettingsChanged) {
+                return false
+            }
+        }
+        if (nameChanged && name.isBlank()) {
             return false
         }
-        if (name.length > ROOM_NAME_MAX_LENGTH) {
+        if (nameChanged && name.length > ROOM_NAME_MAX_LENGTH) {
             return false
         }
-        if (description.length > ROOM_DESCRIPTION_MAX_LENGTH) {
+        if (descriptionChanged && description.length > ROOM_DESCRIPTION_MAX_LENGTH) {
             return false
         }
-        if (password != null) {
+        if (passwordChanged && password != null) {
             if (password.isBlank()) {
                 return false
             }
@@ -504,14 +542,6 @@ class NearNetViewModel(): ViewModel() {
                 return false
             }
         }
-        /*        if (isPrivate) {
-            if (password != null && password.isNotBlank()) {
-                if (password != passwordConfirmation) {
-                    return false
-                }
-            }
-            // jeśli prywatny i password null lub blank -> OK
-        }*/
         return true
     }
     fun deleteRoom(room: RoomData?) {
@@ -523,7 +553,6 @@ class NearNetViewModel(): ViewModel() {
             }
             //TODO Call asynchronous function to delete room, when user is its admin.
             val status = roomRepository.deleteRoom(selectedRoom.idRoom)
-            //val status = true
 
             if (status) {
                 selectedRoomMutable.value = null
@@ -603,7 +632,6 @@ class NearNetViewModel(): ViewModel() {
     //TODO ponawianie zrobić na serwerze jak admin nieaktywny w danym momencie, by jak wejdzie to zobaczył popup, że ktoś go pyta o dołączenie
     fun joinRoomAdminApprove(user: UserData, room: RoomData, accept: Boolean){ //jaki user i do jakiego pokoju chce dołączyć
         viewModelScope.launch {
-            //var approveSuccess : Boolean = false
             val approveSuccess = roomRepository.respondToJoinRequest(
                 roomId = room.idRoom,
                 userId = user.id,
@@ -660,9 +688,8 @@ class NearNetViewModel(): ViewModel() {
         viewModelScope.launch {
             var isLeftRoom : Boolean = false
             val room = selectedRoom.value!!
-            //TODO Marek Call asynchronous function to user leave their room.
-            isLeftRoom = roomRepository.leaveRoom(room.idRoom) //Marek napisać opuszczanie pokoju
-            //isLeftRoom = true //
+            //TODO Call asynchronous function to user leave their room.
+            isLeftRoom = roomRepository.leaveRoom(room.idRoom)
             if (isLeftRoom){
                 leaveRoomEventMutable.emit(ProcessEvent.Success(Unit))
             } else { //błąd gdzieś i nie udało się
@@ -672,10 +699,7 @@ class NearNetViewModel(): ViewModel() {
     }
     fun removeUserFromRoom(user: UserData, room: RoomData) {
         viewModelScope.launch {
-            //var isUserRemoved: Boolean = false
-            //TODO Marek Call function to remove user from the room.
-            //isLeftRoom = leaveRoom(idRoom, idUser)
-            //isUserRemoved = true //
+            //TODO Call function to remove user from the room.
             val isUserRemoved = roomRepository.removeUserFromRoom(room.idRoom, user.id)
             if (isUserRemoved) {
                 roomUsersMutable.value = roomUsersMutable.value.filter { it.id != user.id }
@@ -692,7 +716,6 @@ class NearNetViewModel(): ViewModel() {
     }
     fun selectRoom(room : RoomData) {
         viewModelScope.launch {
-            //loadMessages(room)
             knownUserIds.clear() //czyszczenie listy przy zmianie pokoju
             selectedRoomMutable.value = room
 
@@ -768,17 +791,9 @@ class NearNetViewModel(): ViewModel() {
     }
 
 
-    fun sendMessage(messageText : String, room : RoomData){
+    fun sendMessage(messageText : String, room : RoomData, messageType: MessageType){
         viewModelScope.launch{
-            //val message = Message (id = -1, userNameSender = "Orci Kätter", content = messageText)
-            //messagesMutable.value += message
             // TODO Call asynchronous function to send messages
-            //sendMessage(room.id, message)
-//            if (!::messageUtils.isInitialized) {
-//                Log.e("sendMessage", "MessageUtils nie jest zainicjalizowane!")
-//                return@launch
-//            }
-
             val user = selectedUser.value
             if (user == null){
                 Log.e("sendMessage", "selectedUser jest NULL!")
@@ -790,7 +805,7 @@ class NearNetViewModel(): ViewModel() {
                 id = timestamp,
                 roomId = room.idRoom,
                 userId = user.id,
-                messageType = "TXT",
+                messageType = messageType.name,
                 message = messageText,
                 additionalData = "",
                 timestamp = timestamp

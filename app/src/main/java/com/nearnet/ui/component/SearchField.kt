@@ -30,13 +30,14 @@ import com.nearnet.ui.theme.standardIconStyle
 @Composable
 fun SearchField(modifier: Modifier = Modifier,
                 placeholderText: String = "",
+                maxChars: Int = Int.MAX_VALUE,
                 searchText: String,
                 onSearch: (String) -> Unit
                 ) {
     var context = LocalContext.current
     BasicTextField(
         value = searchText,
-        onValueChange = { onSearch(it) }, //{ chars -> onSearch(chars) }
+        onValueChange = { text -> if (text.length <= maxChars) onSearch(text) },
         modifier = modifier.fillMaxWidth(),
         singleLine = true,
         textStyle = LocalTextStyle.current.copy(

@@ -16,7 +16,7 @@ data class RoomData(
     val password: String = "",
     val isPrivate: Boolean = false,
     val isVisible: Boolean = true,
-    val idAdmin: String = "",
+    val idAdmin: String? = null,
     val additionalSettings: String = ""
     //val users: List<String> = emptyList()
 )

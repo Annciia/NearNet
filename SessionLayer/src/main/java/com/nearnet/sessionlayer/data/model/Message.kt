@@ -11,7 +11,7 @@ data class Message(
     val id: String = "",
     val roomId: String,
     val userId: String,
-    val messageType: String = "TXT",
+    val messageType: String = "TEXT",
     val message: String,
     val additionalData: String = "",
     val timestamp: String

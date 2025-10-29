@@ -1,6 +1,7 @@
 package com.nearnet
 
 import android.content.Context
+import android.content.pm.ActivityInfo
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
@@ -25,7 +26,11 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.LocalTextSelectionColors
+import androidx.compose.foundation.text.selection.TextSelectionColors
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.twotone.PlayArrow
@@ -57,7 +62,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.BlendMode.Companion.Color
+//import androidx.compose.ui.graphics.BlendMode.Companion.Color
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -95,12 +101,15 @@ import com.nearnet.ui.component.SearchField
 import com.nearnet.ui.component.validatePassword
 import com.nearnet.ui.model.LocalViewModel
 import com.nearnet.ui.model.NearNetViewModel
-import com.nearnet.ui.model.PopupContextApprovalData
 import com.nearnet.ui.model.PopupType
 import com.nearnet.ui.model.ProcessEvent
 import com.nearnet.ui.model.ROOM_DESCRIPTION_MAX_LENGTH
 import com.nearnet.ui.model.ROOM_DESCRIPTION_MAX_LINES
 import com.nearnet.ui.model.ROOM_NAME_MAX_LENGTH
+import com.nearnet.ui.model.ROOM_PASSWORD_MAX_LENGTH
+import com.nearnet.ui.model.USER_LOGIN_MAX_LENGTH
+import com.nearnet.ui.model.USER_NAME_MAX_LENGTH
+import com.nearnet.ui.model.USER_PASSWORD_MAX_LENGTH
 import com.nearnet.ui.theme.NearNetTheme
 import kotlinx.coroutines.launch
 
@@ -150,24 +159,18 @@ class MainActivity : ComponentActivity() {
         vm.repository = UserRepository(this)
         vm.roomRepository = RoomRepository(this)
 
-
-        // (UserData, RoomData) -> Unit
-        /*vm.roomRepository = RoomRepository(this, { user, room -> //tego co prosi o dołączenie i ten pokój - wołana u admina, gdy info z serwera, że ktoś chce dołączyć
-            val data = PopupContextApprovalData(user, room)
-            vm.selectPopup(PopupType.JOIN_ROOM_APPROVAL, data)
-        })*/
-
-        //TODO - jest tymczasowo wygląd popup dla admina gdy ktoś prosi o dołączenie
-//        val data = PopupContextApprovalData(
-//            UserData(id = "", login = "", name = "Kotter", avatar = "", additionalSettings = "", publicKey = ""), //user który chce dołączyć
-//            RoomData(idRoom = "", name = "Stormvik games", description = "Witaj! Jestem wikingiem.", avatar = "", additionalSettings = "", isPrivate = true, isVisible = true, idAdmin = "") //pokój gdzie chce dołączyć
-//        )
-        //vm.selectPopup(PopupType.JOIN_ROOM_APPROVAL, data)
+        val customSelectionColors = TextSelectionColors(
+            handleColor = Color.Black.copy(alpha=0.3f),
+            backgroundColor = Color.Black.copy(alpha=0.15f)
+        )
 
         ScreenObserver(navController, vm)
 
         NearNetTheme {
-            CompositionLocalProvider(LocalViewModel provides vm) {
+            CompositionLocalProvider(
+                LocalViewModel provides vm,
+                LocalTextSelectionColors provides customSelectionColors
+            ) {
                 Scaffold(
                     topBar = { TopBar(navController) },
                     bottomBar = { BottomBar(navController) },
@@ -387,7 +390,11 @@ class MainActivity : ComponentActivity() {
                 .padding(8.dp)
                 .fillMaxHeight()
                 .clip(RoundedCornerShape(6.dp))
-                .clickable { navController.navigate(screenName) }
+                .clickable {
+                    navController.navigate(screenName) {
+                        launchSingleTop = true
+                    }
+                }
         ) {
             Column(
                 modifier = Modifier
@@ -402,7 +409,6 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier
                         .size(30.dp)
                         .padding(vertical = 2.dp)
-                        //.background(MaterialTheme.colorScheme.secondary)
                 )
                 Text(
                     text= text,
@@ -433,6 +439,7 @@ class MainActivity : ComponentActivity() {
     fun LoginScreen(navController: NavController) : Unit {
         val context = LocalContext.current
         val vm = LocalViewModel.current
+        val scrollPosition = rememberScrollState()
         val login = remember { mutableStateOf("") }
         val password = remember { mutableStateOf("") }
         val inProgress = remember { mutableStateOf(false) }
@@ -445,7 +452,7 @@ class MainActivity : ComponentActivity() {
             contentAlignment = Alignment.Center
         ) {
             Column(
-                modifier = Modifier.fillMaxWidth().height(520.dp),
+                modifier = Modifier.fillMaxWidth().height(580.dp).verticalScroll(scrollPosition),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Icon(
@@ -461,6 +468,7 @@ class MainActivity : ComponentActivity() {
                 PlainTextField(
                     placeholderText = "login",
                     singleLine = true,
+                    maxChars = USER_LOGIN_MAX_LENGTH,
                     value = login.value,
                     onValueChange = { login.value = it } // {x -> login.value = x }
                 )
@@ -468,6 +476,7 @@ class MainActivity : ComponentActivity() {
                 PlainTextField(
                     placeholderText = "password",
                     singleLine = true,
+                    maxChars = USER_PASSWORD_MAX_LENGTH,
                     passwordField = true,
                     value = password.value,
                     onValueChange = { password.value = it }
@@ -494,7 +503,9 @@ class MainActivity : ComponentActivity() {
                 Spacer(Modifier.height(10.dp))
                 Button(
                     onClick = {
-                        navController.navigate("registerScreen")
+                        navController.navigate("registerScreen") {
+                            launchSingleTop = true
+                        }
                     },
                     modifier = Modifier.widthIn(max = 200.dp).fillMaxWidth()
                 ) {
@@ -567,7 +578,8 @@ class MainActivity : ComponentActivity() {
 //                                Log.w("LOGIN_TEST", "  Brak userId - nie można przetestować pobierania z serwera")
 //                            }
                             navController.navigate("recentScreen") {
-                                popUpTo(0) { inclusive = true }
+                                popUpTo(0) { inclusive = false }
+                                launchSingleTop = true
                             }
                             Toast.makeText(context, event.data.name, Toast.LENGTH_SHORT).show()
                         } else {
@@ -587,6 +599,7 @@ class MainActivity : ComponentActivity() {
     fun RegisterScreen(navController: NavController) : Unit {
         val context = LocalContext.current
         val vm = LocalViewModel.current
+        val scrollPosition= rememberScrollState()
         val login = remember { mutableStateOf("") }
         val password = remember { mutableStateOf("") }
         val passwordConfirmation = remember { mutableStateOf("") }
@@ -598,7 +611,7 @@ class MainActivity : ComponentActivity() {
             contentAlignment = Alignment.Center
         ) {
             Column(
-                modifier = Modifier.fillMaxWidth().height(520.dp),
+                modifier = Modifier.fillMaxWidth().height(580.dp).verticalScroll(scrollPosition),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Icon(
@@ -639,6 +652,7 @@ class MainActivity : ComponentActivity() {
                 PlainTextField(
                     placeholderText = "login",
                     singleLine = true,
+                    maxChars = USER_LOGIN_MAX_LENGTH,
                     value = login.value,
                     onValueChange = { login.value = it }
                 )
@@ -648,6 +662,7 @@ class MainActivity : ComponentActivity() {
                 PlainTextField(
                     placeholderText = "password",
                     singleLine = true,
+                    maxChars = USER_PASSWORD_MAX_LENGTH,
                     passwordField = true,
                     value = password.value,
                     onValueChange = { password.value = it }
@@ -656,6 +671,7 @@ class MainActivity : ComponentActivity() {
                 PlainTextField(
                     placeholderText = "confirm password",
                     singleLine = true,
+                    maxChars = USER_PASSWORD_MAX_LENGTH,
                     passwordField = true,
                     value = passwordConfirmation.value,
                     onValueChange = { passwordConfirmation.value = it }
@@ -695,20 +711,23 @@ class MainActivity : ComponentActivity() {
                         is ProcessEvent.Success -> {
                             if (event.data != null) {
                                 navController.navigate("userProfileScreen") {
-                                    popUpTo(0) { inclusive = true }
+                                    popUpTo(0) { inclusive = false }
+                                    launchSingleTop = true
                                 }
                                 Toast.makeText(context, event.data.name, Toast.LENGTH_SHORT).show()
                             } else {
                                 Toast.makeText(context, "Failed to log in.", Toast.LENGTH_SHORT).show()
                                 navController.navigate("loginScreen") {
-                                    popUpTo(0) { inclusive = true }
+                                    popUpTo(0) { inclusive = false}
+                                    launchSingleTop = true
                                 }
                             }
                         }
                         is ProcessEvent.Error -> {
                             Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
                             navController.navigate("loginScreen") {
-                                popUpTo(0) { inclusive = true }
+                                popUpTo(0) { inclusive = false }
+                                launchSingleTop = true
                             }
                         }
                     }
@@ -732,10 +751,13 @@ class MainActivity : ComponentActivity() {
                         user = recent.user,
                         room = recent.room,
                         ellipse = true,
+                        attachmentClickable = false,
                         onClick = { message, room ->
                         if (room != null) {
                             vm.selectRoom(room)
-                            navController.navigate("roomConversationScreen")
+                            navController.navigate("roomConversationScreen") {
+                                launchSingleTop = true
+                            }
                         }
                         else {
                             throw Error("MessageItem has null room.")
@@ -758,12 +780,12 @@ class MainActivity : ComponentActivity() {
         val inProgess = remember { mutableStateOf(false) }
         Column {
             ScreenTitle("My rooms")
-            SearchField(placeholderText = "Search rooms...", searchText=searchText, onSearch = {
-                searchText ->
-                    vm.filterMyRooms(searchText)
-                    //Log.e("SEARCHED ROOM", searchText)
-                    //Toast.makeText(this@MainActivity, searchText, Toast.LENGTH_SHORT).show()
-            })
+            SearchField(
+                placeholderText = "Search rooms...",
+                maxChars = ROOM_NAME_MAX_LENGTH,
+                searchText=searchText,
+                onSearch = { searchText -> vm.filterMyRooms(searchText) }
+            )
             Spacer(Modifier.height(8.dp).fillMaxWidth())
             Text(
                 text = "Found "+ rooms.size +" rooms"
@@ -788,7 +810,9 @@ class MainActivity : ComponentActivity() {
             vm.selectedRoomEvent.collect { event ->
                 when (event) {
                     is ProcessEvent.Success -> {
-                        navController.navigate("roomConversationScreen")
+                        navController.navigate("roomConversationScreen") {
+                            launchSingleTop = true
+                        }
                     }
                     is ProcessEvent.Error -> {
                         Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
@@ -813,15 +837,19 @@ class MainActivity : ComponentActivity() {
             ) {
                 ScreenTitle("Discover")
                 Button(onClick = {
-                    navController.navigate("createRoomScreen")
+                    navController.navigate("createRoomScreen") {
+                        launchSingleTop = true
+                    }
                 }) {
                     Text("Create room")
                 }
             }
-            SearchField(placeholderText = "Search rooms...", searchText = searchText, onSearch = {
-                searchText ->
-                    vm.filterDiscoverRooms(searchText)
-            })
+            SearchField(
+                placeholderText = "Search rooms...",
+                maxChars = ROOM_NAME_MAX_LENGTH,
+                searchText = searchText,
+                onSearch = { searchText -> vm.filterDiscoverRooms(searchText) }
+            )
             Spacer(Modifier.height(8.dp).fillMaxWidth())
             Text(
                 text = "Found "+ rooms.size +" rooms"
@@ -832,8 +860,6 @@ class MainActivity : ComponentActivity() {
             ) {
                 items(rooms) { room ->
                     RoomItem(room, onClick = {
-                        //TODO Dołączanie do pokoju - odkomentowalem(Marek)
-                        //vm.joinRoom(room,"") //tu hasło będę z pop up podawać, na razie na sztywno, ale przyjmuj je w funkcji
                         vm.selectPopup(PopupType.JOIN_ROOM_CONFIRMATION, room)
                     })
                 }
@@ -846,7 +872,9 @@ class MainActivity : ComponentActivity() {
                 vm.selectedRoomEvent.collect { event ->
                     when (event) {
                         is ProcessEvent.Success -> {
-                            navController.navigate("roomConversationScreen")
+                            navController.navigate("roomConversationScreen") {
+                                launchSingleTop = true
+                            }
                             Toast.makeText(context, "Welcome to the room!", Toast.LENGTH_SHORT).show()
                         }
                         is ProcessEvent.Error -> {
@@ -892,7 +920,7 @@ class MainActivity : ComponentActivity() {
             }
         }
         fun isAdminOrFree(): Boolean {
-            return selectedUser !== null && selectedRoom !== null && (selectedUser.id == selectedRoom.idAdmin || selectedRoom.idAdmin.isEmpty())
+            return selectedUser !== null && selectedRoom !== null && (selectedUser.id == selectedRoom.idAdmin || selectedRoom.idAdmin == null)
         }
         Column {
             if (selectedRoom != null) { //roomSettingsScreen
@@ -944,6 +972,7 @@ class MainActivity : ComponentActivity() {
                     onValueChange = { text -> password.value = text },
                     placeholderText = "password",
                     singleLine = true,
+                    maxChars = ROOM_PASSWORD_MAX_LENGTH,
                     passwordField = true,
                     modifier = Modifier.fillMaxWidth(),
                     enable = !isCheckedPublic
@@ -954,6 +983,7 @@ class MainActivity : ComponentActivity() {
                     onValueChange = { text -> passwordConfirmation.value = text },
                     placeholderText = "confirm password",
                     singleLine = true,
+                    maxChars = ROOM_PASSWORD_MAX_LENGTH,
                     passwordField = true,
                     modifier = Modifier.fillMaxWidth(),
                     enable = !isCheckedPublic
@@ -993,7 +1023,7 @@ class MainActivity : ComponentActivity() {
                         }
                         //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
                     },
-                    enabled = vm.validateRoom(roomName, roomDescription, getPassword(), passwordConfirmation.value, !isCheckedPublic) && !inProgress.value
+                    enabled = vm.validateRoom(roomName, roomDescription, getPassword(), passwordConfirmation.value, avatar.value, !isCheckedPublic, !isCheckedVisible, "", selectedRoom != null) && !inProgress.value
                 ) {
                     if (selectedRoom != null) { //roomSettingsScreen
                         Text("Accept")
@@ -1003,17 +1033,27 @@ class MainActivity : ComponentActivity() {
                 }
             }
             Spacer(Modifier.height(10.dp))
-            if (selectedRoom != null && selectedUser != null && selectedUser.id == selectedRoom.idAdmin) { //Only the admin can delete their room.
+            if (selectedRoom != null && selectedUser != null) { //Only the admin can delete their room.
                 Column(
                     modifier = Modifier.weight(1f).padding(vertical = 5.dp),
                     verticalArrangement = Arrangement.Bottom
                 ) {
-                    Button(onClick = {
-                        //vm.deleteRoom(selectedRoom)
-                        vm.selectPopup(PopupType.DELETE_ROOM_CONFIRMATION)
+                    if (selectedRoom.idAdmin == selectedUser.id) {
+                        Button(onClick = {
+                            vm.selectPopup(PopupType.DELETE_ROOM_CONFIRMATION)
+                            //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
+                        }) {
+                            Text("Delete room")
+                        }
+                    } else if (selectedRoom.idAdmin == null) {
+                        Button(onClick = {
+                            vm.updateRoomAdmin(selectedUser.id) // TODO MAREK Daj możliwość zmiany Admina (chcę podać inne idAdmin niż jest, np.obecnego usera)
+
+
                         //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
-                    }) {
-                        Text("Delete room")
+                        }) {
+                            Text("Claim the room")
+                        }
                     }
                 }
             }
@@ -1038,7 +1078,9 @@ class MainActivity : ComponentActivity() {
                 vm.selectedRoomEvent.collect { event ->
                     when (event) {
                         is ProcessEvent.Success -> {
-                            navController.navigate("roomConversationScreen")
+                            navController.navigate("roomConversationScreen") {
+                                launchSingleTop = true
+                            }
                         }
                         is ProcessEvent.Error -> {
                             Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
@@ -1067,7 +1109,7 @@ class MainActivity : ComponentActivity() {
                         is ProcessEvent.Success -> {
                             Toast.makeText(context, "Room deleted.", Toast.LENGTH_SHORT).show()
                             navController.navigate("roomsScreen") {
-                                popUpTo(0) { inclusive = true }
+                                popUpTo(0) { inclusive = false }
                                 launchSingleTop = true
                             }
                         }
@@ -1083,7 +1125,7 @@ class MainActivity : ComponentActivity() {
                         is ProcessEvent.Success -> {
                             Toast.makeText(context, "You have left the room.", Toast.LENGTH_SHORT).show()
                             navController.navigate("roomsScreen"){
-                                popUpTo(0) { inclusive = true }
+                                popUpTo(0) { inclusive = false }
                                 launchSingleTop = true
                             }
                         }
@@ -1120,6 +1162,7 @@ class MainActivity : ComponentActivity() {
                     onValueChange = { text -> userName.value = text },
                     placeholderText = "user name",
                     singleLine = true,
+                    maxChars = USER_NAME_MAX_LENGTH,
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -1128,8 +1171,9 @@ class MainActivity : ComponentActivity() {
                 value = currentPassword.value,
                 onValueChange = { text -> currentPassword.value = text },
                 placeholderText = "current password",
-                passwordField = true,
                 singleLine = true,
+                maxChars = USER_PASSWORD_MAX_LENGTH,
+                passwordField = true,
                 modifier = Modifier.fillMaxWidth()
             )
             Spacer(Modifier.height(5.dp))
@@ -1142,6 +1186,7 @@ class MainActivity : ComponentActivity() {
                 onValueChange = { text -> newPassword.value = text },
                 placeholderText = "new password",
                 singleLine = true,
+                maxChars = USER_PASSWORD_MAX_LENGTH,
                 passwordField = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -1151,6 +1196,7 @@ class MainActivity : ComponentActivity() {
                 onValueChange = { text -> passwordConfirmation.value = text },
                 placeholderText = "confirm new password",
                 singleLine = true,
+                maxChars = USER_PASSWORD_MAX_LENGTH,
                 passwordField = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -1167,7 +1213,9 @@ class MainActivity : ComponentActivity() {
                     }
                 } else{
                     Button(onClick = {
-                        navController.navigate("discoverScreen")
+                        navController.navigate("discoverScreen") {
+                            launchSingleTop = true
+                        }
                     }) {
                         Text("Skip")
                     }
@@ -1189,8 +1237,6 @@ class MainActivity : ComponentActivity() {
                 verticalArrangement = Arrangement.Bottom
             ) {
                 Button(onClick = {
-                    //TODO dodalem vm.deleteUser(password.value) zamiast vm.deleteUser() - zczytuje w compose wartosc pola password
-                    //vm.deleteUser(password.value)
                     vm.selectPopup(PopupType.DELETE_USER_AUTHORIZATION)
                     //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
                 }) {
@@ -1204,14 +1250,14 @@ class MainActivity : ComponentActivity() {
                     when (event) {
                         is ProcessEvent.Success -> {
                             navController.navigate("loginScreen") {
-                                popUpTo(0) { inclusive = true }
+                                popUpTo(0) { inclusive = false }
                                 launchSingleTop = true
                             }
                         }
                         is ProcessEvent.Error -> {
                             Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
                             navController.navigate("loginScreen") {
-                                popUpTo(0) { inclusive = true }
+                                popUpTo(0) { inclusive = false }
                                 launchSingleTop = true
                             }
                         }
@@ -1223,7 +1269,7 @@ class MainActivity : ComponentActivity() {
                     when (event) {
                         is ProcessEvent.Success -> {
                             navController.navigate("loginScreen") {
-                                popUpTo(0) { inclusive = true }
+                                popUpTo(0) { inclusive = false }
                                 launchSingleTop = true
                             }
                         }
@@ -1241,7 +1287,9 @@ class MainActivity : ComponentActivity() {
                             if (vm.welcomeState.value == false) {
                                 navController.popBackStack()
                             } else {
-                                navController.navigate("discoverScreen")
+                                navController.navigate("discoverScreen") {
+                                    launchSingleTop = true
+                                }
                             }
                         }
                         is ProcessEvent.Error -> {
@@ -1253,100 +1301,109 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-@Composable
-fun RoomConversationScreen() {
-    val vm = LocalViewModel.current
-    val context = LocalContext.current
-    val selectedRoom = vm.selectedRoom.collectAsState().value
-    val messages = vm.messages.collectAsState().value
-    val roomUsers = vm.roomUsers.collectAsState().value
-    val listState = rememberLazyListState()
-    val isLoaded = remember { mutableStateOf(false) }
-    val isReady = remember { mutableStateOf(false) }
+    @Composable
+    fun RoomConversationScreen() {
+        val context = LocalContext.current
+        val vm = LocalViewModel.current
+        val selectedRoom = vm.selectedRoom.collectAsState().value
+        val messages = vm.messages.collectAsState().value
+        val roomUsers = vm.roomUsers.collectAsState().value
+        val listState = rememberLazyListState()
+        val isLoaded = remember { mutableStateOf(false) }
+        val isReady = remember { mutableStateOf(false) }
 
-    LaunchedEffect(selectedRoom) {
-        selectedRoom?.let { room ->
-            if (room.isPrivate) {
-                //sprawdzenie czy mamy klucz dla danego pokoju
-                val roomRepository = RoomRepository(context)
-                val existingKey = roomRepository.getRoomAESKey(room.idRoom)
+        LaunchedEffect(selectedRoom) {
+            selectedRoom?.let { room ->
+                if (room.isPrivate) {
+                    //sprawdzenie czy mamy klucz dla danego pokoju
+                    val roomRepository = RoomRepository(context)
+                    val existingKey = roomRepository.getRoomAESKey(room.idRoom)
 
-                if (existingKey == null) {
-                    //nie ma klucza -> proba pobrania z serwera
-                    Log.d("ROOM_CHAT", "Pobieranie klucza pokoju w tle")
-                    roomRepository.fetchAndDecryptRoomKey(room.idRoom)
-                }
-            }
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        selectedRoom?.let { room ->
-            vm.loadMessages(room)
-            isLoaded.value = true
-        }
-    }
-
-    LaunchedEffect(messages, isLoaded.value) {
-        if (isLoaded.value) {
-            if (messages.isNotEmpty()) {
-                listState.scrollToItem(messages.lastIndex)
-            }
-            isReady.value = true
-        }
-    }
-
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner, selectedRoom) {
-        val observer = LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_START -> {
-                    selectedRoom?.let { room ->
-                        vm.startRealtime(room)
-                        vm.startPendingRequestsPolling(room)
+                    if (existingKey == null) {
+                        //nie ma klucza -> proba pobrania z serwera
+                        Log.d("ROOM_CHAT", "Pobieranie klucza pokoju w tle")
+                        roomRepository.fetchAndDecryptRoomKey(room.idRoom)
                     }
                 }
-                Lifecycle.Event.ON_STOP -> {
-                    vm.stopRealtime()
-                    vm.stopPendingRequestsPolling()
-                }
-                else -> {}
             }
         }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
-    }
 
-    Column {
-        Box(
-            modifier = Modifier.weight(1f).fillMaxWidth(),
-            contentAlignment = Alignment.Center
-        ) {
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize().alpha(if (isReady.value) 1f else 0f),
-                reverseLayout = false
-            ) {
-                items(messages, key = { it.id }) { message ->
-                    // Looking for a user who is the author of the message
-                    val user = roomUsers.find { user -> user.id == message.userId }
-                    MessageItem(message = message, user = user)
-                }
-            }
-            if (!isReady.value) {
-                CircularProgressIndicator()
-                //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
+        LaunchedEffect(Unit) {
+            selectedRoom?.let { room ->
+                vm.loadMessages(room)
+                isLoaded.value = true
             }
         }
-        ConversationPanel()
+
+        LaunchedEffect(messages, isLoaded.value) {
+            if (isLoaded.value) {
+                if (messages.isNotEmpty()) {
+                    listState.scrollToItem(messages.lastIndex)
+                }
+                isReady.value = true
+            }
+        }
+
+        val lifecycleOwner = LocalLifecycleOwner.current
+        DisposableEffect(lifecycleOwner, selectedRoom) {
+            val observer = LifecycleEventObserver { _, event ->
+                when (event) {
+                    Lifecycle.Event.ON_START -> {
+                        selectedRoom?.let { room ->
+                            vm.startRealtime(room)
+                            vm.startPendingRequestsPolling(room)
+                        }
+                    }
+                    Lifecycle.Event.ON_STOP -> {
+                        vm.stopRealtime()
+                        vm.stopPendingRequestsPolling()
+                    }
+                    else -> {}
+                }
+            }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose {
+                lifecycleOwner.lifecycle.removeObserver(observer)
+            }
+        }
+
+        Column {
+            Box(
+                modifier = Modifier.weight(1f).fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize().alpha(if (isReady.value) 1f else 0f),
+                    reverseLayout = false
+                ) {
+                    items(messages, key = { it.id }) { message ->
+                        // Looking for a user who is the author of the message
+                        val user = roomUsers.find { user -> user.id == message.userId }
+                        MessageItem(message = message, user = user)
+                    }
+                }
+                if (!isReady.value) {
+                    CircularProgressIndicator()
+                    //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
+                }
+            }
+            ConversationPanel()
+        }
+
+        LaunchedEffect(Unit) {
+            vm.sendMessageEvent.collect { event ->
+                if (event is ProcessEvent.Error) {
+                    Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
     }
-}
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
 
         MessageUtils.init(
             tokenProv = {

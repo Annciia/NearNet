@@ -30,7 +30,7 @@ data class SendMessageRequest(
 data class MessagePayload(
     val userId: String? = null,
     val timestamp: String,
-    val messageType: String = "text",
+    val messageType: String = "TEXT",
     val data: String,
     val additionalData: String = ""
 )
@@ -165,7 +165,7 @@ object MessageUtils {
         val payload = MessagePayload(
             userId = message.userId,
             timestamp = message.timestamp,
-            messageType = "text",
+            messageType = message.messageType,
             data = messageToSend, // zaszyfrowana lub plaintext
             additionalData = message.additionalData
         )
@@ -371,4 +371,3 @@ object MessageUtils {
     val isRunning: Boolean
         get() = running
 }
-
