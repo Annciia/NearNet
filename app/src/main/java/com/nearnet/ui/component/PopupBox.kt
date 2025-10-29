@@ -264,6 +264,12 @@ fun JoinRoomConfirmationPopup(popupContext: PopupContext) {
                 ) {
                     Text(text = "Request admin approval")
                 }
+                Spacer(Modifier.height(5.dp))
+                Text(
+                    text = "Verification may take some time.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
             }
         }
     }
