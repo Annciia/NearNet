@@ -180,6 +180,7 @@ class NearNetViewModel(): ViewModel() {
     //Room users
     private val roomUsersMutable = MutableStateFlow(listOf<UserData>())
     val roomUsers = roomUsersMutable.asStateFlow()
+    private val knownUserIds = mutableSetOf<String>() //dodane zeby unknown nie bylo
 
     //Messages
     private val messagesMutable = MutableStateFlow(listOf<Message>())
@@ -266,6 +267,7 @@ class NearNetViewModel(): ViewModel() {
         selectedPopupMutable.value = null
         clearQueuedPopups()
         stopRealtime()
+        knownUserIds.clear()
     }
     // TODO tutaj chyba jakas oblusge/pola do additionalSettings
     fun updateUser(userName: String, currentPassword: String, newPassword: String, passwordConfirmation: String, avatar: String, additionalSettings: String){
@@ -691,6 +693,7 @@ class NearNetViewModel(): ViewModel() {
     fun selectRoom(room : RoomData) {
         viewModelScope.launch {
             //loadMessages(room)
+            knownUserIds.clear() //czyszczenie listy przy zmianie pokoju
             selectedRoomMutable.value = room
 
             if (selectedRoomMutable.value != null) {
@@ -698,6 +701,21 @@ class NearNetViewModel(): ViewModel() {
             } else {
                 selectedRoomEventMutable.emit(ProcessEvent.Error("Failed to enter the room."))
             }
+        }
+    }
+
+    private suspend fun refreshRoomUsers() {
+        val currentRoom = selectedRoom.value ?: return
+
+        try {
+            val response = MessageUtils.requestRoomUsers(currentRoom.idRoom)
+            if (response != null) {
+                roomUsersMutable.value = response.userList.rooms
+            } else {
+                Log.e("NearNetVM", "Nie udało się odświeżyć listy uzytkowników")
+            }
+        } catch (e: Exception) {
+            Log.e("NearNetVM", "Błąd odświeżania listy użytkowników", e)
         }
     }
 
@@ -804,6 +822,20 @@ class NearNetViewModel(): ViewModel() {
             userId,
             onMessage = { newMessages ->
                 viewModelScope.launch(Dispatchers.Main) {
+                    newMessages.forEach { msg ->
+                        val userExists = roomUsers.value.any { it.id == msg.userId }
+
+                        if (!userExists && !knownUserIds.contains(msg.userId)) {
+                            Log.d("NearNetVM", "Nowy uzytkownik ${msg.userId}, odswiezam liste")
+                            knownUserIds.add(msg.userId)
+
+                            // odswiezenie listy uzytkownikow
+                            viewModelScope.launch {
+                                refreshRoomUsers()
+                            }
+                        }
+                    }
+
                     messagesMutable.update { old ->
                         (old + newMessages).distinctBy { it.id }
                     }
