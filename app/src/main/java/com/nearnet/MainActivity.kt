@@ -80,10 +80,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.nearnet.sessionlayer.data.model.Message
-import com.nearnet.sessionlayer.logic.MessageUtils
 import com.nearnet.sessionlayer.data.model.RoomData
 import com.nearnet.sessionlayer.data.model.UserData
 import com.nearnet.sessionlayer.logic.CryptoUtils
+import com.nearnet.sessionlayer.logic.MessageUtils
 import com.nearnet.sessionlayer.logic.RoomRepository
 import com.nearnet.sessionlayer.logic.UserRepository
 import com.nearnet.ui.component.AvatarCircle
@@ -902,6 +902,7 @@ class MainActivity : ComponentActivity() {
     fun CreateOrUpdateRoomScreen(navController: NavController){
         val context = LocalContext.current
         val vm = LocalViewModel.current
+        val scrollPosition = rememberScrollState()
         val selectedRoom: RoomData? = if (navController.currentDestination?.route == "roomSettingsScreen") vm.selectedRoom.value else null
         val selectedUser: UserData? = vm.selectedUser.value
         var roomName by rememberSaveable { mutableStateOf(selectedRoom?.name ?: "") }
@@ -922,7 +923,9 @@ class MainActivity : ComponentActivity() {
         fun isAdminOrFree(): Boolean {
             return selectedUser !== null && selectedRoom !== null && (selectedUser.id == selectedRoom.idAdmin || selectedRoom.idAdmin == null)
         }
-        Column {
+        Column(
+            modifier = Modifier.verticalScroll(scrollPosition)
+        ) {
             if (selectedRoom != null) { //roomSettingsScreen
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1142,6 +1145,7 @@ class MainActivity : ComponentActivity() {
     fun UserProfileScreen(navController: NavController) : Unit {
         val context = LocalContext.current
         val vm = LocalViewModel.current
+        val scrollPosition = rememberScrollState()
         var userName = rememberSaveable { mutableStateOf(vm.selectedUser.value?.name ?: "") }
         val currentPassword = remember { mutableStateOf("") }
         val newPassword = remember { mutableStateOf("") }
@@ -1149,7 +1153,9 @@ class MainActivity : ComponentActivity() {
         val avatar = remember { mutableStateOf(vm.selectedUser.value?.avatar ?: "") }
 
         //Wygląd ekranu
-        Column {
+        Column(
+            modifier = Modifier.verticalScroll(scrollPosition)
+        ) {
             ScreenTitle("User profile settings")
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1367,7 +1373,9 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        Column {
+        Column(
+            modifier = Modifier.fillMaxSize()
+        ) {
             Box(
                 modifier = Modifier.weight(1f).fillMaxWidth(),
                 contentAlignment = Alignment.Center
