@@ -59,7 +59,7 @@ class UserRepository(private val context: Context) {
     //private val db = AppDatabase.getDatabase(context)
 
     private val retrofit = Retrofit.Builder()
-        .baseUrl("http://95.108.77.201:3002")
+        .baseUrl("http://$SERVER_ADDRESS:$SERVER_PORT")
         .addConverterFactory(GsonConverterFactory.create())
         .build()
 

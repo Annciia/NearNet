@@ -593,7 +593,7 @@ class NearNetViewModel(): ViewModel() {
                 }
 
                 if (joinSuccess) {
-                    selectRoom(room)
+                    //selectRoom(room) //Nie przenosi do rooma , tylko z powrotem do discovery
                     if (room.isPrivate && password.isNotBlank()) {
                         roomRepository.fetchAndDecryptRoomKey(room.idRoom)
                     }
@@ -718,6 +718,7 @@ class NearNetViewModel(): ViewModel() {
         viewModelScope.launch {
             knownUserIds.clear() //czyszczenie listy przy zmianie pokoju
             selectedRoomMutable.value = room
+            Log.e("KOT", "SELECT ROOM "+room.name+ " " + room.idAdmin)
 
             if (selectedRoomMutable.value != null) {
                 selectedRoomEventMutable.emit(ProcessEvent.Success(room))
