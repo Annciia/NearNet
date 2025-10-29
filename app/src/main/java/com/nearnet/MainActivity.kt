@@ -23,9 +23,11 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.LocalTextSelectionColors
 import androidx.compose.foundation.text.selection.TextSelectionColors
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.twotone.PlayArrow
@@ -430,6 +432,7 @@ class MainActivity : ComponentActivity() {
     fun LoginScreen(navController: NavController) : Unit {
         val context = LocalContext.current
         val vm = LocalViewModel.current
+        val scrollPosition = rememberScrollState()
         val login = remember { mutableStateOf("") }
         val password = remember { mutableStateOf("") }
         val inProgress = remember { mutableStateOf(false) }
@@ -440,7 +443,7 @@ class MainActivity : ComponentActivity() {
             contentAlignment = Alignment.Center
         ) {
             Column(
-                modifier = Modifier.fillMaxWidth().height(520.dp),
+                modifier = Modifier.fillMaxWidth().height(580.dp).verticalScroll(scrollPosition),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Icon(
@@ -529,6 +532,7 @@ class MainActivity : ComponentActivity() {
     fun RegisterScreen(navController: NavController) : Unit {
         val context = LocalContext.current
         val vm = LocalViewModel.current
+        val scrollPosition= rememberScrollState()
         val login = remember { mutableStateOf("") }
         val password = remember { mutableStateOf("") }
         val passwordConfirmation = remember { mutableStateOf("") }
@@ -540,7 +544,7 @@ class MainActivity : ComponentActivity() {
             contentAlignment = Alignment.Center
         ) {
             Column(
-                modifier = Modifier.fillMaxWidth().height(520.dp),
+                modifier = Modifier.fillMaxWidth().height(580.dp).verticalScroll(scrollPosition),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Icon(
