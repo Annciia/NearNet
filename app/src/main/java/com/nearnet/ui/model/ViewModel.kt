@@ -504,6 +504,19 @@ class NearNetViewModel(): ViewModel() {
         }
     }
 
+    fun updateRoomAdmin(idAdmin: String){
+        viewModelScope.launch {
+            var result = false
+            // result = updateRoomAdmin(idAdmin)
+            result = true
+            if (result) {
+                updateRoomEventMutable.emit(ProcessEvent.Success(Unit))
+            } else {
+                updateRoomEventMutable.emit(ProcessEvent.Error("Failed to update room. Please try again."))
+            }
+        }
+    }
+
     fun validateRoom(name: String, description: String, password: String?, passwordConfirmation: String?, avatar: String, isPrivate: Boolean, isVisible: Boolean, additionalSettings: String, update: Boolean) : Boolean {
         var nameChanged = true
         var descriptionChanged = true

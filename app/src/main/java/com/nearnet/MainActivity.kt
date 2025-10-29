@@ -849,7 +849,7 @@ class MainActivity : ComponentActivity() {
             }
         }
         fun isAdminOrFree(): Boolean {
-            return selectedUser !== null && selectedRoom !== null && (selectedUser.id == selectedRoom.idAdmin || selectedRoom.idAdmin.isEmpty())
+            return selectedUser !== null && selectedRoom !== null && (selectedUser.id == selectedRoom.idAdmin || selectedRoom.idAdmin == null)
         }
         Column {
             if (selectedRoom != null) { //roomSettingsScreen
@@ -962,16 +962,27 @@ class MainActivity : ComponentActivity() {
                 }
             }
             Spacer(Modifier.height(10.dp))
-            if (selectedRoom != null && selectedUser != null && selectedUser.id == selectedRoom.idAdmin) { //Only the admin can delete their room.
+            if (selectedRoom != null && selectedUser != null) { //Only the admin can delete their room.
                 Column(
                     modifier = Modifier.weight(1f).padding(vertical = 5.dp),
                     verticalArrangement = Arrangement.Bottom
                 ) {
-                    Button(onClick = {
-                        vm.selectPopup(PopupType.DELETE_ROOM_CONFIRMATION)
+                    if (selectedRoom.idAdmin == selectedUser.id) {
+                        Button(onClick = {
+                            vm.selectPopup(PopupType.DELETE_ROOM_CONFIRMATION)
+                            //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
+                        }) {
+                            Text("Delete room")
+                        }
+                    } else if (selectedRoom.idAdmin == null) {
+                        Button(onClick = {
+                            vm.updateRoomAdmin(selectedUser.id) // TODO MAREK Daj możliwość zmiany Admina (chcę podać inne idAdmin niż jest, np.obecnego usera)
+
+
                         //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
-                    }) {
-                        Text("Delete room")
+                        }) {
+                            Text("Claim the room")
+                        }
                     }
                 }
             }
