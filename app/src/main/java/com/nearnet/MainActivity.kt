@@ -509,87 +509,63 @@ class MainActivity : ComponentActivity() {
                     is ProcessEvent.Success -> {
                         if (event.data !== null) {
 
-                            // ============================================
-                            //TODO TESTY KLUCZY RSA
-                            // ============================================
-                            Log.d("LOGIN_TEST", "========================================")
-                            Log.d("LOGIN_TEST", "TESTY KLUCZY RSA DLA: ${login.value}")
-                            Log.d("LOGIN_TEST", "========================================")
 
-                            // TEST 1: Sprawdź czy użytkownik ma klucze
-                            val hasKeys = CryptoUtils.hasKeysForUser(context, login.value)
-                            Log.d("LOGIN_TEST", "TEST 1: Sprawdzanie kluczy")
-                            Log.d("LOGIN_TEST", "  ✓ Użytkownik ma klucze RSA: $hasKeys")
-
-                            if (hasKeys) {
-                                // TEST 2: Odczytaj klucz prywatny
-                                Log.d("LOGIN_TEST", "TEST 2: Odczyt klucza prywatnego")
-                                val privateKey = CryptoUtils.getPrivateKey(context, login.value)
-                                if (privateKey != null) {
-                                    Log.d("LOGIN_TEST", "  ✓ Klucz prywatny DOSTĘPNY")
-                                    Log.d("LOGIN_TEST", "    - Algorytm: ${privateKey.algorithm}")
-                                    Log.d("LOGIN_TEST", "    - Format: ${privateKey.format}")
-                                    Log.d("LOGIN_TEST", "    - Rozmiar: ${privateKey.encoded.size} bajtów")
-                                } else {
-                                    Log.e("LOGIN_TEST", "  ✗ Klucz prywatny NIEDOSTĘPNY")
-                                }
-
-                                // TEST 3: Odczytaj klucz publiczny
-                                Log.d("LOGIN_TEST", "TEST 3: Odczyt klucza publicznego")
-                                val publicKey = CryptoUtils.getPublicKey(context, login.value)
-                                if (publicKey != null) {
-                                    Log.d("LOGIN_TEST", "  ✓ Klucz publiczny DOSTĘPNY")
-                                    Log.d("LOGIN_TEST", "    - Algorytm: ${publicKey.algorithm}")
-                                    Log.d("LOGIN_TEST", "    - Format: ${publicKey.format}")
-                                    Log.d("LOGIN_TEST", "    - Rozmiar: ${publicKey.encoded.size} bajtów")
-                                } else {
-                                    Log.e("LOGIN_TEST", "  ✗ Klucz publiczny NIEDOSTĘPNY")
-                                }
-                            } else {
-                                Log.w("LOGIN_TEST", "  ⚠ Użytkownik nie ma kluczy - możliwa stara rejestracja")
-                            }
-
-                            Log.d("LOGIN_TEST", "========================================")
-                            Log.d("LOGIN_TEST", "KONIEC TESTÓW")
-                            Log.d("LOGIN_TEST", "========================================")
-                            Log.d("LOGIN_TEST", "TEST 4: Pobieranie klucza publicznego z serwera")
-
-                            // Pobierz userId z userData (jeśli dostępne)
-                            val userId = event.data.id
-                            if (userId != null) {
-                                try {
-                                    val publicKeyFromServer = userRepository.getUserPublicKey(userId)
-
-                                    if (publicKeyFromServer != null) {
-                                        Log.d("LOGIN_TEST", "  ✓ Klucz pobrany z serwera")
-                                        Log.d("LOGIN_TEST", "    - Długość: ${publicKeyFromServer.length}")
-                                        Log.d("LOGIN_TEST", "    - Pierwsze 50 znaków: ${publicKeyFromServer.take(50)}...")
-
-                                        // Porównaj z lokalnym kluczem
-                                        val localPublicKey = CryptoUtils.getPublicKey(context, login.value)
-                                        if (localPublicKey != null) {
-                                            val localBase64 = CryptoUtils.publicKeyToString(localPublicKey)
-
-                                            if (localBase64 == publicKeyFromServer) {
-                                                Log.d("LOGIN_TEST", "  ✓✓ Klucze IDENTYCZNE (serwer = lokalny)")
-                                            } else {
-                                                Log.w("LOGIN_TEST", "  ⚠ Klucze SIĘ RÓŻNIĄ!")
-                                                Log.w("LOGIN_TEST", "    Lokalny:  ${localBase64.take(50)}...")
-                                                Log.w("LOGIN_TEST", "    Z serwera: ${publicKeyFromServer.take(50)}...")
-                                            }
-                                        }
-                                    } else {
-                                        Log.e("LOGIN_TEST", "  ✗ Nie udało się pobrać klucza z serwera")
-                                    }
-                                } catch (e: Exception) {
-                                    Log.e("LOGIN_TEST", "  ✗ Błąd podczas pobierania klucza: ${e.message}")
-                                }
-                            } else {
-                                Log.w("LOGIN_TEST", "  ⚠ Brak userId - nie można przetestować pobierania z serwera")
-                            }
-                            // ============================================
-                            // KONIEC TESTÓW
-                            // ============================================
+//                            Log.d("LOGIN_TEST", "TESTY KLUCZY RSA DLA: ${login.value}")
+//                            // 1: Sprawdzenie czy uzytkownik ma klucze
+//                            val hasKeys = CryptoUtils.hasKeysForUser(context, login.value)
+//                            Log.d("LOGIN_TEST", "Użytkownik ma klucze RSA: $hasKeys")
+//
+//                            if (hasKeys) {
+//                                // 2: Odczytanie klucza prywatnego
+//                                val privateKey = CryptoUtils.getPrivateKey(context, login.value)
+//                                if (privateKey != null) {
+//                                    Log.d("LOGIN_TEST", " Klucz prywatny DOSTĘPNY")
+//                                } else {
+//                                    Log.e("LOGIN_TEST", " Klucz prywatny NIEDOSTĘPNY")
+//                                }
+//
+//                                // 3: Odczytanie klucza publicznego
+//                                val publicKey = CryptoUtils.getPublicKey(context, login.value)
+//                                if (publicKey != null) {
+//                                    Log.d("LOGIN_TEST", " Klucz publiczny DOSTĘPNY")
+//                                } else {
+//                                    Log.e("LOGIN_TEST", " Klucz publiczny NIEDOSTĘPNY")
+//                                }
+//                            } else {
+//                                Log.w("LOGIN_TEST", " Użytkownik nie ma kluczy")
+//                            }
+//
+//                            Log.d("LOGIN_TEST", "Pobieranie klucza publicznego z serwera")
+//
+//                            // pobranie userID (jesli dostepne)
+//                            val userId = event.data.id
+//                            if (userId != null) {
+//                                try {
+//                                    val publicKeyFromServer = userRepository.getUserPublicKey(userId)
+//
+//                                    if (publicKeyFromServer != null) {
+//                                        Log.d("LOGIN_TEST", " Klucz pobrany z serwera")
+//
+//                                        // Porównaj z lokalnym kluczem
+//                                        val localPublicKey = CryptoUtils.getPublicKey(context, login.value)
+//                                        if (localPublicKey != null) {
+//                                            val localBase64 = CryptoUtils.publicKeyToString(localPublicKey)
+//
+//                                            if (localBase64 == publicKeyFromServer) {
+//                                                Log.d("LOGIN_TEST", " Klucze identyczne (serwer = lokalny)")
+//                                            } else {
+//                                                Log.w("LOGIN_TEST", " Klucze sie roznia!")
+//                                            }
+//                                        }
+//                                    } else {
+//                                        Log.e("LOGIN_TEST", " Nie udało się pobrac klucza z serwera")
+//                                    }
+//                                } catch (e: Exception) {
+//                                    Log.e("LOGIN_TEST", "  Błąd podczas pobierania klucza: ${e.message}")
+//                                }
+//                            } else {
+//                                Log.w("LOGIN_TEST", "  Brak userId - nie można przetestować pobierania z serwera")
+//                            }
                             navController.navigate("recentScreen") {
                                 popUpTo(0) { inclusive = true }
                             }
@@ -1277,84 +1253,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-//    @Composable
-//    fun RoomConversationScreen() {
-//        val vm = LocalViewModel.current
-//        val selectedRoom = vm.selectedRoom.collectAsState().value
-//        val messages = vm.messages.collectAsState().value
-//        val roomUsers = vm.roomUsers.collectAsState().value
-//        val listState = rememberLazyListState()
-//        val isLoaded = remember { mutableStateOf(false) }
-//        val isReady = remember { mutableStateOf(false) }
-//
-//        LaunchedEffect(Unit) {
-//            selectedRoom?.let { room ->
-//                vm.loadMessages(room)
-//                isLoaded.value = true
-//            }
-//        }
-//
-//        LaunchedEffect(messages, isLoaded.value) {
-//            if (isLoaded.value) {
-//                if (messages.isNotEmpty()) {
-//                    listState.scrollToItem(messages.lastIndex)
-//                }
-//                isReady.value = true
-//            }
-//        }
-//
-//        val lifecycleOwner = LocalLifecycleOwner.current
-//        DisposableEffect(lifecycleOwner, selectedRoom) {
-//            val observer = LifecycleEventObserver { _, event ->
-//                when (event) {
-//                    Lifecycle.Event.ON_START -> {
-//                        selectedRoom?.let { room ->
-//                            vm.startRealtime(room)
-//                            vm.startPendingRequestsPolling(room) // <-- tutaj start polling
-//                        }
-//                        //TODO
-//                        //selectedRoom?.let { vm.startRealtime(it) } // uruchamiamy SSE tylko jeśli jest wybrany pokój
-//
-//                    }
-//                    Lifecycle.Event.ON_STOP -> {
-//                        vm.stopRealtime()
-//                        vm.stopPendingRequestsPolling()
-//                        //TODO
-//                        //vm.stopRealtime() // zatrzymujemy SSE
-//                    }
-//                    else -> {}
-//                }
-//            }
-//            lifecycleOwner.lifecycle.addObserver(observer)
-//            onDispose {
-//                lifecycleOwner.lifecycle.removeObserver(observer)
-//            }
-//        }
-//
-//        Column {
-//            Box(
-//                modifier = Modifier.weight(1f).fillMaxWidth(),
-//                contentAlignment = Alignment.Center
-//            ) {
-//                LazyColumn(
-//                    state = listState,
-//                    modifier = Modifier.fillMaxSize().alpha(if (isReady.value) 1f else 0f),
-//                    reverseLayout = false
-//                ) {
-//                   items(messages, key = { it.id }) { message ->
-//                       // Looking for a user who is the author of the message
-//                       val user = roomUsers.find { user -> user.id == message.userId }
-//                       MessageItem(message = message, user = user)
-//                    }
-//                }
-//                if (!isReady.value) {
-//                    CircularProgressIndicator()
-//                    //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
-//                }
-//            }
-//            ConversationPanel()
-//        }
-//    }
 @Composable
 fun RoomConversationScreen() {
     val vm = LocalViewModel.current
@@ -1366,25 +1264,21 @@ fun RoomConversationScreen() {
     val isLoaded = remember { mutableStateOf(false) }
     val isReady = remember { mutableStateOf(false) }
 
-    // ============================================
-    // NOWE: Pobieranie klucza pokoju (w tle, bez UI)
-    // ============================================
     LaunchedEffect(selectedRoom) {
         selectedRoom?.let { room ->
             if (room.isPrivate) {
-                // Sprawdź czy mamy klucz dla tego pokoju
+                //sprawdzenie czy mamy klucz dla danego pokoju
                 val roomRepository = RoomRepository(context)
                 val existingKey = roomRepository.getRoomAESKey(room.idRoom)
 
                 if (existingKey == null) {
-                    // Nie mamy klucza - spróbuj pobrać z serwera
-                    Log.d("ROOM_CHAT", "Pobieranie klucza pokoju w tle...")
+                    //nie ma klucza -> proba pobrania z serwera
+                    Log.d("ROOM_CHAT", "Pobieranie klucza pokoju w tle")
                     roomRepository.fetchAndDecryptRoomKey(room.idRoom)
                 }
             }
         }
     }
-    // ============================================
 
     LaunchedEffect(Unit) {
         selectedRoom?.let { room ->
@@ -1443,6 +1337,7 @@ fun RoomConversationScreen() {
             }
             if (!isReady.value) {
                 CircularProgressIndicator()
+                //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
             }
         }
         ConversationPanel()

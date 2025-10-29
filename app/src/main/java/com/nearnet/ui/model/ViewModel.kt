@@ -424,45 +424,21 @@ class NearNetViewModel(): ViewModel() {
                         // Emitujemy bezpośrednio RoomData
                         registerRoomEventMutable.emit(ProcessEvent.Success(createdRoomData))
                     } else {
-                        Log.e("createRoom", "❌ Nie udało się utworzyć pokoju na serwerze")
+                        Log.e("createRoom", "Nie udało się utworzyć pokoju na serwerze")
                         registerRoomEventMutable.emit(ProcessEvent.Error("Something went wrong while creating the room."))
                     }
 
                 } catch (e: Exception) {
-                    Log.e("createRoom", "❌ Błąd podczas tworzenia pokoju", e)
+                    Log.e("createRoom", "Błąd podczas tworzenia pokoju", e)
                     registerRoomEventMutable.emit(ProcessEvent.Error("Something went wrong while creating the room."))
                 }
 
             } else {
-                Log.e("createRoom", "❌ RoomRepository nie jest zainicjalizowane!")
+                Log.e("createRoom", "RoomRepository nie jest zainicjalizowane!")
                 registerRoomEventMutable.emit(ProcessEvent.Error("Something went wrong while creating the room."))
             }
         }
     }
-
-//    fun updateRoom(name: String, description: String, password: String?, passwordConfirmation: String?, isPrivate: Boolean, isVisible: Boolean) {
-//        viewModelScope.launch {
-//            if (!validateRoom(name, description, password, passwordConfirmation)) {
-//                updateRoomEventMutable.emit(ProcessEvent.Error("Failed to update room. Please try again."))
-//                return@launch
-//            }
-//            val selectedRoom = selectedRoom.value
-//            if (selectedRoom == null) {
-//                updateRoomEventMutable.emit(ProcessEvent.Error("Failed to update room. Please try again."))
-//                return@launch
-//            }
-//            // TODO Call asynchronous function to update doom data.
-//            // Jeśli hasło jest pustym stringiem, to oznacza, że nie zostało zmienione, tak więc w bazie zostaje stare!
-//            // val result = updateRoom(RoomData) Marek
-//            val result = true
-//
-//            if (result) {
-//                updateRoomEventMutable.emit(ProcessEvent.Success(Unit))
-//            } else {
-//                updateRoomEventMutable.emit(ProcessEvent.Error("Failed to update room. Please try again."))
-//            }
-//        }
-//    }
 
     fun updateRoom(
         name: String,
@@ -587,6 +563,9 @@ class NearNetViewModel(): ViewModel() {
 
                 if (joinSuccess) {
                     selectRoom(room)
+                    if (room.isPrivate && password.isNotBlank()) {
+                        roomRepository.fetchAndDecryptRoomKey(room.idRoom)
+                    }
                     Log.d("NearNetVM", "Successfully joined room: ${room.name}")
                 } else {
                     joinRoomEventMutable.emit(ProcessEvent.Error("Failed to join room — incorrect password or server error."))
@@ -784,7 +763,7 @@ class NearNetViewModel(): ViewModel() {
 
             val user = selectedUser.value
             if (user == null){
-                Log.e("sendMessage", "❌ selectedUser jest NULL!")
+                Log.e("sendMessage", "selectedUser jest NULL!")
                 return@launch
             }
             val timestamp = System.currentTimeMillis().toString()
@@ -800,7 +779,7 @@ class NearNetViewModel(): ViewModel() {
             )
 
             //Log.d("sendMessage", "Wysyłam wiadomość na backend: $newMessage")
-            Log.d("sendMessage", "📤 Wysyłam wiadomość: userId='${newMessage.userId}'")
+            Log.d("sendMessage", "Wysyłam wiadomość: userId='${newMessage.userId}'")
 
             try {
                 val success = MessageUtils.sendMessage(room.idRoom, newMessage)

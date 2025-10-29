@@ -25,34 +25,20 @@ object CryptoUtils {
     private const val PRIVATE_KEY_PREFIX = "private_key_"
     private const val PUBLIC_KEY_PREFIX = "public_key_"
 
-    private const val AES_KEY_SIZE = 256 // 256-bit AES
-    private const val GCM_TAG_LENGTH = 128 // 128-bit tag for authentication
-    private const val GCM_IV_LENGTH = 12 // 12 bytes IV for GCM
+    private const val AES_KEY_SIZE = 256
+    private const val GCM_TAG_LENGTH = 128
+    private const val GCM_IV_LENGTH = 12
 
-    /**
-     * Hashuje hasło używając SHA-256
-     */
-//    fun hashPassword(password: String): String {
-//        Log.d(TAG, "Hashowanie hasła...")
-//        val digest = MessageDigest.getInstance("SHA-256")
-//        val hashBytes = digest.digest(password.toByteArray(Charsets.UTF_8))
-//        val hash = hashBytes.joinToString("") { "%02x".format(it) }
-//        Log.d(TAG, "Hasło zahashowane pomyślnie (długość: ${hash.length})")
-//        return hash
-//    }
 
-    /**
-     * Generuje parę kluczy RSA (2048 bit)
-     */
+
+
+    //generowanie pary kluczy RSA - przy rejestracji
     fun generateRSAKeys(): KeyPair {
-        Log.d(TAG, "Rozpoczynam generowanie kluczy RSA...")
         try {
             val keyPairGenerator = KeyPairGenerator.getInstance("RSA")
             keyPairGenerator.initialize(RSA_KEY_SIZE)
             val keyPair = keyPairGenerator.generateKeyPair()
             Log.d(TAG, "Klucze RSA wygenerowane pomyślnie")
-            Log.d(TAG, "- Rozmiar klucza publicznego: ${keyPair.public.encoded.size} bajtów")
-            Log.d(TAG, "- Rozmiar klucza prywatnego: ${keyPair.private.encoded.size} bajtów")
             return keyPair
         } catch (e: Exception) {
             Log.e(TAG, "Błąd podczas generowania kluczy RSA: ${e.message}", e)
@@ -60,19 +46,16 @@ object CryptoUtils {
         }
     }
 
-    /**
-     * Konwertuje klucz publiczny do formatu Base64 (do wysłania na serwer)
-     */
+
+    //konwersja klucza publicznego na Bsae64
     fun publicKeyToString(publicKey: PublicKey): String {
-        Log.d(TAG, "Konwersja klucza publicznego do Base64...")
+        Log.d(TAG, "Konwersja klucza publicznego do Base64")
         val encoded = Base64.encodeToString(publicKey.encoded, Base64.NO_WRAP)
-        Log.d(TAG, "Klucz publiczny Base64 (pierwsze 50 znaków): ${encoded.take(50)}...")
         return encoded
     }
 
-    /**
-     * Konwertuje klucz prywatny do formatu Base64 (do zapisu w SharedPreferences)
-     */
+
+    //konwersja klucza prywatnego do Base64
     fun privateKeyToString(privateKey: PrivateKey): String {
         Log.d(TAG, "Konwersja klucza prywatnego do Base64...")
         val encoded = Base64.encodeToString(privateKey.encoded, Base64.NO_WRAP)
@@ -80,17 +63,15 @@ object CryptoUtils {
         return encoded
     }
 
-    /**
-     * Odtwarza klucz publiczny z Base64
-     */
+
+    //Base64->klucz publiczny
     fun stringToPublicKey(keyString: String): PublicKey {
-        Log.d(TAG, "Odtwarzanie klucza publicznego z Base64...")
+        Log.d(TAG, "Odtwarzanie klucza publicznego z Base64")
         try {
             val keyBytes = Base64.decode(keyString, Base64.NO_WRAP)
             val keySpec = X509EncodedKeySpec(keyBytes)
             val keyFactory = KeyFactory.getInstance("RSA")
             val publicKey = keyFactory.generatePublic(keySpec)
-            Log.d(TAG, "Klucz publiczny odtworzony pomyślnie")
             return publicKey
         } catch (e: Exception) {
             Log.e(TAG, "Błąd podczas odtwarzania klucza publicznego: ${e.message}", e)
@@ -98,17 +79,15 @@ object CryptoUtils {
         }
     }
 
-    /**
-     * Odtwarza klucz prywatny z Base64
-     */
+
+    //Base64-> klucz prywatny
     fun stringToPrivateKey(keyString: String): PrivateKey {
-        Log.d(TAG, "Odtwarzanie klucza prywatnego z Base64...")
+        Log.d(TAG, "Odtwarzanie klucza prywatnego z Base64")
         try {
             val keyBytes = Base64.decode(keyString, Base64.NO_WRAP)
             val keySpec = PKCS8EncodedKeySpec(keyBytes)
             val keyFactory = KeyFactory.getInstance("RSA")
             val privateKey = keyFactory.generatePrivate(keySpec)
-            Log.d(TAG, "Klucz prywatny odtworzony pomyślnie")
             return privateKey
         } catch (e: Exception) {
             Log.e(TAG, "Błąd podczas odtwarzania klucza prywatnego: ${e.message}", e)
@@ -116,23 +95,21 @@ object CryptoUtils {
         }
     }
 
-    /**
-     * Zapisuje klucz prywatny w SharedPreferences dla konkretnego użytkownika
-     */
+
+    //zapisanie klucza prywatnego w SharedPreferences + weryfikacja zapisu
     fun savePrivateKey(context: Context, userId: String, privateKey: PrivateKey) {
-        Log.d(TAG, "Zapisywanie klucza prywatnego dla użytkownika: $userId")
         try {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             val keyString = privateKeyToString(privateKey)
             prefs.edit().putString("$PRIVATE_KEY_PREFIX$userId", keyString).apply()
-            Log.d(TAG, "Klucz prywatny zapisany pomyślnie dla użytkownika: $userId")
+            Log.d(TAG, "Klucz prywatny zapisany pomyślnie dla uzytkownika: $userId")
 
-            // Weryfikacja zapisu
+            // weryfikacja zapisu
             val saved = prefs.getString("$PRIVATE_KEY_PREFIX$userId", null)
             if (saved != null) {
                 Log.d(TAG, "Weryfikacja: Klucz znajduje się w SharedPreferences")
             } else {
-                Log.e(TAG, "BŁĄD: Klucz nie został zapisany w SharedPreferences!")
+                Log.e(TAG, "Klucz nie został zapisany w SharedPreferences!")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Błąd podczas zapisywania klucza prywatnego: ${e.message}", e)
@@ -140,27 +117,24 @@ object CryptoUtils {
         }
     }
 
-    /**
-     * Opcjonalnie zapisuje klucz publiczny (może być potrzebny lokalnie)
-     */
+
+    //zapisanie klucza publicznego w SharedPreferences(lokalnie) - klucz publiczny jest na serwerze i tak
     fun savePublicKey(context: Context, userId: String, publicKey: PublicKey) {
-        Log.d(TAG, "Zapisywanie klucza publicznego dla użytkownika: $userId")
+        Log.d(TAG, "Zapisywanie klucza publicznego dla uzytkownika: $userId")
         try {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             val keyString = publicKeyToString(publicKey)
             prefs.edit().putString("$PUBLIC_KEY_PREFIX$userId", keyString).apply()
-            Log.d(TAG, "Klucz publiczny zapisany pomyślnie dla użytkownika: $userId")
+            Log.d(TAG, "Klucz publiczny zapisany pomyslnie dla użytkownika: $userId")
         } catch (e: Exception) {
             Log.e(TAG, "Błąd podczas zapisywania klucza publicznego: ${e.message}", e)
             throw e
         }
     }
 
-    /**
-     * Pobiera klucz prywatny dla konkretnego użytkownika
-     */
+
+    //pobieranie klucza prywatnego
     fun getPrivateKey(context: Context, userId: String): PrivateKey? {
-        Log.d(TAG, "Pobieranie klucza prywatnego dla użytkownika: $userId")
         try {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             val keyString = prefs.getString("$PRIVATE_KEY_PREFIX$userId", null)
@@ -169,10 +143,7 @@ object CryptoUtils {
                 Log.w(TAG, "Brak klucza prywatnego dla użytkownika: $userId")
                 return null
             }
-
-            Log.d(TAG, "Klucz prywatny znaleziony, odtwarzanie...")
             val privateKey = stringToPrivateKey(keyString)
-            Log.d(TAG, "Klucz prywatny pobrany i odtworzony pomyślnie")
             return privateKey
         } catch (e: Exception) {
             Log.e(TAG, "Błąd podczas pobierania klucza prywatnego: ${e.message}", e)
@@ -180,9 +151,8 @@ object CryptoUtils {
         }
     }
 
-    /**
-     * Pobiera klucz publiczny dla konkretnego użytkownika
-     */
+
+    //pobieranie klucza publicznego lokalnie
     fun getPublicKey(context: Context, userId: String): PublicKey? {
         Log.d(TAG, "Pobieranie klucza publicznego dla użytkownika: $userId")
         try {
@@ -202,26 +172,9 @@ object CryptoUtils {
         }
     }
 
-    /**
-     * Usuwa klucze dla konkretnego użytkownika (np. przy wylogowaniu/usunięciu konta)
-     */
-    fun deleteKeysForUser(context: Context, userId: String) {
-        Log.d(TAG, "Usuwanie kluczy dla użytkownika: $userId")
-        try {
-            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            prefs.edit()
-                .remove("$PRIVATE_KEY_PREFIX$userId")
-                .remove("$PUBLIC_KEY_PREFIX$userId")
-                .apply()
-            Log.d(TAG, "Klucze usunięte pomyślnie dla użytkownika: $userId")
-        } catch (e: Exception) {
-            Log.e(TAG, "Błąd podczas usuwania kluczy: ${e.message}", e)
-        }
-    }
 
-    /**
-     * Sprawdza czy użytkownik ma zapisane klucze
-     */
+
+    //sprawdzenie czy klucze sa zapisane lokalnie
     fun hasKeysForUser(context: Context, userId: String): Boolean {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val hasPrivate = prefs.contains("$PRIVATE_KEY_PREFIX$userId")
@@ -230,20 +183,14 @@ object CryptoUtils {
         return hasPrivate
     }
 
-    /**
-     * Generuje nowy losowy klucz AES (256-bit)
-     * Ten klucz będzie używany do szyfrowania wszystkich wiadomości w pokoju
-     */
+
+    //generacja klucza aes do szyfrowania wiadomosci w pokoju
     fun generateAESKey(): SecretKey {
-        Log.d(TAG, "Generowanie nowego klucza AES...")
         try {
             val keyGenerator = KeyGenerator.getInstance("AES")
             keyGenerator.init(AES_KEY_SIZE, SecureRandom())
             val secretKey = keyGenerator.generateKey()
-            Log.d(TAG, "✓ Klucz AES wygenerowany pomyślnie")
-            Log.d(TAG, "  - Algorytm: ${secretKey.algorithm}")
-            Log.d(TAG, "  - Format: ${secretKey.format}")
-            Log.d(TAG, "  - Rozmiar: ${secretKey.encoded.size} bajtów")
+            Log.d(TAG, "Klucz AES wygenerowany pomyślnie")
             return secretKey
         } catch (e: Exception) {
             Log.e(TAG, "Błąd podczas generowania klucza AES: ${e.message}", e)
@@ -251,25 +198,22 @@ object CryptoUtils {
         }
     }
 
-    /**
-     * Konwertuje klucz AES do formatu Base64 (do wysłania na serwer)
-     */
+
+    //konwersja klucza AES do Base64
     fun aesKeyToString(secretKey: SecretKey): String {
         Log.d(TAG, "Konwersja klucza AES do Base64...")
         val encoded = Base64.encodeToString(secretKey.encoded, Base64.NO_WRAP)
-        Log.d(TAG, "✓ Klucz AES Base64 (długość: ${encoded.length})")
         return encoded
     }
 
-    /**
-     * Odtwarza klucz AES z Base64
-     */
+
+    //Base64->AES
     fun stringToAESKey(keyString: String): SecretKey {
-        Log.d(TAG, "Odtwarzanie klucza AES z Base64...")
+        Log.d(TAG, "Odtwarzanie klucza AES z Base64")
         try {
             val keyBytes = Base64.decode(keyString, Base64.NO_WRAP)
             val secretKey = SecretKeySpec(keyBytes, "AES")
-            Log.d(TAG, "✓ Klucz AES odtworzony pomyślnie")
+            Log.d(TAG, "Klucz AES odtworzony pomyślnie")
             return secretKey
         } catch (e: Exception) {
             Log.e(TAG, "Błąd podczas odtwarzania klucza AES: ${e.message}", e)
@@ -278,35 +222,32 @@ object CryptoUtils {
     }
 
     /**
-     * Szyfruje wiadomość kluczem AES (GCM mode dla bezpieczeństwa)
-     * @param message - tekst do zaszyfrowania
-     * @param secretKey - klucz AES pokoju
-     * @return Zaszyfrowana wiadomość (Base64: IV + ciphertext)
-     */
+     szyfrowanie wiadomosci kluczem AES
+     zwraca zaszyfrowana wiadomosc (Base64: IV + ciphertext)
+     **/
+
     fun encryptMessage(message: String, secretKey: SecretKey): String {
         Log.d(TAG, "Szyfrowanie wiadomości...")
         Log.d(TAG, "  Długość wiadomości: ${message.length} znaków")
 
         try {
-            // Generuj losowy IV (Initialization Vector)
+            // generacja losowego IV
             val iv = ByteArray(GCM_IV_LENGTH)
             SecureRandom().nextBytes(iv)
 
-            // Skonfiguruj cipher w trybie GCM
+            // cipher w trybie GCM
             val cipher = Cipher.getInstance("AES/GCM/NoPadding")
             val gcmSpec = GCMParameterSpec(GCM_TAG_LENGTH, iv)
             cipher.init(Cipher.ENCRYPT_MODE, secretKey, gcmSpec)
 
-            // Zaszyfruj
+            // szyfrowanie wiadomosci
             val messageBytes = message.toByteArray(Charsets.UTF_8)
             val encryptedBytes = cipher.doFinal(messageBytes)
 
-            // Połącz IV + zaszyfrowane dane
+            // polaczenie IV + zaszyfrowane dane
             val combined = iv + encryptedBytes
             val result = Base64.encodeToString(combined, Base64.NO_WRAP)
 
-            Log.d(TAG, "✓ Wiadomość zaszyfrowana")
-            Log.d(TAG, "  Długość zaszyfrowana: ${result.length} znaków")
 
             return result
 
@@ -316,34 +257,29 @@ object CryptoUtils {
         }
     }
 
-    /**
-     * Deszyfruje wiadomość kluczem AES
-     * @param encryptedMessage - zaszyfrowana wiadomość (Base64)
-     * @param secretKey - klucz AES pokoju
-     * @return Odszyfrowana wiadomość (plaintext)
-     */
+
+
+    //deszyfruje wiadomosci kluczem AES
     fun decryptMessage(encryptedMessage: String, secretKey: SecretKey): String {
         Log.d(TAG, "Deszyfrowanie wiadomości...")
 
         try {
-            // Dekoduj Base64
+            // dekoduj Base64
             val combined = Base64.decode(encryptedMessage, Base64.NO_WRAP)
 
-            // Rozdziel IV i zaszyfrowane dane
+            // rozdzielenie IV i zaszyfrowanych danych
             val iv = combined.sliceArray(0 until GCM_IV_LENGTH)
             val encryptedBytes = combined.sliceArray(GCM_IV_LENGTH until combined.size)
 
-            // Skonfiguruj cipher w trybie deszyfrowania
+            //konfiguracja cipher w trybie deszyfrowania
             val cipher = Cipher.getInstance("AES/GCM/NoPadding")
             val gcmSpec = GCMParameterSpec(GCM_TAG_LENGTH, iv)
             cipher.init(Cipher.DECRYPT_MODE, secretKey, gcmSpec)
 
-            // Odszyfruj
+            //odszyfrowanie
             val decryptedBytes = cipher.doFinal(encryptedBytes)
             val result = String(decryptedBytes, Charsets.UTF_8)
 
-            Log.d(TAG, "✓ Wiadomość odszyfrowana")
-            Log.d(TAG, "  Długość: ${result.length} znaków")
 
             return result
 
@@ -353,12 +289,9 @@ object CryptoUtils {
         }
     }
 
-    /**
-     * Szyfruje klucz AES kluczem publicznym RSA użytkownika
-     * (Admin używa tego aby zaszyfrować klucz pokoju dla każdego użytkownika)
-     */
+
+    //szyfrowanie klucza AES kluczem poblicznym RSA uzytkownika
     fun encryptAESKeyWithRSA(aesKey: SecretKey, rsaPublicKey: PublicKey): String {
-        Log.d(TAG, "Szyfrowanie klucza AES kluczem RSA...")
 
         try {
             val cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding")
@@ -366,9 +299,6 @@ object CryptoUtils {
 
             val encryptedKeyBytes = cipher.doFinal(aesKey.encoded)
             val result = Base64.encodeToString(encryptedKeyBytes, Base64.NO_WRAP)
-
-            Log.d(TAG, "✓ Klucz AES zaszyfrowany kluczem RSA")
-            Log.d(TAG, "  Długość: ${result.length} znaków")
 
             return result
 
@@ -378,12 +308,9 @@ object CryptoUtils {
         }
     }
 
-    /**
-     * Deszyfruje klucz AES kluczem prywatnym RSA użytkownika
-     * (Użytkownik używa tego aby odszyfrować klucz pokoju)
-     */
+
+    //deszyfrowanie klucza AES kluczem prywatnym
     fun decryptAESKeyWithRSA(encryptedAESKey: String, rsaPrivateKey: PrivateKey): SecretKey {
-        Log.d(TAG, "Deszyfrowanie klucza AES kluczem RSA...")
 
         try {
             val encryptedKeyBytes = Base64.decode(encryptedAESKey, Base64.NO_WRAP)
@@ -393,8 +320,6 @@ object CryptoUtils {
 
             val decryptedKeyBytes = cipher.doFinal(encryptedKeyBytes)
             val secretKey = SecretKeySpec(decryptedKeyBytes, "AES")
-
-            Log.d(TAG, "✓ Klucz AES odszyfrowany kluczem RSA")
 
             return secretKey
 
