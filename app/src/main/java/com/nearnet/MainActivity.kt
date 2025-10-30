@@ -738,8 +738,10 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     fun RecentScreen(navController: NavController) : Unit {
+        val context = LocalContext.current
         val vm = LocalViewModel.current
         val recents = vm.recents.collectAsState().value
+        val inProgess = remember { mutableStateOf(false) }
         Column {
             ScreenTitle("Recent activity")
             LazyColumn(
@@ -754,10 +756,9 @@ class MainActivity : ComponentActivity() {
                         attachmentClickable = false,
                         onClick = { message, room ->
                         if (room != null) {
-                            vm.selectRoom(room)
-                            navController.navigate("roomConversationScreen") {
-                                launchSingleTop = true
-                            }
+                            val progress = inProgess.value
+                            inProgess.value = true
+                            if (!progress) vm.selectRoom(room)
                         }
                         else {
                             throw Error("MessageItem has null room.")
@@ -768,6 +769,29 @@ class MainActivity : ComponentActivity() {
         }
         LaunchedEffect(Unit) {
             vm.loadRecentMessages()
+        }
+        LaunchedEffect(Unit) {
+            vm.selectedRoomEvent.collect { event ->
+                when (event) {
+                    is ProcessEvent.Success -> {
+                        navController.navigate("roomConversationScreen") {
+                            launchSingleTop = true
+                        }
+                    }
+                    is ProcessEvent.Error -> {
+                        Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
+                    }
+                }
+                inProgess.value = false
+            }
+        }
+        LaunchedEffect(Unit) {
+            vm.verifyKeyExistEvent.collect { event ->
+                if (event is ProcessEvent.Error) {
+                    Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
+                    inProgess.value = false
+                }
+            }
         }
     }
 
@@ -819,6 +843,14 @@ class MainActivity : ComponentActivity() {
                     }
                 }
                 inProgess.value = false
+            }
+        }
+        LaunchedEffect(Unit) {
+            vm.verifyKeyExistEvent.collect { event ->
+                if (event is ProcessEvent.Error) {
+                    Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
+                    inProgess.value = false
+                }
             }
         }
     }
@@ -1067,7 +1099,7 @@ class MainActivity : ComponentActivity() {
                     when (event) {
                         is ProcessEvent.Success -> {
                             val createdRoom = event.data
-                            vm.selectRoom(createdRoom)
+                            vm.selectRoom(createdRoom, false)
                             inProgress.value = false
                         }
                         is ProcessEvent.Error -> {
