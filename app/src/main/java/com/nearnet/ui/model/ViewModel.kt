@@ -148,6 +148,8 @@ class NearNetViewModel(): ViewModel() {
     val selectedRoom = selectedRoomMutable.asStateFlow()
     private val selectedRoomEventMutable = MutableSharedFlow<ProcessEvent<RoomData>>()
     val selectedRoomEvent = selectedRoomEventMutable.asSharedFlow()
+    private val verifyKeyExistEventMutable = MutableSharedFlow<ProcessEvent<Unit>>()
+    val verifyKeyExistEvent = verifyKeyExistEventMutable.asSharedFlow()
 
     //Register room
     private val registerRoomEventMutable = MutableSharedFlow<ProcessEvent<RoomData>>()
@@ -714,8 +716,17 @@ class NearNetViewModel(): ViewModel() {
     fun filterDiscoverRooms(filterText: String){
         searchDiscoverTextMutable.value = filterText
     }
-    fun selectRoom(room : RoomData) {
+    fun selectRoom(room : RoomData, verifyKeyExist: Boolean = true) {
         viewModelScope.launch {
+            //weryfikacja czy na urządzeniu jest klucz pokoju
+            if (verifyKeyExist && room.isPrivate) {
+                val result = verifyRoomKeyExist(room)
+                if (!result) {
+                    return@launch
+                }
+            }
+
+            //to się dzieje, jak jest klucz, czyli result==true
             knownUserIds.clear() //czyszczenie listy przy zmianie pokoju
             selectedRoomMutable.value = room
             Log.e("KOT", "SELECT ROOM "+room.name+ " " + room.idAdmin)
@@ -726,6 +737,18 @@ class NearNetViewModel(): ViewModel() {
                 selectedRoomEventMutable.emit(ProcessEvent.Error("Failed to enter the room."))
             }
         }
+    }
+
+    private suspend fun verifyRoomKeyExist(room: RoomData): Boolean {
+        var result = false
+        // result = wywołaj funkcję, która sprawdza czy na urządzeniu jest klucz tego pokoju, jeśli jest to true, jeśli nie to false
+        //wyjaśnienie: jeśli true, to dokańcza się select, jeśli false to select jest przerwyany i nie wchodzi do pokoju, ale rozesłana prośba do userów pokoju o klucz pokoju i hasło
+        result = true //to wykomentować potem
+        if (!result) {
+            verifyKeyExistEventMutable.emit(ProcessEvent.Error("You'll need to wait before you can access this room. Please try again later."))
+            //rozesłanie prośby do userów o przesłanie hasła i klucza pokoju, bez weryfikacji czy mu to przysługuje ;)
+        }
+        return result
     }
 
     private suspend fun refreshRoomUsers() {
