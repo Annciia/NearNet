@@ -24,6 +24,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -31,6 +32,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import com.nearnet.R
 import com.nearnet.ui.model.FILE_ATTACHMENT_MAX_SIZE
@@ -49,7 +52,7 @@ import com.nearnet.ui.theme.standardIconStyle
 fun ConversationPanel() {
     val context = LocalContext.current
     val vm = LocalViewModel.current
-    var messageText by rememberSaveable { mutableStateOf("") }
+    var messageText by remember { mutableStateOf(TextFieldValue(text = "", selection = TextRange(0))) }
     var hideAttachmentPanel by rememberSaveable { mutableStateOf(false) }
     val imageAttachment = rememberSaveable { mutableStateOf<String?>(null) }
     val fileAttachment = rememberSaveable { mutableStateOf<String?>(null) }
@@ -145,9 +148,9 @@ fun ConversationPanel() {
                 modifier = Modifier.weight(1f),
                 placeholderText = "Type message...",
                 value = messageText,
-                onValueChange = { text ->
-                    messageText = text
-                    hideAttachmentPanel = text.isNotEmpty()
+                onValueChange = { textFieldValue ->
+                    messageText = textFieldValue
+                    hideAttachmentPanel = textFieldValue.text.isNotEmpty()
                 }
             )
         }
@@ -163,13 +166,13 @@ fun ConversationPanel() {
                         vm.sendMessage(image, selectedRoom, MessageType.IMAGE)
                     } else if (file != null) {
                         vm.sendMessage(file, selectedRoom, MessageType.FILE)
-                    } else if (messageText.isNotBlank()) {
-                        vm.sendMessage(messageText, selectedRoom, MessageType.TEXT)
+                    } else if (messageText.text.isNotBlank()) {
+                        vm.sendMessage(messageText.text, selectedRoom, MessageType.TEXT)
                     }
                 }
                 imageAttachment.value = null
                 fileAttachment.value = null
-                messageText = ""
+                messageText = TextFieldValue(text = "", selection = TextRange(0))
             }
         )
 
