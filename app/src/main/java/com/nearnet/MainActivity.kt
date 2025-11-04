@@ -6,7 +6,9 @@ import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -62,8 +64,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-//import androidx.compose.ui.graphics.BlendMode.Companion.Color
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -110,6 +112,7 @@ import com.nearnet.ui.model.ROOM_PASSWORD_MAX_LENGTH
 import com.nearnet.ui.model.USER_LOGIN_MAX_LENGTH
 import com.nearnet.ui.model.USER_NAME_MAX_LENGTH
 import com.nearnet.ui.model.USER_PASSWORD_MAX_LENGTH
+import com.nearnet.ui.model.saveMessagesToUri
 import com.nearnet.ui.theme.NearNetTheme
 import kotlinx.coroutines.launch
 
@@ -283,9 +286,16 @@ class MainActivity : ComponentActivity() {
 
     @Composable
     fun RoomTopBar(navController: NavController) {
+        val context = LocalContext.current
         val vm = LocalViewModel.current
         val navState = navController.currentBackStackEntryAsState().value
         val selectedRoom = LocalViewModel.current.selectedRoom.collectAsState().value
+        val fileColor = MaterialTheme.colorScheme.onPrimary.toArgb()
+        val saveFileLauncher = rememberLauncherForActivityResult(
+            ActivityResultContracts.CreateDocument("application/pdf")
+        ) { uri ->
+            if (uri != null) saveMessagesToUri(context, uri, vm.messages.value, vm.roomUsers.value, fileColor)
+        }
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
@@ -317,7 +327,9 @@ class MainActivity : ComponentActivity() {
             if (navState != null && navState.destination.route == "roomConversationScreen") {
                 StandardButton(
                     image=R.drawable.printer,
-                    onClick = { /*navController.navigate("printerScreen") or simply print messages */ }
+                    onClick = { // print messages to PDF
+                        saveFileLauncher.launch((selectedRoom?.name ?: "History") + ".pdf")
+                    }
                 )
             }
             if (navState != null && navState.destination.route == "roomSettingsScreen") {
