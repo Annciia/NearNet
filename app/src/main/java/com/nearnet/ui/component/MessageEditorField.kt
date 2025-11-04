@@ -6,10 +6,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material.icons.Icons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
@@ -24,6 +22,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -31,20 +31,23 @@ import com.nearnet.R
 import com.nearnet.ui.model.MESSAGE_MAX_LENGTH
 import com.nearnet.ui.theme.standardIconStyleTransparent
 
+
+val emojiList = listOf("🦁", "🐈", "😾", "🐱", "😿", "🙀", "🐈‍⬛", "😺", "😽", "😼", "😸", "😹", "😻", "🐅", "🐉", "🐲", "🦊", "🐟", "🐠", "🦎", "🐢", "😆")
+
 @Composable
 fun MessageEditorField(
     modifier: Modifier = Modifier,
     placeholderText: String = "",
     minHeight: Dp = 36.dp,
     maxHeight: Dp = 140.dp,
-    value: String,
-    onValueChange: ((String) -> Unit)
+    value: TextFieldValue,
+    onValueChange: ((TextFieldValue) -> Unit)
 ){
     var lineCount by rememberSaveable { mutableIntStateOf(1) }
     val lineHeight = 18.sp
     BasicTextField(
         value = value,
-        onValueChange = { text -> if (text.length <= MESSAGE_MAX_LENGTH) onValueChange(text) },
+        onValueChange = { textFieldValue : TextFieldValue -> if (textFieldValue.text.length <= MESSAGE_MAX_LENGTH) onValueChange(textFieldValue) },
         onTextLayout = { textLayoutResult ->
             lineCount = textLayoutResult.lineCount
         },
@@ -68,7 +71,7 @@ fun MessageEditorField(
                     .padding(horizontal = 12.dp, vertical = 8.dp),
             ) {
                 Box(Modifier.weight(1f)) {
-                    if (value.isEmpty()) {
+                    if (value.text.isEmpty()) {
                         Text(
                             text = placeholderText,
                             style = LocalTextStyle.current.copy(
@@ -87,7 +90,17 @@ fun MessageEditorField(
                     tint = MaterialTheme.colorScheme.onPrimary,
                     modifier = Modifier
                         .standardIconStyleTransparent()
-                        .clickable {}
+                        .clickable {
+                            if (value.text.length < MESSAGE_MAX_LENGTH) {
+                                val emoji = emojiList[emojiList.indices.random()]
+                                val text = value.text.substring(0, value.selection.start) + emoji + value.text.substring(value.selection.end)
+                                val newValue = value.copy(
+                                    text = text,
+                                    selection = TextRange(value.selection.start + emoji.length)
+                                )
+                                onValueChange(newValue)
+                            }
+                        }
                 )
             }
         }
