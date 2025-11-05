@@ -39,6 +39,7 @@ enum class PopupType {
     JOIN_ROOM_CONFIRMATION,
     JOIN_ROOM_APPROVAL,
     LEAVE_ROOM_CONFIRMATION,
+    LEAVE_ADMIN_CONFIRMATION,
     EDIT_AVATAR,
     USER_LIST_IN_ROOM
 }
@@ -175,6 +176,10 @@ class NearNetViewModel(): ViewModel() {
     private val leaveRoomEventMutable = MutableSharedFlow<ProcessEvent<Unit>>()
     val leaveRoomEvent = leaveRoomEventMutable.asSharedFlow()
 
+    //Leave admin
+    private val leaveAdminEventMutable = MutableSharedFlow<ProcessEvent<Unit>>()
+    val leaveAdminEvent = leaveAdminEventMutable.asSharedFlow()
+
     //Room users
     private val roomUsersMutable = MutableStateFlow(listOf<UserData>())
     val roomUsers = roomUsersMutable.asStateFlow()
@@ -217,7 +222,7 @@ class NearNetViewModel(): ViewModel() {
 
             } catch (e: Exception) {
                 Log.e("LoginError", "Failed to log in", e)
-                selectedUserEventMutable.emit(ProcessEvent.Error("Login failed: ${e.message}"))
+                selectedUserEventMutable.emit(ProcessEvent.Error("Login failed. Please try again."))
             }
         }
     }
@@ -696,6 +701,16 @@ class NearNetViewModel(): ViewModel() {
                 leaveRoomEventMutable.emit(ProcessEvent.Success(Unit))
             } else { //błąd gdzieś i nie udało się
                 leaveRoomEventMutable.emit(ProcessEvent.Error("Failed to leave the room. Please try again."))
+            }
+        }
+    }
+    fun leaveAdmin(room: RoomData) {
+        viewModelScope.launch {
+            var isLeftAdmin: Boolean = false
+            //TODO Call asynchronous function to leave the admin role
+            isLeftAdmin = true
+            if (!isLeftAdmin) {
+                leaveAdminEventMutable.emit(ProcessEvent.Error("Failed to leave the admin role. Please try again."))
             }
         }
     }

@@ -80,6 +80,7 @@ fun PopupBox() {
                         PopupType.JOIN_ROOM_CONFIRMATION -> JoinRoomConfirmationPopup(popupContext)
                         PopupType.JOIN_ROOM_APPROVAL -> JoinRoomApprovalPopup(popupContext)
                         PopupType.LEAVE_ROOM_CONFIRMATION -> LeaveRoomConfirmationPopup()
+                        PopupType.LEAVE_ADMIN_CONFIRMATION -> LeaveAdminConfirmationPopup()
                         PopupType.EDIT_AVATAR -> EditAvatarPopup(popupContext)
                         PopupType.USER_LIST_IN_ROOM -> UserListInRoomPopup()
                     }
@@ -318,6 +319,25 @@ fun LeaveRoomConfirmationPopup() {
         onAccept = {
             vm.closePopup()
             vm.leaveRoom()
+        },
+        onCancel = {
+            vm.closePopup()
+        }
+    )
+}
+
+@Composable
+fun LeaveAdminConfirmationPopup() {
+    val vm = LocalViewModel.current
+    val selectedRoom = vm.selectedRoom.collectAsState().value
+    DialogPopup(
+        title = "Leave admin role",
+        text = "Are you sure you want to resign from the admin role?",
+        onAccept = {
+            vm.closePopup()
+            if (selectedRoom != null) {
+                vm.leaveAdmin(selectedRoom)
+            }
         },
         onCancel = {
             vm.closePopup()

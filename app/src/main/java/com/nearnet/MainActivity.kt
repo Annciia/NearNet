@@ -968,136 +968,146 @@ class MainActivity : ComponentActivity() {
             return selectedUser !== null && selectedRoom !== null && (selectedUser.id == selectedRoom.idAdmin || selectedRoom.idAdmin == null)
         }
         Column(
-            modifier = Modifier.verticalScroll(scrollPosition)
+            modifier = Modifier.fillMaxHeight().verticalScroll(scrollPosition),
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
-            if (selectedRoom != null) { //roomSettingsScreen
+            Column {
+                if (selectedRoom != null) { //roomSettingsScreen
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        ScreenTitle("Room settings")
+                        Button(onClick = {
+                            vm.selectPopup(PopupType.USER_LIST_IN_ROOM)
+                        }) {
+                            Text("Users")
+                        }
+                    }
+                } else { //createRoomScreen
+                    ScreenTitle("Create new room")
+                }
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    ScreenTitle("Room settings")
-                    Button(onClick = {
-                        vm.selectPopup(PopupType.USER_LIST_IN_ROOM)
-                    }) {
-                        Text("Users")
-                    }
+                    AvatarPicker(R.drawable.image, avatar.value, onAvatarChange = { base64 -> avatar.value = base64 })
+                    Spacer(Modifier.width(10.dp))
+                    PlainTextField(
+                        value = roomName,
+                        onValueChange = { text -> roomName = text },
+                        placeholderText = "room name",
+                        singleLine = true,
+                        maxChars = ROOM_NAME_MAX_LENGTH,
+                        modifier = Modifier.weight(1f)
+                    )
                 }
-            } else { //createRoomScreen
-                ScreenTitle("Create new room")
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                AvatarPicker(R.drawable.image, avatar.value, onAvatarChange = { base64 -> avatar.value = base64 })
-                Spacer(Modifier.width(10.dp))
+                Spacer(Modifier.height(10.dp))
                 PlainTextField(
-                    value = roomName,
-                    onValueChange = { text -> roomName = text },
-                    placeholderText = "room name",
-                    singleLine = true,
-                    maxChars = ROOM_NAME_MAX_LENGTH,
-                    modifier = Modifier.weight(1f)
+                    value = roomDescription,
+                    onValueChange = { text -> roomDescription = text },
+                    placeholderText = "description",
+                    singleLine = false,
+                    maxLines = ROOM_DESCRIPTION_MAX_LINES,
+                    maxChars = ROOM_DESCRIPTION_MAX_LENGTH,
+                    modifier = Modifier.fillMaxWidth()
                 )
-            }
-            Spacer(Modifier.height(10.dp))
-            PlainTextField(
-                value = roomDescription,
-                onValueChange = { text -> roomDescription = text },
-                placeholderText = "description",
-                singleLine = false,
-                maxLines = ROOM_DESCRIPTION_MAX_LINES,
-                maxChars = ROOM_DESCRIPTION_MAX_LENGTH,
-                modifier = Modifier.fillMaxWidth()
-            )
 
-            if (selectedRoom == null || isAdminOrFree()) {
-                Spacer(Modifier.height(10.dp))
-                PlainTextField(
-                    value = password.value,
-                    onValueChange = { text -> password.value = text },
-                    placeholderText = "password",
-                    singleLine = true,
-                    maxChars = ROOM_PASSWORD_MAX_LENGTH,
-                    passwordField = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    enable = !isCheckedPublic
-                )
-                Spacer(Modifier.height(10.dp))
-                PlainTextField(
-                    value = passwordConfirmation.value,
-                    onValueChange = { text -> passwordConfirmation.value = text },
-                    placeholderText = "confirm password",
-                    singleLine = true,
-                    maxChars = ROOM_PASSWORD_MAX_LENGTH,
-                    passwordField = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    enable = !isCheckedPublic
-                )
-                Spacer(Modifier.height(20.dp))
-                //Switches
-                LabeledSwitch(
-                    title = "Allow for public access",
-                    description = "When enabled, everyone can join the room without your approval.",
-                    isChecked = isCheckedPublic,
-                    onCheckedChange = { switchState -> isCheckedPublic = switchState })
-                Spacer(Modifier.height(10.dp))
-                LabeledSwitch(
-                    title = "Visible only by name",
-                    description = "When enabled, the room can only be found by entering its full name.",
-                    isChecked = isCheckedVisible,
-                    onCheckedChange = { switchState -> isCheckedVisible = switchState })
-            }
-            Spacer(Modifier.height(20.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-            ) {
-                Button(onClick = {
-                    navController.popBackStack()
-                }) {
-                    Text("Cancel")
+                if (selectedRoom == null || isAdminOrFree()) {
+                    Spacer(Modifier.height(10.dp))
+                    PlainTextField(
+                        value = password.value,
+                        onValueChange = { text -> password.value = text },
+                        placeholderText = "password",
+                        singleLine = true,
+                        maxChars = ROOM_PASSWORD_MAX_LENGTH,
+                        passwordField = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        enable = !isCheckedPublic
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    PlainTextField(
+                        value = passwordConfirmation.value,
+                        onValueChange = { text -> passwordConfirmation.value = text },
+                        placeholderText = "confirm password",
+                        singleLine = true,
+                        maxChars = ROOM_PASSWORD_MAX_LENGTH,
+                        passwordField = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        enable = !isCheckedPublic
+                    )
+                    Spacer(Modifier.height(20.dp))
+                    //Switches
+                    LabeledSwitch(
+                        title = "Allow for public access",
+                        description = "When enabled, everyone can join the room without your approval.",
+                        isChecked = isCheckedPublic,
+                        onCheckedChange = { switchState -> isCheckedPublic = switchState })
+                    Spacer(Modifier.height(10.dp))
+                    LabeledSwitch(
+                        title = "Visible only by name",
+                        description = "When enabled, the room can only be found by entering its full name.",
+                        isChecked = isCheckedVisible,
+                        onCheckedChange = { switchState -> isCheckedVisible = switchState })
                 }
-                Spacer(Modifier.width(10.dp))
-                Button(
-                    onClick = {
-                        inProgress.value = true
-                        if (selectedRoom != null) { //roomSettingsScreen
-                            vm.updateRoom(roomName, roomDescription, avatar.value, getPassword(), passwordConfirmation.value, !isCheckedPublic, !isCheckedVisible, "")
-                        } else { //createRoomScreen
-                            vm.createRoom(roomName, roomDescription, avatar.value, getPassword(), passwordConfirmation.value, !isCheckedPublic, !isCheckedVisible, "")
-                        }
-                        //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
-                    },
-                    enabled = vm.validateRoom(roomName, roomDescription, getPassword(), passwordConfirmation.value, avatar.value, !isCheckedPublic, !isCheckedVisible, "", selectedRoom != null) && !inProgress.value
+                Spacer(Modifier.height(20.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
                 ) {
-                    if (selectedRoom != null) { //roomSettingsScreen
-                        Text("Accept")
-                    } else { //createRoomScreen
-                        Text("Create")
+                    Button(onClick = {
+                        navController.popBackStack()
+                    }) {
+                        Text("Cancel")
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Button(
+                        onClick = {
+                            inProgress.value = true
+                            if (selectedRoom != null) { //roomSettingsScreen
+                                vm.updateRoom(roomName, roomDescription, avatar.value, getPassword(), passwordConfirmation.value, !isCheckedPublic, !isCheckedVisible, "")
+                            } else { //createRoomScreen
+                                vm.createRoom(roomName, roomDescription, avatar.value, getPassword(), passwordConfirmation.value, !isCheckedPublic, !isCheckedVisible, "")
+                            }
+                            //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
+                        },
+                        enabled = vm.validateRoom(roomName, roomDescription, getPassword(), passwordConfirmation.value, avatar.value, !isCheckedPublic, !isCheckedVisible, "", selectedRoom != null) && !inProgress.value
+                    ) {
+                        if (selectedRoom != null) { //roomSettingsScreen
+                            Text("Accept")
+                        } else { //createRoomScreen
+                            Text("Create")
+                        }
                     }
                 }
+                Spacer(Modifier.height(10.dp))
             }
-            Spacer(Modifier.height(10.dp))
             if (selectedRoom != null && selectedUser != null) { //Only the admin can delete their room.
                 Column(
-                    modifier = Modifier.weight(1f).padding(vertical = 5.dp),
+                    modifier = Modifier.padding(vertical = 5.dp),
                     verticalArrangement = Arrangement.Bottom
                 ) {
                     if (selectedRoom.idAdmin == selectedUser.id) {
-                        Button(onClick = {
-                            vm.selectPopup(PopupType.DELETE_ROOM_CONFIRMATION)
-                            //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
-                        }) {
-                            Text("Delete room")
+                        Row {
+                            Button(onClick = {
+                                vm.selectPopup(PopupType.LEAVE_ADMIN_CONFIRMATION)
+                                //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
+                            }) {
+                                Text("Leave admin")
+                            }
+                            Spacer(Modifier.width(10.dp))
+                            Button(onClick = {
+                                vm.selectPopup(PopupType.DELETE_ROOM_CONFIRMATION)
+                                //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
+                            }) {
+                                Text("Delete room")
+                            }
                         }
                     } else if (selectedRoom.idAdmin == null) {
                         Button(onClick = {
                             vm.updateRoomAdmin(selectedUser.id) // TODO MAREK Daj możliwość zmiany Admina (chcę podać inne idAdmin niż jest, np.obecnego usera)
-
-
-                        //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
+                            //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
                         }) {
                             Text("Claim the room")
                         }
@@ -1182,6 +1192,13 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+            launch {
+                vm.leaveAdminEvent.collect { event ->
+                    if (event is ProcessEvent.Error) {
+                        Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
         }
     }
 
@@ -1198,92 +1215,95 @@ class MainActivity : ComponentActivity() {
 
         //Wygląd ekranu
         Column(
-            modifier = Modifier.verticalScroll(scrollPosition)
+            modifier = Modifier.fillMaxHeight().verticalScroll(scrollPosition),
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
-            ScreenTitle("User profile settings")
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                AvatarPicker(R.drawable.spacecat, avatar.value, onAvatarChange = { base64 -> avatar.value = base64 })
-                Spacer(Modifier.width(10.dp))
-                PlainTextField(
-                    value = userName.value,
-                    onValueChange = { text -> userName.value = text },
-                    placeholderText = "user name",
-                    singleLine = true,
-                    maxChars = USER_NAME_MAX_LENGTH,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-            Spacer(Modifier.height(10.dp))
-            PlainTextField(
-                value = currentPassword.value,
-                onValueChange = { text -> currentPassword.value = text },
-                placeholderText = "current password",
-                singleLine = true,
-                maxChars = USER_PASSWORD_MAX_LENGTH,
-                passwordField = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(Modifier.height(5.dp))
-            if (newPassword.value.isNotEmpty()) {
-                PasswordValidationText(newPassword.value, passwordConfirmation.value)
-            }
-            Spacer(Modifier.height(5.dp))
-            PlainTextField(
-                value = newPassword.value,
-                onValueChange = { text -> newPassword.value = text },
-                placeholderText = "new password",
-                singleLine = true,
-                maxChars = USER_PASSWORD_MAX_LENGTH,
-                passwordField = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(Modifier.height(10.dp))
-            PlainTextField(
-                value = passwordConfirmation.value,
-                onValueChange = { text -> passwordConfirmation.value = text },
-                placeholderText = "confirm new password",
-                singleLine = true,
-                maxChars = USER_PASSWORD_MAX_LENGTH,
-                passwordField = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(Modifier.height(20.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
-            ) {
-                if(!vm.welcomeState.value) {
-                    Button(onClick = {
-                        navController.popBackStack()
-                    }) {
-                        Text("Cancel")
-                    }
-                } else{
-                    Button(onClick = {
-                        navController.navigate("discoverScreen") {
-                            launchSingleTop = true
-                        }
-                    }) {
-                        Text("Skip")
-                    }
-                }
-                Spacer(Modifier.width(10.dp))
-                Button(
-                    onClick = {
-                        vm.updateUser(userName.value, currentPassword.value, newPassword.value, passwordConfirmation.value, avatar.value, "")
-                        //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
-                    },
-                    enabled = vm.validateUpdateUser(userName.value, currentPassword.value, newPassword.value, passwordConfirmation.value, avatar.value, "")
+            Column {
+                ScreenTitle("User profile settings")
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Accept")
+                    AvatarPicker(R.drawable.spacecat, avatar.value, onAvatarChange = { base64 -> avatar.value = base64 })
+                    Spacer(Modifier.width(10.dp))
+                    PlainTextField(
+                        value = userName.value,
+                        onValueChange = { text -> userName.value = text },
+                        placeholderText = "user name",
+                        singleLine = true,
+                        maxChars = USER_NAME_MAX_LENGTH,
+                        modifier = Modifier.weight(1f)
+                    )
                 }
+                Spacer(Modifier.height(10.dp))
+                PlainTextField(
+                    value = currentPassword.value,
+                    onValueChange = { text -> currentPassword.value = text },
+                    placeholderText = "current password",
+                    singleLine = true,
+                    maxChars = USER_PASSWORD_MAX_LENGTH,
+                    passwordField = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(5.dp))
+                if (newPassword.value.isNotEmpty()) {
+                    PasswordValidationText(newPassword.value, passwordConfirmation.value)
+                }
+                Spacer(Modifier.height(5.dp))
+                PlainTextField(
+                    value = newPassword.value,
+                    onValueChange = { text -> newPassword.value = text },
+                    placeholderText = "new password",
+                    singleLine = true,
+                    maxChars = USER_PASSWORD_MAX_LENGTH,
+                    passwordField = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(10.dp))
+                PlainTextField(
+                    value = passwordConfirmation.value,
+                    onValueChange = { text -> passwordConfirmation.value = text },
+                    placeholderText = "confirm new password",
+                    singleLine = true,
+                    maxChars = USER_PASSWORD_MAX_LENGTH,
+                    passwordField = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(20.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    if (!vm.welcomeState.value) {
+                        Button(onClick = {
+                            navController.popBackStack()
+                        }) {
+                            Text("Cancel")
+                        }
+                    } else {
+                        Button(onClick = {
+                            navController.navigate("discoverScreen") {
+                                launchSingleTop = true
+                            }
+                        }) {
+                            Text("Skip")
+                        }
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Button(
+                        onClick = {
+                            vm.updateUser(userName.value, currentPassword.value, newPassword.value, passwordConfirmation.value, avatar.value, "")
+                            //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
+                        },
+                        enabled = vm.validateUpdateUser(userName.value, currentPassword.value, newPassword.value, passwordConfirmation.value, avatar.value, "")
+                    ) {
+                        Text("Accept")
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
             }
-            Spacer(Modifier.height(10.dp))
             Column(
-                modifier = Modifier.weight(1f).padding(vertical = 5.dp),
+                modifier = Modifier.padding(vertical = 5.dp),
                 verticalArrangement = Arrangement.Bottom
             ) {
                 Button(onClick = {
