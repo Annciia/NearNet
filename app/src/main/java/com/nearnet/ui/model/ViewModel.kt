@@ -492,9 +492,8 @@ class NearNetViewModel(): ViewModel() {
 
     fun updateRoomAdmin(idAdmin: String){
         viewModelScope.launch {
-            var result = false
-            // result = updateRoomAdmin(idAdmin)
-            result = true
+            val room = selectedRoom.value
+            val result = roomRepository.updateRoomAdmin(room!!.idRoom)
             if (result) {
                 updateRoomEventMutable.emit(ProcessEvent.Success(Unit))
             } else {
@@ -740,10 +739,18 @@ class NearNetViewModel(): ViewModel() {
     }
 
     private suspend fun verifyRoomKeyExist(room: RoomData): Boolean {
-        var result = false
+        //var result = false
         // result = wywołaj funkcję, która sprawdza czy na urządzeniu jest klucz tego pokoju, jeśli jest to true, jeśli nie to false
         //wyjaśnienie: jeśli true, to dokańcza się select, jeśli false to select jest przerwyany i nie wchodzi do pokoju, ale rozesłana prośba do userów pokoju o klucz pokoju i hasło
-        result = true //to wykomentować potem
+        //result = true //to wykomentować potem
+        val hasKey = roomRepository.verifyRoomKeyExists(room.idRoom, room.isPrivate)
+        if (hasKey) {
+            Log.d("ViewModel", "User has key - allowing access")
+            return true
+        }
+
+        val result = roomRepository.requestKeyAgain(room.idRoom)
+
         if (!result) {
             verifyKeyExistEventMutable.emit(ProcessEvent.Error("You'll need to wait before you can access this room. Please try again later."))
             //rozesłanie prośby do userów o przesłanie hasła i klucza pokoju, bez weryfikacji czy mu to przysługuje ;)

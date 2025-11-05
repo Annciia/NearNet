@@ -965,7 +965,7 @@ class MainActivity : ComponentActivity() {
             }
         }
         fun isAdminOrFree(): Boolean {
-            return selectedUser !== null && selectedRoom !== null && (selectedUser.id == selectedRoom.idAdmin || selectedRoom.idAdmin == null)
+            return selectedUser !== null && selectedRoom !== null && (selectedUser.id == selectedRoom.idAdmin || selectedRoom.idAdmin.isNullOrEmpty())
         }
         Column(
             modifier = Modifier.verticalScroll(scrollPosition)
@@ -1082,8 +1082,12 @@ class MainActivity : ComponentActivity() {
             Spacer(Modifier.height(10.dp))
             if (selectedRoom != null && selectedUser != null) { //Only the admin can delete their room.
                 Column(
-                    modifier = Modifier.weight(1f).padding(vertical = 5.dp),
-                    verticalArrangement = Arrangement.Bottom
+                    //zmienione bo sie przycisk Claim i Delete room nie pokazywal, bo mialo 0 po rodzicach
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 5.dp)
+                    //modifier = Modifier.weight(1f).padding(vertical = 5.dp),
+                    //verticalArrangement = Arrangement.Bottom
                 ) {
                     if (selectedRoom.idAdmin == selectedUser.id) {
                         Button(onClick = {
@@ -1092,7 +1096,7 @@ class MainActivity : ComponentActivity() {
                         }) {
                             Text("Delete room")
                         }
-                    } else if (selectedRoom.idAdmin == null) {
+                    } else if (selectedRoom.idAdmin.isNullOrBlank()) {
                         Button(onClick = {
                             vm.updateRoomAdmin(selectedUser.id) // TODO MAREK Daj możliwość zmiany Admina (chcę podać inne idAdmin niż jest, np.obecnego usera)
 

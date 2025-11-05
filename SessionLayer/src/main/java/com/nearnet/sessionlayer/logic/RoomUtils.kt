@@ -190,6 +190,18 @@ interface RoomApiService {
         @Path("id") roomId: String
     ): Response<EncryptedRoomKeyResponse>
 
+    @POST("/api/rooms/{id}/set-admin")
+    suspend fun updateRoomAdmin(
+        @Header("Authorization") token: String,
+        @Path("id") roomId: String
+    ): Response<SimpleResponse>
+
+    @POST("/api/rooms/{id}/request-key-again")
+    suspend fun requestKeyAgain(
+        @Header("Authorization") token: String,
+        @Path("id") roomId: String
+    ): Response<SimpleResponse>
+
 
 }
 
@@ -812,6 +824,103 @@ class RoomRepository(private val context: Context) {
         } catch (e: Exception) {
             Log.e("ROOM", "Exception in leaveRoom", e)
             false
+        }
+    }
+
+    suspend fun updateRoomAdmin(roomId: String): Boolean = withContext(Dispatchers.IO) {
+        val token = getToken()
+        if (token.isNullOrBlank()) {
+            return@withContext false
+        }
+
+        try {
+            Log.d("ROOM", "Attempting to claim room: $roomId")
+
+            val response = api.updateRoomAdmin(token, roomId)
+
+            Log.d("ROOM", "updateRoomAdmin response code: ${response.code()}")
+
+            if (response.isSuccessful) {
+                val success = response.body()?.success == true
+                if (success) {
+                    Log.d("ROOM", "Successfully claimed room $roomId")
+                } else {
+                    Log.e("ROOM", "UpdateRoomAdmin failed")
+                }
+                return@withContext success
+            } else {
+                val errorBody = response.errorBody()?.string()
+                Log.e("ROOM", "updateRoomAdmin failed: ${response.code()} $errorBody")
+                return@withContext false
+            }
+
+        } catch (e: Exception) {
+            Log.e("ROOM", "Exception in updateRoomAdmin", e)
+            return@withContext false
+        }
+    }
+
+    suspend fun requestKeyAgain(roomId: String): Boolean = withContext(Dispatchers.IO) {
+        val token = getToken()
+        if (token.isNullOrBlank()) {
+            Log.e("ROOM", "No token available for requestKeyAgain")
+            return@withContext false
+        }
+
+        try {
+            Log.d("ROOM", "Requesting key again for room: $roomId")
+
+            val response = api.requestKeyAgain(token, roomId)
+
+            Log.d("ROOM", "requestKeyAgain response code: ${response.code()}")
+
+            if (response.isSuccessful) {
+                val success = response.body()?.success == true
+                if (success) {
+                    Log.d("ROOM", "✓ Key request sent successfully")
+                    Log.d("ROOM", "  Status changed to 'waitingForKey'")
+                    Log.d("ROOM", "  Other users will be notified to send the key")
+                } else {
+                    Log.e("ROOM", "✗ Server returned success=false")
+                }
+                return@withContext success
+            } else {
+                val errorBody = response.errorBody()?.string()
+                Log.e("ROOM", "✗ requestKeyAgain failed: ${response.code()} $errorBody")
+
+                // Parsuj błędy:
+                when (response.code()) {
+                    403 -> Log.e("ROOM", "  Not in room")
+                    404 -> Log.e("ROOM", "  No access request found")
+                    400 -> Log.e("ROOM", "  Can only re-request if status is 'accepted'")
+                }
+
+                return@withContext false
+            }
+
+        } catch (e: Exception) {
+            Log.e("ROOM", "✗ Exception in requestKeyAgain", e)
+            return@withContext false
+        }
+    }
+
+    suspend fun verifyRoomKeyExists(roomId: String, isPrivate: Boolean): Boolean = withContext(Dispatchers.IO) {
+        Log.d("ROOM", "Verifying room key for: $roomId")
+
+
+        if (!isPrivate) {
+            Log.d("ROOM", "Public room - no key needed")
+            return@withContext true
+        }
+
+        val hasKey = hasRoomAESKey(roomId)
+
+        if (hasKey) {
+            Log.d("ROOM", "User has room key")
+            return@withContext true
+        } else {
+            Log.w("ROOM", "User does NOT have room key")
+            return@withContext false
         }
     }
 
