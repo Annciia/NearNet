@@ -967,6 +967,11 @@ class MainActivity : ComponentActivity() {
         fun isAdminOrFree(): Boolean {
             return selectedUser !== null && selectedRoom !== null && (selectedUser.id == selectedRoom.idAdmin || selectedRoom.idAdmin.isNullOrEmpty())
         }
+
+        fun isAdmin(): Boolean {
+            return selectedUser != null && selectedRoom != null && selectedUser.id == selectedRoom.idAdmin
+        }
+        //dodanie funkcji sprawdzajace, czy user jest adminem pokoju, do odrzucenia bycia adminem pokoju
         Column(
             modifier = Modifier.verticalScroll(scrollPosition)
         ) {
@@ -1054,6 +1059,17 @@ class MainActivity : ComponentActivity() {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End
             ) {
+                //dodanie przycisku o odrzucenie bycia aminem
+                if (selectedRoom != null && isAdmin()) {
+                    Button(
+                        onClick = {
+                            vm.selectPopup(PopupType.DROP_ADMIN_CONFIRMATION)
+                        },
+                    ) {
+                        Text("Drop")
+                    }
+                    Spacer(Modifier.width(10.dp))
+                }
                 Button(onClick = {
                     navController.popBackStack()
                 }) {
@@ -1182,6 +1198,20 @@ class MainActivity : ComponentActivity() {
                         }
                         is ProcessEvent.Error -> {
                             Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            }
+            launch {
+                vm.dropAdminEvent.collect { event ->
+                    when (event) {
+                        is ProcessEvent.Success -> {
+                            Toast.makeText(context, "You are no longer the admin.", Toast.LENGTH_SHORT).show()
+                            // Odśwież pokój żeby pokazać nowy stan
+                            navController.popBackStack()
+                        }
+                        is ProcessEvent.Error -> {
+                            Toast.makeText(context, event.err, Toast.LENGTH_LONG).show()
                         }
                     }
                 }

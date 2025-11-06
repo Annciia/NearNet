@@ -174,6 +174,18 @@ class UserRepository(private val context: Context) {
             val userData = res.userData.copy(login = login.trim())
 
             Log.d("LOGIN_DEBUG", "Mapped UserData: $userData")
+
+            try {
+                val keysOk = verifyAndRegenerateKeysIfNeeded(userData.id, login.trim())
+                if (keysOk) {
+                    Log.d("LOGIN_DEBUG", "RSA keys verified/regenerated successfully")
+                } else {
+                    Log.w("LOGIN_DEBUG", "RSA keys verification had issues (but login continues)")
+                    // Nie przerywamy logowania - user może dalej korzystać
+                }
+            } catch (e: Exception) {
+                Log.e("LOGIN_DEBUG", "Exception during key verification", e)
+            }
             return@withContext userData
         } else {
             if (!res.success) Log.e("LOGIN_DEBUG", "Login failed: success=false")
@@ -335,6 +347,100 @@ class UserRepository(private val context: Context) {
             return@withContext null
         }
     }
+    //aktualizacja klucza publicznego na serwerze,
+    private suspend fun updatePublicKeyOnServer(publicKeyString: String): Boolean = withContext(Dispatchers.IO) {
+        val token = getTokenFromPreferences(context) ?: return@withContext false
+
+        Log.d("USER_KEYS", "Updating public key on server...")
+
+        //aktualizacja public key na serwerze przy uzyciu wczesniejszej funkcji updateUser
+        val payload: Map<String, String> = mapOf(
+            "publicKey" to publicKeyString
+        )
+
+        try {
+            val response = api.updateUser("Bearer $token", payload)
+
+            if (response.isSuccessful) {
+                val raw = response.body()?.string()
+                Log.d("USER_KEYS", "✓ Server accepted new public key")
+                Log.d("USER_KEYS", "  Response: $raw")
+                return@withContext true
+            } else {
+                val errorText = response.errorBody()?.string() ?: "Unknown error"
+                Log.e("USER_KEYS", "✗ Server rejected public key: ${response.code()} $errorText")
+                return@withContext false
+            }
+
+        } catch (e: Exception) {
+            Log.e("USER_KEYS", "✗ Exception sending public key to server", e)
+            return@withContext false
+        }
+    }
+
+    suspend fun verifyAndRegenerateKeysIfNeeded(userId: String, login: String): Boolean = withContext(Dispatchers.IO) {
+        Log.d("USER_KEYS", "=== Verifying RSA keys for user: $login (ID: $userId) ===")
+
+        //sprawdzanie, czy uzytkownik ma klucze RSA lokalnie
+        val hasKeys = CryptoUtils.hasKeysForUser(context, login)
+        Log.d("USER_KEYS", "User has local keys: $hasKeys")
+
+        if (hasKeys) {
+            // sprawdzenie, czy klucze sa czytelne
+            val privateKey = CryptoUtils.getPrivateKey(context, login)
+            val publicKey = CryptoUtils.getPublicKey(context, login)
+
+            if (privateKey != null && publicKey != null) {
+                Log.d("USER_KEYS", "Keys are valid and readable")
+                return@withContext true
+            } else {
+                Log.w("USER_KEYS", "Keys exist but are corrupted - regenerating")
+            }
+        } else {
+            Log.w("USER_KEYS", "User does NOT have keys - new device detected")
+        }
+
+        //jesli nie ma kluczy generuje nowe
+        Log.d("USER_KEYS", "Generating new RSA key pair...")
+
+        try {
+            val newKeyPair = CryptoUtils.generateRSAKeys()
+            Log.d("USER_KEYS", "New key pair generated")
+
+            //zapis kluczy prywatnie
+            CryptoUtils.savePrivateKey(context, login, newKeyPair.private)
+            CryptoUtils.savePublicKey(context, login, newKeyPair.public)
+            Log.d("USER_KEYS", "Keys saved locally")
+
+            // weryfikacja zapisu
+            val savedSuccessfully = CryptoUtils.hasKeysForUser(context, login)
+            if (!savedSuccessfully) {
+                Log.e("USER_KEYS", "Failed to save keys locally!")
+                return@withContext false
+            }
+
+            //wyslanie nowego klucza publicznego na serwer
+            val publicKeyString = CryptoUtils.publicKeyToString(newKeyPair.public)
+
+            val success = updatePublicKeyOnServer(publicKeyString)
+
+            if (success) {
+                Log.d("USER_KEYS", "Public key sent to server successfully")
+                Log.d("USER_KEYS", "Key regeneration complete")
+                return@withContext true
+            } else {
+                Log.e("USER_KEYS", "Failed to send public key to server")
+                // llucze są zapisane lokalnie, ale serwer ich nie ma
+                return@withContext false
+            }
+
+        } catch (e: Exception) {
+            Log.e("USER_KEYS", "✗ Exception during key regeneration", e)
+            return@withContext false
+        }
+    }
+
+
 
 
 

@@ -202,6 +202,12 @@ interface RoomApiService {
         @Path("id") roomId: String
     ): Response<SimpleResponse>
 
+    @POST("/api/rooms/{id}/unset-admin")
+    suspend fun dropAdmin(
+        @Header("Authorization") token: String,
+        @Path("id") roomId: String
+    ): Response<SimpleResponse>
+
 
 }
 
@@ -860,6 +866,40 @@ class RoomRepository(private val context: Context) {
         }
     }
 
+    suspend fun dropAdmin(roomId: String): Boolean = withContext(Dispatchers.IO) {
+        val token = getToken()
+        if (token.isNullOrBlank()) {
+            Log.e("ROOM", "No token available for dropAdmin")
+            return@withContext false
+        }
+
+        try {
+            Log.d("ROOM", "Dropping admin status for room: $roomId")
+
+            val response = api.dropAdmin(token, roomId)
+
+            Log.d("ROOM", "dropAdmin response code: ${response.code()}")
+
+            if (response.isSuccessful) {
+                val success = response.body()?.success == true
+                if (success) {
+                    Log.d("ROOM", "Admin status dropped successfully")
+                } else {
+                    Log.e("ROOM", "Server returned success=false")
+                }
+                return@withContext success
+            } else {
+                val errorBody = response.errorBody()?.string()
+                Log.e("ROOM", "dropAdmin failed: ${response.code()} $errorBody")
+                return@withContext false
+            }
+
+        } catch (e: Exception) {
+            Log.e("ROOM", "Exception in dropAdmin", e)
+            return@withContext false
+        }
+    }
+
     suspend fun requestKeyAgain(roomId: String): Boolean = withContext(Dispatchers.IO) {
         val token = getToken()
         if (token.isNullOrBlank()) {
@@ -877,22 +917,22 @@ class RoomRepository(private val context: Context) {
             if (response.isSuccessful) {
                 val success = response.body()?.success == true
                 if (success) {
-                    Log.d("ROOM", "✓ Key request sent successfully")
-                    Log.d("ROOM", "  Status changed to 'waitingForKey'")
-                    Log.d("ROOM", "  Other users will be notified to send the key")
+                    Log.d("ROOM", "Key request sent successfully")
+                    Log.d("ROOM", "Status changed to 'waitingForKey'")
+                    Log.d("ROOM", "Other users will be notified to send the key")
                 } else {
-                    Log.e("ROOM", "✗ Server returned success=false")
+                    Log.e("ROOM", "Server returned success=false")
                 }
                 return@withContext success
             } else {
                 val errorBody = response.errorBody()?.string()
-                Log.e("ROOM", "✗ requestKeyAgain failed: ${response.code()} $errorBody")
+                Log.e("ROOM", "requestKeyAgain failed: ${response.code()} $errorBody")
 
                 // Parsuj błędy:
                 when (response.code()) {
-                    403 -> Log.e("ROOM", "  Not in room")
-                    404 -> Log.e("ROOM", "  No access request found")
-                    400 -> Log.e("ROOM", "  Can only re-request if status is 'accepted'")
+                    403 -> Log.e("ROOM", " Not in room")
+                    404 -> Log.e("ROOM", " No access request found")
+                    400 -> Log.e("ROOM", " Can only re-request if status is 'accepted'")
                 }
 
                 return@withContext false
@@ -923,6 +963,8 @@ class RoomRepository(private val context: Context) {
             return@withContext false
         }
     }
+
+
 
 }
 
