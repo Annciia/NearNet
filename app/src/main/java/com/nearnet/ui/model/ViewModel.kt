@@ -40,7 +40,8 @@ enum class PopupType {
     JOIN_ROOM_APPROVAL,
     LEAVE_ROOM_CONFIRMATION,
     EDIT_AVATAR,
-    USER_LIST_IN_ROOM
+    USER_LIST_IN_ROOM,
+    DROP_ADMIN_CONFIRMATION
 }
 class PopupContext(
     val type: PopupType,
@@ -200,6 +201,10 @@ class NearNetViewModel(): ViewModel() {
     private val queuedPopupList = LinkedList<PopupContext>()
     private val selectedPopupMutable = MutableStateFlow<PopupContext?>(null)
     val selectedPopup = selectedPopupMutable.asStateFlow()
+
+    //admin leave room
+    private val dropAdminEventMutable = MutableSharedFlow<ProcessEvent<Unit>>()
+    val dropAdminEvent = dropAdminEventMutable.asSharedFlow()
 
     //constructor to VievModel
     init {
@@ -492,9 +497,8 @@ class NearNetViewModel(): ViewModel() {
 
     fun updateRoomAdmin(idAdmin: String){
         viewModelScope.launch {
-            var result = false
-            // result = updateRoomAdmin(idAdmin)
-            result = true
+            val room = selectedRoom.value
+            val result = roomRepository.updateRoomAdmin(room!!.idRoom)
             if (result) {
                 updateRoomEventMutable.emit(ProcessEvent.Success(Unit))
             } else {
@@ -710,6 +714,70 @@ class NearNetViewModel(): ViewModel() {
             }
         }
     }
+
+    fun dropAdmin() {
+        viewModelScope.launch {
+            Log.d("ViewModel", "dropAdmin called")
+
+            val room = selectedRoom.value
+            val user = selectedUser.value
+
+            // Walidacja: pokój musi być wybrany
+            if (room == null) {
+                Log.e("ViewModel", "✗ No room selected")
+                dropAdminEventMutable.emit(
+                    ProcessEvent.Error("No room selected")
+                )
+                return@launch
+            }
+
+            // Walidacja: user musi być zalogowany
+            if (user == null) {
+                Log.e("ViewModel", "✗ No user logged in")
+                dropAdminEventMutable.emit(
+                    ProcessEvent.Error("Not logged in")
+                )
+                return@launch
+            }
+
+            // Walidacja: user MUSI być adminem
+            if (room.idAdmin != user.id) {
+                Log.e("ViewModel", "✗ User is not the admin")
+                dropAdminEventMutable.emit(
+                    ProcessEvent.Error("You are not the admin of this room")
+                )
+                return@launch
+            }
+
+            Log.d("ViewModel", "User ${user.id} is dropping admin status for room ${room.idRoom}")
+
+            // Wywołaj API
+            val result = roomRepository.dropAdmin(room.idRoom)
+
+            if (result) {
+                Log.d("ViewModel", "✓ Admin status dropped successfully")
+
+                // Zaktualizuj lokalny stan pokoju
+                val updatedRoom = room.copy(idAdmin = null)
+                selectedRoomMutable.value = updatedRoom
+
+                // Zaktualizuj listę pokoi
+                val updatedRooms = myRooms.value.map { r ->
+                    if (r.idRoom == room.idRoom) updatedRoom else r
+                }
+                myRoomsMutable.value = updatedRooms
+
+                dropAdminEventMutable.emit(ProcessEvent.Success(Unit))
+
+            } else {
+                Log.e("ViewModel", "✗ Failed to drop admin status")
+                dropAdminEventMutable.emit(
+                    ProcessEvent.Error("Failed to drop admin status. Please try again.")
+                )
+            }
+        }
+    }
+
     fun filterMyRooms(filterText: String){
         searchMyRoomsTextMutable.value = filterText
     }
@@ -740,10 +808,18 @@ class NearNetViewModel(): ViewModel() {
     }
 
     private suspend fun verifyRoomKeyExist(room: RoomData): Boolean {
-        var result = false
+        //var result = false
         // result = wywołaj funkcję, która sprawdza czy na urządzeniu jest klucz tego pokoju, jeśli jest to true, jeśli nie to false
         //wyjaśnienie: jeśli true, to dokańcza się select, jeśli false to select jest przerwyany i nie wchodzi do pokoju, ale rozesłana prośba do userów pokoju o klucz pokoju i hasło
-        result = true //to wykomentować potem
+        //result = true //to wykomentować potem
+        val hasKey = roomRepository.verifyRoomKeyExists(room.idRoom, room.isPrivate)
+        if (hasKey) {
+            Log.d("ViewModel", "User has key - allowing access")
+            return true
+        }
+
+        val result = roomRepository.requestKeyAgain(room.idRoom)
+
         if (!result) {
             verifyKeyExistEventMutable.emit(ProcessEvent.Error("You'll need to wait before you can access this room. Please try again later."))
             //rozesłanie prośby do userów o przesłanie hasła i klucza pokoju, bez weryfikacji czy mu to przysługuje ;)

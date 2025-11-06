@@ -82,6 +82,7 @@ fun PopupBox() {
                         PopupType.LEAVE_ROOM_CONFIRMATION -> LeaveRoomConfirmationPopup()
                         PopupType.EDIT_AVATAR -> EditAvatarPopup(popupContext)
                         PopupType.USER_LIST_IN_ROOM -> UserListInRoomPopup()
+                        PopupType.DROP_ADMIN_CONFIRMATION -> DropAdminConfirmationPopup()
                     }
                 }
             }
@@ -398,4 +399,22 @@ fun UserListInRoomPopup() {
             }
         }
     }
+}
+
+@Composable
+fun DropAdminConfirmationPopup() {
+    val vm = LocalViewModel.current
+    val selectedRoom = vm.selectedRoom.collectAsState().value
+
+    DialogPopup(
+        title = "Drop admin status",
+        text = "Are you sure you want to drop your admin status? The room will have no admin until someone claims it.",
+        onAccept = {
+            vm.closePopup()
+            vm.dropAdmin()
+        },
+        onCancel = {
+            vm.closePopup()
+        }
+    )
 }

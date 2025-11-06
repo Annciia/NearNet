@@ -18,6 +18,8 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
+
+
 object CryptoUtils {
     private const val TAG = "CryptoUtils"
     private const val RSA_KEY_SIZE = 2048
@@ -28,7 +30,6 @@ object CryptoUtils {
     private const val AES_KEY_SIZE = 256
     private const val GCM_TAG_LENGTH = 128
     private const val GCM_IV_LENGTH = 12
-
 
 
 

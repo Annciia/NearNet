@@ -965,8 +965,13 @@ class MainActivity : ComponentActivity() {
             }
         }
         fun isAdminOrFree(): Boolean {
-            return selectedUser !== null && selectedRoom !== null && (selectedUser.id == selectedRoom.idAdmin || selectedRoom.idAdmin == null)
+            return selectedUser !== null && selectedRoom !== null && (selectedUser.id == selectedRoom.idAdmin || selectedRoom.idAdmin.isNullOrEmpty())
         }
+
+        fun isAdmin(): Boolean {
+            return selectedUser != null && selectedRoom != null && selectedUser.id == selectedRoom.idAdmin
+        }
+        //dodanie funkcji sprawdzajace, czy user jest adminem pokoju, do odrzucenia bycia adminem pokoju
         Column(
             modifier = Modifier.verticalScroll(scrollPosition)
         ) {
@@ -1054,6 +1059,17 @@ class MainActivity : ComponentActivity() {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End
             ) {
+                //dodanie przycisku o odrzucenie bycia aminem
+                if (selectedRoom != null && isAdmin()) {
+                    Button(
+                        onClick = {
+                            vm.selectPopup(PopupType.DROP_ADMIN_CONFIRMATION)
+                        },
+                    ) {
+                        Text("Drop")
+                    }
+                    Spacer(Modifier.width(10.dp))
+                }
                 Button(onClick = {
                     navController.popBackStack()
                 }) {
@@ -1082,8 +1098,12 @@ class MainActivity : ComponentActivity() {
             Spacer(Modifier.height(10.dp))
             if (selectedRoom != null && selectedUser != null) { //Only the admin can delete their room.
                 Column(
-                    modifier = Modifier.weight(1f).padding(vertical = 5.dp),
-                    verticalArrangement = Arrangement.Bottom
+                    //zmienione bo sie przycisk Claim i Delete room nie pokazywal, bo mialo 0 po rodzicach
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 5.dp)
+                    //modifier = Modifier.weight(1f).padding(vertical = 5.dp),
+                    //verticalArrangement = Arrangement.Bottom
                 ) {
                     if (selectedRoom.idAdmin == selectedUser.id) {
                         Button(onClick = {
@@ -1092,7 +1112,7 @@ class MainActivity : ComponentActivity() {
                         }) {
                             Text("Delete room")
                         }
-                    } else if (selectedRoom.idAdmin == null) {
+                    } else if (selectedRoom.idAdmin.isNullOrBlank()) {
                         Button(onClick = {
                             vm.updateRoomAdmin(selectedUser.id) // TODO MAREK Daj możliwość zmiany Admina (chcę podać inne idAdmin niż jest, np.obecnego usera)
 
@@ -1178,6 +1198,20 @@ class MainActivity : ComponentActivity() {
                         }
                         is ProcessEvent.Error -> {
                             Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            }
+            launch {
+                vm.dropAdminEvent.collect { event ->
+                    when (event) {
+                        is ProcessEvent.Success -> {
+                            Toast.makeText(context, "You are no longer the admin.", Toast.LENGTH_SHORT).show()
+                            // Odśwież pokój żeby pokazać nowy stan
+                            navController.popBackStack()
+                        }
+                        is ProcessEvent.Error -> {
+                            Toast.makeText(context, event.err, Toast.LENGTH_LONG).show()
                         }
                     }
                 }
