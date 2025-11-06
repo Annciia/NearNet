@@ -80,9 +80,9 @@ fun PopupBox() {
                         PopupType.JOIN_ROOM_CONFIRMATION -> JoinRoomConfirmationPopup(popupContext)
                         PopupType.JOIN_ROOM_APPROVAL -> JoinRoomApprovalPopup(popupContext)
                         PopupType.LEAVE_ROOM_CONFIRMATION -> LeaveRoomConfirmationPopup()
+                        PopupType.DROP_ADMIN_CONFIRMATION -> DropAdminConfirmationPopup()
                         PopupType.EDIT_AVATAR -> EditAvatarPopup(popupContext)
                         PopupType.USER_LIST_IN_ROOM -> UserListInRoomPopup()
-                        PopupType.DROP_ADMIN_CONFIRMATION -> DropAdminConfirmationPopup()
                     }
                 }
             }
@@ -327,6 +327,22 @@ fun LeaveRoomConfirmationPopup() {
 }
 
 @Composable
+fun DropAdminConfirmationPopup() {
+    val vm = LocalViewModel.current
+    DialogPopup(
+        title = "Leave admin role",
+        text = "Are you sure you want to resign from the admin role? The room will have no admin until someone claims it.",
+        onAccept = {
+            vm.closePopup()
+            vm.dropAdmin()
+        },
+        onCancel = {
+            vm.closePopup()
+        }
+    )
+}
+
+@Composable
 fun EditAvatarPopup(popupContext: PopupContext) {
     val vm = LocalViewModel.current
     val launchImagePicker : (String) -> Unit = popupContext.data as ((String) -> Unit)
@@ -401,20 +417,3 @@ fun UserListInRoomPopup() {
     }
 }
 
-@Composable
-fun DropAdminConfirmationPopup() {
-    val vm = LocalViewModel.current
-    val selectedRoom = vm.selectedRoom.collectAsState().value
-
-    DialogPopup(
-        title = "Drop admin status",
-        text = "Are you sure you want to drop your admin status? The room will have no admin until someone claims it.",
-        onAccept = {
-            vm.closePopup()
-            vm.dropAdmin()
-        },
-        onCancel = {
-            vm.closePopup()
-        }
-    )
-}

@@ -39,9 +39,9 @@ enum class PopupType {
     JOIN_ROOM_CONFIRMATION,
     JOIN_ROOM_APPROVAL,
     LEAVE_ROOM_CONFIRMATION,
+    DROP_ADMIN_CONFIRMATION,
     EDIT_AVATAR,
-    USER_LIST_IN_ROOM,
-    DROP_ADMIN_CONFIRMATION
+    USER_LIST_IN_ROOM
 }
 class PopupContext(
     val type: PopupType,
@@ -176,6 +176,10 @@ class NearNetViewModel(): ViewModel() {
     private val leaveRoomEventMutable = MutableSharedFlow<ProcessEvent<Unit>>()
     val leaveRoomEvent = leaveRoomEventMutable.asSharedFlow()
 
+    //Leave room admin
+    private val dropAdminEventMutable = MutableSharedFlow<ProcessEvent<Unit>>()
+    val dropAdminEvent = dropAdminEventMutable.asSharedFlow()
+
     //Room users
     private val roomUsersMutable = MutableStateFlow(listOf<UserData>())
     val roomUsers = roomUsersMutable.asStateFlow()
@@ -202,9 +206,6 @@ class NearNetViewModel(): ViewModel() {
     private val selectedPopupMutable = MutableStateFlow<PopupContext?>(null)
     val selectedPopup = selectedPopupMutable.asStateFlow()
 
-    //admin leave room
-    private val dropAdminEventMutable = MutableSharedFlow<ProcessEvent<Unit>>()
-    val dropAdminEvent = dropAdminEventMutable.asSharedFlow()
 
     //constructor to VievModel
     init {
@@ -222,7 +223,7 @@ class NearNetViewModel(): ViewModel() {
 
             } catch (e: Exception) {
                 Log.e("LoginError", "Failed to log in", e)
-                selectedUserEventMutable.emit(ProcessEvent.Error("Login failed: ${e.message}"))
+                selectedUserEventMutable.emit(ProcessEvent.Error("Login failed. Please try again."))
             }
         }
     }
@@ -772,7 +773,7 @@ class NearNetViewModel(): ViewModel() {
             } else {
                 Log.e("ViewModel", "✗ Failed to drop admin status")
                 dropAdminEventMutable.emit(
-                    ProcessEvent.Error("Failed to drop admin status. Please try again.")
+                    ProcessEvent.Error("Failed to leave the admin role. Please try again.")
                 )
             }
         }
