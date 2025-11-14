@@ -156,6 +156,8 @@ class MainActivity : ComponentActivity() {
             lifecycleOwner.lifecycle.addObserver(observer)
             onDispose {
                 lifecycleOwner.lifecycle.removeObserver(observer)
+                vm.stopJoinRequestPolling()
+                vm.stopPendingRequestsPolling()
             }
         }
         vm.repository = UserRepository(this)
@@ -1437,6 +1439,7 @@ class MainActivity : ComponentActivity() {
                     }
                     Lifecycle.Event.ON_STOP -> {
                         vm.stopRealtime()
+                        vm.stopJoinRequestPolling()
                         vm.stopPendingRequestsPolling()
                     }
                     else -> {}
@@ -1445,6 +1448,8 @@ class MainActivity : ComponentActivity() {
             lifecycleOwner.lifecycle.addObserver(observer)
             onDispose {
                 lifecycleOwner.lifecycle.removeObserver(observer)
+                vm.stopJoinRequestPolling()
+                vm.stopPendingRequestsPolling()
             }
         }
 

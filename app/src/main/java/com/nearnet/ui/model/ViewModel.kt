@@ -275,6 +275,8 @@ class NearNetViewModel(): ViewModel() {
         clearQueuedPopups()
         stopRealtime()
         knownUserIds.clear()
+        stopJoinRequestPolling()
+        stopPendingRequestsPolling()
     }
     // TODO tutaj chyba jakas oblusge/pola do additionalSettings
     fun updateUser(userName: String, currentPassword: String, newPassword: String, passwordConfirmation: String, avatar: String, additionalSettings: String){
@@ -616,6 +618,7 @@ class NearNetViewModel(): ViewModel() {
             }
         }
     }
+    private var joinRequestPollingJob: Job? = null
     //proba do Admina o dołączenie do pokoju
     fun joinRoomRequest(room: RoomData) {
         viewModelScope.launch {
@@ -634,11 +637,117 @@ class NearNetViewModel(): ViewModel() {
             joinRoomEventMutable.emit(ProcessEvent.Success(Unit))
             Log.d("ROOM", "Request sent successfully, waiting for admin approval...")
 
+            startJoinRequestPolling(room)
+
     }}
+
+    private fun startJoinRequestPolling(room: RoomData) {
+        stopJoinRequestPolling() // Zatrzymaj ewentualny poprzedni polling
+
+        joinRequestPollingJob = viewModelScope.launch {
+            var attempts = 0
+            val maxAttempts = 120 // 10 minut sprawdzania (co 5 sekund)
+
+            Log.d("ROOM", "🔄 Rozpoczynam sprawdzanie statusu prośby dla pokoju: ${room.name}")
+
+            while (isActive && attempts < maxAttempts) {
+                delay(5000) // Sprawdzaj co 5 sekund
+
+                try {
+                    // Sprawdź status używając istniejącego endpointu serwera
+                    val requestStatus = roomRepository.checkMyJoinRequest(room.idRoom)
+
+                    if (requestStatus == null) {
+                        Log.w("ROOM", "⚠️ Nie można sprawdzić statusu prośby (attempt ${attempts + 1})")
+                        attempts++
+                        continue
+                    }
+
+                    Log.d("ROOM", "📊 Status prośby: ${requestStatus.status} (attempt ${attempts + 1}/$maxAttempts)")
+
+                    when (requestStatus.status) {
+                        "accepted" -> {
+                            Log.d("ROOM", "✅ Prośba zaakceptowana!")
+
+                            if (!requestStatus.encryptedRoomKey.isNullOrEmpty()) {
+                                Log.d("ROOM", "🔑 Otrzymano zaszyfrowany klucz, rozpoczynam deszyfrowanie...")
+
+                                // Użyj otrzymanego klucza
+                                val keyFetched = roomRepository.fetchAndDecryptRoomKey(
+                                    room.idRoom,
+                                    requestStatus.encryptedRoomKey
+                                )
+
+                                if (keyFetched) {
+                                    Log.d("ROOM", "✅ Klucz odszyfrowany i zapisany pomyślnie!")
+                                    // Możesz tutaj dodać nawigację do pokoju lub pokazać powiadomienie
+                                    // selectRoom(room) // jeśli chcesz automatycznie otworzyć pokój
+                                } else {
+                                    Log.e("ROOM", "❌ Nie udało się odszyfrować klucza")
+                                    joinRoomEventMutable.emit(ProcessEvent.Error("Failed to decrypt room key"))
+                                }
+                            } else {
+                                Log.w("ROOM", "⚠️ Zaakceptowano, ale brak klucza (pokój publiczny?)")
+                            }
+
+                            // Zakończ polling
+                            break
+                        }
+
+                        "rejected" -> {
+                            Log.d("ROOM", "❌ Prośba odrzucona przez admina")
+                            joinRoomEventMutable.emit(ProcessEvent.Error("Your request was rejected by the admin"))
+                            break
+                        }
+
+                        "pending" -> {
+                            // Kontynuuj oczekiwanie
+                            Log.d("ROOM", "⏳ Nadal oczekuje na decyzję admina...")
+                        }
+
+                        "inRoom" -> {
+                            Log.d("ROOM", "✅ Już jesteś członkiem pokoju")
+                            break
+                        }
+
+                        else -> {
+                            Log.w("ROOM", "⚠️ Nieznany status: ${requestStatus.status}")
+                        }
+                    }
+
+                    attempts++
+
+                } catch (e: Exception) {
+                    Log.e("ROOM", "❌ Błąd sprawdzania statusu prośby", e)
+                    attempts++
+                }
+            }
+
+            if (attempts >= maxAttempts) {
+                Log.w("ROOM", "⏱️ Przekroczono limit czasu oczekiwania na odpowiedź admina")
+                joinRoomEventMutable.emit(ProcessEvent.Error("Admin hasn't responded yet. Please try again later."))
+            }
+
+            joinRequestPollingJob = null
+        }
+    }
+
+    fun stopJoinRequestPolling() {
+        joinRequestPollingJob?.cancel()
+        joinRequestPollingJob = null
+        Log.d("ROOM", "🛑 Zatrzymano sprawdzanie statusu prośby")
+    }
+
+
     //woła się, gdy admin zatwierdzi dołączenie jakiegoś usera do pokoju
     //TODO ponawianie zrobić na serwerze jak admin nieaktywny w danym momencie, by jak wejdzie to zobaczył popup, że ktoś go pyta o dołączenie
     fun joinRoomAdminApprove(user: UserData, room: RoomData, accept: Boolean){ //jaki user i do jakiego pokoju chce dołączyć
         viewModelScope.launch {
+            Log.d("ROOM", "=== Admin akceptuje prośbę ===")
+            Log.d("ROOM", "  User ID: ${user.id}")
+            Log.d("ROOM", "  User login: ${user.login}")
+            Log.d("ROOM", "  Room ID: ${room.idRoom}")
+            Log.d("ROOM", "  Accept: $accept")
             val approveSuccess = roomRepository.respondToJoinRequest(
                 roomId = room.idRoom,
                 userId = user.id,
@@ -787,16 +896,50 @@ class NearNetViewModel(): ViewModel() {
     }
     fun selectRoom(room : RoomData, verifyKeyExist: Boolean = true) {
         viewModelScope.launch {
-            //weryfikacja czy na urządzeniu jest klucz pokoju
             if (verifyKeyExist && room.isPrivate) {
-                val result = verifyRoomKeyExist(room)
-                if (!result) {
-                    return@launch
+                // ✅ SPRAWDŹ czy klucz już nie został zapisany
+                var hasKey = roomRepository.hasRoomAESKey(room.idRoom)
+
+                if (!hasKey) {
+                    Log.w("ROOM", "Brak klucza dla pokoju ${room.name}, próbuję pobrać...")
+
+                    // Spróbuj pobrać z serwera
+                    val keyFetched = roomRepository.fetchAndDecryptRoomKey(room.idRoom)
+
+                    if (keyFetched) {
+                        Log.d("ROOM", "✓ Klucz pobrany z serwera!")
+                    } else {
+                        // ✅ SPRAWDŹ PONOWNIE - może polling już zapisał klucz
+                        delay(500) // Poczekaj chwilę
+                        hasKey = roomRepository.hasRoomAESKey(room.idRoom)
+
+                        if (hasKey) {
+                            Log.d("ROOM", "✓ Klucz został zapisany przez polling!")
+                        } else {
+                            Log.e("ROOM", "Nie można pobrać klucza z serwera")
+
+                            // Jako ostateczność, poproś innych użytkowników
+                            Log.d("ROOM", "Proszę innych użytkowników o klucz...")
+                            val requestSuccess = roomRepository.requestKeyAgain(room.idRoom)
+
+                            if (!requestSuccess) {
+                                selectedRoomEventMutable.emit(
+                                    ProcessEvent.Error("Cannot access this room. Please try again later.")
+                                )
+                                return@launch
+                            }
+
+                            selectedRoomEventMutable.emit(
+                                ProcessEvent.Error("Waiting for encryption key. Please try again in a moment.")
+                            )
+                            return@launch
+                        }
+                    }
                 }
             }
 
-            //to się dzieje, jak jest klucz, czyli result==true
-            knownUserIds.clear() //czyszczenie listy przy zmianie pokoju
+            // Wejście do pokoju
+            knownUserIds.clear()
             selectedRoomMutable.value = room
             Log.e("KOT", "SELECT ROOM "+room.name+ " " + room.idAdmin)
 
@@ -808,17 +951,124 @@ class NearNetViewModel(): ViewModel() {
         }
     }
 
+//    fun selectRoom(room : RoomData, verifyKeyExist: Boolean = true) {
+//        viewModelScope.launch {
+//            if (verifyKeyExist && room.isPrivate) {
+//                val hasKey = roomRepository.hasRoomAESKey(room.idRoom)
+//
+//                if (!hasKey) {
+//                    Log.w("ROOM", "Brak klucza dla pokoju ${room.name}, próbuję pobrać...")
+//
+//                    // Spróbuj pobrać z serwera
+//                    val keyFetched = roomRepository.fetchAndDecryptRoomKey(room.idRoom)
+//
+//                    if (!keyFetched) {
+//                        Log.e("ROOM", "Nie można pobrać klucza z serwera")
+//
+//                        // Jako ostateczność, poproś innych użytkowników
+//                        Log.d("ROOM", "Proszę innych użytkowników o klucz...")
+//                        val requestSuccess = roomRepository.requestKeyAgain(room.idRoom)
+//
+//                        if (!requestSuccess) {
+//                            selectedRoomEventMutable.emit(
+//                                ProcessEvent.Error("Cannot access this room. Please try again later.")
+//                            )
+//                            return@launch
+//                        }
+//
+//                        // Nawet jeśli request się powiódł, użytkownik musi poczekać
+//                        selectedRoomEventMutable.emit(
+//                            ProcessEvent.Error("Waiting for encryption key. Please try again in a moment.")
+//                        )
+//                        return@launch
+//                    }
+//
+//                    Log.d("ROOM", "✓ Klucz pobrany z serwera!")
+//                }
+//            }
+//
+//            // Wejście do pokoju
+//            knownUserIds.clear()
+//            selectedRoomMutable.value = room
+//            Log.e("KOT", "SELECT ROOM "+room.name+ " " + room.idAdmin)
+//
+//            if (selectedRoomMutable.value != null) {
+//                selectedRoomEventMutable.emit(ProcessEvent.Success(room))
+//            } else {
+//                selectedRoomEventMutable.emit(ProcessEvent.Error("Failed to enter the room."))
+//            }
+//        }
+//    }
+//    fun selectRoom(room : RoomData, verifyKeyExist: Boolean = true) {
+//        viewModelScope.launch {
+//            //weryfikacja czy na urządzeniu jest klucz pokoju
+//            if (verifyKeyExist && room.isPrivate) {
+//                val hasKey = roomRepository.hasRoomAESKey(room.idRoom)
+//
+//                if (!hasKey) {
+//                    Log.w("ROOM", "Brak klucza dla pokoju ${room.name}, próbuję pobrać...")
+//
+//                    // Spróbuj pobrać klucz z serwera
+//                    val keyFetched = roomRepository.fetchAndDecryptRoomKey(room.idRoom)
+//
+//                    if (!keyFetched) {
+//                        Log.e("ROOM", "Nie można pobrać klucza pokoju!")
+//                        selectedRoomEventMutable.emit(
+//                            ProcessEvent.Error("Cannot access this room - missing encryption key")
+//                        )
+//                        return@launch
+//                    }
+//                }
+////                val result = verifyRoomKeyExist(room)
+////                if (!result) {
+////                    return@launch
+////                }
+//            }
+//
+//            //to się dzieje, jak jest klucz, czyli result==true
+//            knownUserIds.clear() //czyszczenie listy przy zmianie pokoju
+//            selectedRoomMutable.value = room
+//            Log.e("KOT", "SELECT ROOM "+room.name+ " " + room.idAdmin)
+//
+//            if (selectedRoomMutable.value != null) {
+//                selectedRoomEventMutable.emit(ProcessEvent.Success(room))
+//            } else {
+//                selectedRoomEventMutable.emit(ProcessEvent.Error("Failed to enter the room."))
+//            }
+//        }
+//    }
+
     private suspend fun verifyRoomKeyExist(room: RoomData): Boolean {
         //var result = false
         // result = wywołaj funkcję, która sprawdza czy na urządzeniu jest klucz tego pokoju, jeśli jest to true, jeśli nie to false
         //wyjaśnienie: jeśli true, to dokańcza się select, jeśli false to select jest przerwyany i nie wchodzi do pokoju, ale rozesłana prośba do userów pokoju o klucz pokoju i hasło
         //result = true //to wykomentować potem
+
+//        val hasKey = roomRepository.verifyRoomKeyExists(room.idRoom, room.isPrivate)
+//        if (hasKey) {
+//            Log.d("ViewModel", "User has key - allowing access")
+//            return true
+//        }
+//
+//        val result = roomRepository.requestKeyAgain(room.idRoom)
+
         val hasKey = roomRepository.verifyRoomKeyExists(room.idRoom, room.isPrivate)
         if (hasKey) {
             Log.d("ViewModel", "User has key - allowing access")
             return true
         }
 
+        // Jeśli nie ma klucza lokalnie, sprawdź czy jest dostępny na serwerze
+        Log.d("ViewModel", "No local key, checking server...")
+        val fetchSuccess = roomRepository.fetchAndDecryptRoomKey(room.idRoom)
+
+        if (fetchSuccess) {
+            Log.d("ViewModel", "Successfully fetched key from server")
+            return true
+        }
+
+        // Jeśli nie udało się pobrać klucza z serwera, wyślij request o ponowne wysłanie
+        Log.d("ViewModel", "Failed to fetch from server, requesting key again...")
         val result = roomRepository.requestKeyAgain(room.idRoom)
 
         if (!result) {
@@ -1062,6 +1312,13 @@ class NearNetViewModel(): ViewModel() {
     }
     fun clearQueuedPopups() {
         queuedPopupList.clear()
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        stopJoinRequestPolling()
+        stopPendingRequestsPolling()
+        stopRealtime()
     }
 
 }
