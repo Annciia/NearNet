@@ -70,7 +70,8 @@ class NearNetViewModel(): ViewModel() {
     lateinit var repository: UserRepository
     lateinit var roomRepository: RoomRepository
     //lateinit var messageUtils: MessageUtils
-
+    private var contextProvider: (() -> Context)? = null
+    private val keysBeingSaved = mutableSetOf<String>()
     //pozwala uzywac messageUtils bez uzywania LocalContext.current w ViewModelu
 //    fun initMessageUtils(context: Context) {
 //        if (!::messageUtils.isInitialized) {
@@ -86,6 +87,8 @@ class NearNetViewModel(): ViewModel() {
             tokenProv = { UserRepository.getTokenFromPreferences(context) },
             contextProv = { context } // ← DODAJ
         )
+
+        contextProvider = { context }
     }
 
     //Selected user
@@ -277,6 +280,7 @@ class NearNetViewModel(): ViewModel() {
         knownUserIds.clear()
         stopJoinRequestPolling()
         stopPendingRequestsPolling()
+        stopWaitingForKeyPolling()
     }
     // TODO tutaj chyba jakas oblusge/pola do additionalSettings
     fun updateUser(userName: String, currentPassword: String, newPassword: String, passwordConfirmation: String, avatar: String, additionalSettings: String){
@@ -800,6 +804,101 @@ class NearNetViewModel(): ViewModel() {
         handledRequests.clear()
     }
 
+    private var waitingForKeyPollingJob: Job? = null
+
+    private fun startWaitingForKeyPolling(room: RoomData) {
+        stopWaitingForKeyPolling()
+
+        waitingForKeyPollingJob = viewModelScope.launch {
+            var attempts = 0
+            val maxAttempts = 120 // 10 minut
+
+            Log.d("ROOM", "🔄 Czekam na klucz AES i hasło dla pokoju: ${room.name}")
+
+            while (isActive && attempts < maxAttempts) {
+                delay(5000) // Co 5 sekund
+
+                try {
+                    val requestStatus = roomRepository.checkMyJoinRequest(room.idRoom)
+
+                    if (requestStatus == null) {
+                        Log.d("ROOM", "⏳ Sprawdzam status... (attempt ${attempts + 1}/$maxAttempts)")
+                        attempts++
+                        continue
+                    }
+
+                    Log.d("ROOM", "📊 Status: ${requestStatus.status} (attempt ${attempts + 1}/$maxAttempts)")
+
+                    when (requestStatus.status) {
+                        "accepted" -> {
+                            Log.d("ROOM", "✅ Otrzymano dane pokoju!")
+
+                            if (!requestStatus.encryptedRoomKey.isNullOrEmpty()) {
+                                keysBeingSaved.add(room.idRoom)
+
+                                // ✅ Przekaż JSON string
+                                val keyFetched = roomRepository.fetchAndDecryptRoomKey(
+                                    room.idRoom,
+                                    requestStatus.encryptedRoomKey  // ← To jest JSON string
+                                )
+
+                                keysBeingSaved.remove(room.idRoom)
+
+                                if (keyFetched) {
+                                    Log.d("ROOM", "✅ Dane odszyfrowane i zapisane!")
+                                } else {
+                                    Log.e("ROOM", "❌ Nie udało się odszyfrować")
+                                }
+                            } else {
+                                Log.w("ROOM", "⚠️ Status 'accepted' ale brak danych")
+                            }
+
+                            break
+                        }
+
+                        "rejected" -> {
+                            Log.d("ROOM", "❌ Prośba odrzucona przez admina")
+                            joinRoomEventMutable.emit(ProcessEvent.Error("Your request was rejected by the admin"))
+                            break
+                        }
+
+                        "pending" -> {
+                            Log.d("ROOM", "⏳ Nadal oczekuje na decyzję admina...")
+                        }
+
+                        "inRoom" -> {
+                            Log.d("ROOM", "✅ Już jesteś członkiem pokoju")
+                            break
+                        }
+
+                        else -> {
+                            Log.w("ROOM", "⚠️ Nieznany status: ${requestStatus.status}")
+                        }
+                    }
+
+                    attempts++
+
+                } catch (e: Exception) {
+                    Log.e("ROOM", "❌ Błąd podczas oczekiwania", e)
+                    attempts++
+                }
+            }
+
+            if (attempts >= maxAttempts) {
+                Log.w("ROOM", "⏱️ Timeout - nie otrzymano danych w ciągu 10 minut")
+                joinRoomEventMutable.emit(ProcessEvent.Error("Admin hasn't responded yet. Please try again later."))
+            }
+
+            waitingForKeyPollingJob = null
+        }
+    }
+
+    fun stopWaitingForKeyPolling() {
+        waitingForKeyPollingJob?.cancel()
+        waitingForKeyPollingJob = null
+        Log.d("ROOM", "🛑 Zatrzymano oczekiwanie na klucz")
+    }
+
     fun leaveRoom(){
         viewModelScope.launch {
             var isLeftRoom : Boolean = false
@@ -1319,6 +1418,7 @@ class NearNetViewModel(): ViewModel() {
         stopJoinRequestPolling()
         stopPendingRequestsPolling()
         stopRealtime()
+        stopWaitingForKeyPolling()
     }
 
 }

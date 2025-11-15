@@ -79,7 +79,7 @@ data class AskForAccessRequest(
 )
 data class RequestAction(
     val action: String, // "accept" lub "reject"
-    val encryptedRoomKey: String = "" // zaszyfrowany klucz AES (tylko przy accept)
+    val encryptedRoomKey: String = "" // JSON string zawierający {encryptedAESKey, encryptedPassword}
 )
 
 data class RoomRequestsResponse(
@@ -321,6 +321,11 @@ class RoomRepository(private val context: Context) {
             if (isPrivate && roomAESKeyBase64 != null) {
 
                 saveRoomAESKey(roomData.idRoom, roomAESKeyBase64)
+                //zapis hasla przy tworzeniu pokoju
+                if (password.isNotBlank()) {
+                    saveRoomPassword(roomData.idRoom, password)
+                    Log.d("ROOM", "Hasło pokoju zapisane lokalnie")
+                }
 
                 // weryfikacja zapisu
                 val savedKey = getRoomAESKey(roomData.idRoom)
@@ -579,89 +584,89 @@ class RoomRepository(private val context: Context) {
         val action = if (accept) "accept" else "reject"
 
         try {
-            var encryptedRoomKey = ""
+            var encryptedData = ""  // ← JSON string
 
-            // KROK 1: Jeśli akceptujemy, sprawdź czy pokój jest prywatny
             if (accept) {
-                Log.d("ROOM", "--- Krok 1: Sprawdzanie typu pokoju ---")
+                Log.d("ROOM", "--- Przygotowywanie danych do wysłania ---")
 
-                // Pobierz dane pokoju
                 val roomData = getRoomById(roomId)
 
                 if (roomData != null && roomData.isPrivate) {
-                    // pobranie lub wygenerowanie klucza AES pokoju
+                    // Pobierz klucz AES pokoju
                     val roomAESKeyBase64 = getRoomAESKey(roomId)
 
                     if (roomAESKeyBase64 == null) {
-                        val newAESKey = CryptoUtils.generateAESKey()
-                        val newKeyBase64 = CryptoUtils.aesKeyToString(newAESKey)
-                        saveRoomAESKey(roomId, newKeyBase64)
-                    } else {
-                        Log.d("ROOM", "Pokoj ma juz klucz AES")
+                        Log.e("ROOM", "✗ Nie mam klucza AES pokoju!")
+                        return@withContext false
                     }
 
-                    // pobranie klucza publicznego uzytkownika
+                    // Pobierz hasło pokoju
+                    val roomPassword = getRoomPassword(roomId)
+
+                    if (roomPassword == null) {
+                        Log.w("ROOM", "⚠️ Nie mam hasła pokoju")
+                        // Możesz zdecydować czy kontynuować czy nie
+                        return@withContext false
+                    }
+
+                    // Pobierz klucz publiczny użytkownika
                     val userPublicKey = PublicKeyManager(context).getPublicKeyForUser(userId)
 
                     if (userPublicKey == null) {
-                        Log.e("ROOM", "Nie mozna pobrac klucza publicznego uzytkownika $userId")
-                        // kontynuuj bez szyfrowania - uzytkownik nie bedzie mogł czytac wiadomosci
-                    } else {
-                        Log.d("ROOM", "Klucz publiczny użytkownika pobrany")
-
-                        Log.d("ROOM", "  userId: $userId")
-                        Log.d("ROOM", "  PublicKey format: ${userPublicKey.format}")
-                        Log.d("ROOM", "  PublicKey algorithm: ${userPublicKey.algorithm}")
-                        val encodedKey = android.util.Base64.encodeToString(userPublicKey.encoded, android.util.Base64.NO_WRAP)
-                        Log.d("ROOM", "  PublicKey (Base64, first 50 chars): ${encodedKey.take(50)}")
-
-                        // szyfrowanie klucza AES pokoju kluczem publicznym uzytkownika
-                        val currentRoomKey = getRoomAESKey(roomId)!!
-                        val roomAESKey = CryptoUtils.stringToAESKey(currentRoomKey)
-
-                        encryptedRoomKey = CryptoUtils.encryptAESKeyWithRSA(roomAESKey, userPublicKey)
+                        Log.e("ROOM", "✗ Nie można pobrać klucza publicznego użytkownika $userId")
+                        return@withContext false
                     }
 
+                    Log.d("ROOM", "✓ Klucz publiczny użytkownika pobrany")
+
+                    // Zaszyfruj klucz AES
+                    val roomAESKey = CryptoUtils.stringToAESKey(roomAESKeyBase64)
+                    val encryptedAESKey = CryptoUtils.encryptAESKeyWithRSA(roomAESKey, userPublicKey)
+
+                    // Zaszyfruj hasło pokoju
+                    val encryptedPassword = CryptoUtils.encryptStringWithRSA(roomPassword, userPublicKey)
+
+                    // ✅ STWÓRZ JSON
+                    val jsonData = JSONObject().apply {
+                        put("encryptedAESKey", encryptedAESKey)
+                        put("encryptedPassword", encryptedPassword)
+                    }
+
+                    encryptedData = jsonData.toString()
+
+                    Log.d("ROOM", "✓ JSON utworzony:")
+                    Log.d("ROOM", "  - encryptedAESKey: ${encryptedAESKey.take(50)}...")
+                    Log.d("ROOM", "  - encryptedPassword: ${encryptedPassword.take(50)}...")
+
                 } else if (roomData != null) {
-                    Log.d("ROOM", "Pokoj jest publiczny")
+                    Log.d("ROOM", "Pokój jest publiczny")
                 } else {
-                    Log.e("ROOM", "Nie mozna pobrac danych pokoju")
+                    Log.e("ROOM", "Nie można pobrać danych pokoju")
                 }
             }
 
-            //wyslanie odpowiedzi na serwer
-            if (accept && encryptedRoomKey.isNotEmpty()) {
-                Log.d("ROOM", "Wysyłam zaszyfrowany klucz: ${encryptedRoomKey.take(50)}...")
-            }
-
+            // Wyślij odpowiedź na serwer (JSON jako string w polu encryptedRoomKey)
             val response = api.respondToJoinRequest(
                 token,
                 roomId,
                 userId,
-                RequestAction(action, encryptedRoomKey)
+                RequestAction(action, encryptedData)  // ← JSON jako string
             )
 
             Log.d("ROOM", "Response code: ${response.code()}")
-            val errorBody = response.errorBody()?.string()
-            if (!errorBody.isNullOrBlank()) {
-                Log.e("ROOM", "Response error: $errorBody")
-            }
 
             val success = response.isSuccessful
 
             if (success) {
-                Log.d("ROOM", "Odpowiedź wysłana pomyślnie")
-                if (accept && encryptedRoomKey.isNotEmpty()) {
-                    Log.d("ROOM", "✓ Użytkownik $userId otrzyma zaszyfrowany klucz pokoju")
-                }
+                Log.d("ROOM", "✅ JSON wysłany pomyślnie")
             } else {
-                Log.e("ROOM", "Bład wysyłania odpowiedzi")
+                Log.e("ROOM", "✗ Błąd wysyłania")
             }
 
             return@withContext success
 
         } catch (e: Exception) {
-            Log.e("ROOM", "  Wiadomość: ${e.message}")
+            Log.e("ROOM", "Błąd: ${e.message}")
             e.printStackTrace()
             return@withContext false
         }
@@ -780,7 +785,7 @@ class RoomRepository(private val context: Context) {
 
     suspend fun fetchAndDecryptRoomKey(
         roomId: String,
-        providedEncryptedKey: String? = null
+        providedEncryptedData: String? = null
     ): Boolean = withContext(Dispatchers.IO) {
 
         val token = getToken()
@@ -790,74 +795,113 @@ class RoomRepository(private val context: Context) {
         }
 
         try {
-            // Jeśli mamy już zaszyfrowany klucz, użyj go
-            val encryptedRoomKey = if (!providedEncryptedKey.isNullOrEmpty()) {
-                Log.d("ROOM", "Używam dostarczonego zaszyfrowanego klucza")
-                providedEncryptedKey
+            // ✅ POPRAWIONE - użyj standardowego sprawdzenia
+            val encryptedDataJson = if (providedEncryptedData != null && providedEncryptedData.isNotEmpty()) {
+                Log.d("ROOM", "✓ Używam dostarczonego JSON")
+                providedEncryptedData
             } else {
-                // W przeciwnym razie pobierz z serwera (stara logika)
-                Log.d("ROOM", "Pobieram zaszyfrowany klucz z serwera")
+                Log.d("ROOM", "Pobieram dane z serwera...")
 
                 val response = api.getEncryptedRoomKey(token, roomId)
 
                 if (!response.isSuccessful) {
                     val errorBody = response.errorBody()?.string()
-                    Log.e("ROOM", "✗ Błąd pobierania klucza")
-                    Log.e("ROOM", "  HTTP Code: ${response.code()}")
-                    Log.e("ROOM", "  Error: $errorBody")
-
-                    if (response.code() == 404) {
-                        Log.d("ROOM", "Pokój prawdopodobnie publiczny - brak zaszyfrowanego klucza")
-                    }
-
+                    Log.e("ROOM", "✗ Błąd pobierania: ${response.code()} $errorBody")
                     return@withContext false
                 }
 
-                val key = response.body()?.encryptedRoomKey
+                val data = response.body()?.encryptedRoomKey
 
-                if (key.isNullOrEmpty()) {
-                    Log.e("ROOM", "Pusty zaszyfrowany klucz")
+                if (data.isNullOrEmpty()) {
+                    Log.e("ROOM", "✗ Puste dane z serwera")
                     return@withContext false
                 }
 
-                key
+                data
             }
 
-            // Reszta kodu bez zmian - odszyfrowanie i zapisanie klucza
+            // ✅ SPRAWDŹ czy to JSON czy stary format
+            val isJson = encryptedDataJson.trim().startsWith("{")
+
+            val encryptedAESKey: String
+            val encryptedPassword: String?
+
+            if (isJson) {
+                // Nowy format - parsuj JSON
+                val jsonObject = try {
+                    JSONObject(encryptedDataJson)
+                } catch (e: Exception) {
+                    Log.e("ROOM", "✗ Błąd parsowania JSON", e)
+                    return@withContext false
+                }
+
+                encryptedAESKey = jsonObject.optString("encryptedAESKey", "")
+                encryptedPassword = jsonObject.optString("encryptedPassword", null)
+
+                if (encryptedAESKey.isEmpty()) {
+                    Log.e("ROOM", "✗ Brak encryptedAESKey w JSON")
+                    return@withContext false
+                }
+
+                Log.d("ROOM", "✓ JSON sparsowany:")
+                Log.d("ROOM", "  - encryptedAESKey: ${encryptedAESKey.take(50)}...")
+                Log.d("ROOM", "  - encryptedPassword: ${if (encryptedPassword.isNullOrEmpty()) "BRAK" else "EXISTS"}")
+            } else {
+                // Stary format - samo encryptedRoomKey
+                Log.d("ROOM", "Stary format - samo encryptedRoomKey")
+                encryptedAESKey = encryptedDataJson
+                encryptedPassword = null
+            }
+
+            // Pobierz login użytkownika
             val myLogin = UserRepository.getLoginFromPreferences(context)
 
             if (myLogin.isNullOrEmpty()) {
-                Log.e("ROOM", "✗ Nie można pobrać własnego loginu")
+                Log.e("ROOM", "✗ Nie można pobrać loginu")
                 return@withContext false
             }
 
+            // Pobierz klucz prywatny
             val myPrivateKey = CryptoUtils.getPrivateKey(context, myLogin)
 
             if (myPrivateKey == null) {
-                Log.e("ROOM", "Nie można pobrać klucza prywatnego!")
+                Log.e("ROOM", "✗ Nie można pobrać klucza prywatnego!")
                 return@withContext false
             }
 
-            Log.d("ROOM", "✓ Klucz prywatny pobrany")
-            Log.d("ROOM", "  PrivateKey format: ${myPrivateKey.format}")
-            Log.d("ROOM", "  PrivateKey algorithm: ${myPrivateKey.algorithm}")
-
-            val roomAESKey = CryptoUtils.decryptAESKeyWithRSA(encryptedRoomKey, myPrivateKey)
+            // ✅ ODSZYFRUJ KLUCZ AES
+            val roomAESKey = CryptoUtils.decryptAESKeyWithRSA(encryptedAESKey, myPrivateKey)
             val roomAESKeyBase64 = CryptoUtils.aesKeyToString(roomAESKey)
 
+            // Zapisz klucz AES lokalnie
             saveRoomAESKey(roomId, roomAESKeyBase64)
+            Log.d("ROOM", "✓ Klucz AES zapisany")
 
+            // ✅ ODSZYFRUJ HASŁO (jeśli jest)
+            if (encryptedPassword != null && encryptedPassword.isNotEmpty()) {
+                try {
+                    val decryptedPassword = CryptoUtils.decryptStringWithRSA(encryptedPassword, myPrivateKey)
+                    saveRoomPassword(roomId, decryptedPassword)
+                    Log.d("ROOM", "✓ Hasło pokoju odszyfrowane i zapisane")
+                } catch (e: Exception) {
+                    Log.e("ROOM", "✗ Błąd deszyfrowania hasła", e)
+                    // Kontynuuj - klucz AES jest ważniejszy
+                }
+            }
+
+            // Weryfikacja zapisu
             val savedKey = getRoomAESKey(roomId)
             if (savedKey != null && savedKey == roomAESKeyBase64) {
-                Log.d("ROOM", "✓ Klucz zapisany poprawnie")
+                Log.d("ROOM", "✅ Wszystko zapisane poprawnie!")
             } else {
-                Log.e("ROOM", "✗ Problem z zapisem klucza!")
+                Log.e("ROOM", "✗ Problem z zapisem!")
+                return@withContext false
             }
 
             return@withContext true
 
         } catch (e: Exception) {
-            Log.e("ROOM", "  Wiadomość: ${e.message}")
+            Log.e("ROOM", "Błąd: ${e.message}")
             e.printStackTrace()
             return@withContext false
         }
@@ -1095,6 +1139,32 @@ class RoomRepository(private val context: Context) {
             Log.w("ROOM", "User does NOT have room key")
             return@withContext false
         }
+    }
+
+    // zapisz hasło pokoju lokalnie
+    private fun saveRoomPassword(roomId: String, password: String) {
+        val prefs = context.getSharedPreferences("RoomPasswords", Context.MODE_PRIVATE)
+        prefs.edit().putString("password_$roomId", password).apply()
+        Log.d("ROOM", "Hasło zapisane dla pokoju: $roomId")
+    }
+
+    // pobierz hasło pokoju
+    fun getRoomPassword(roomId: String): String? {
+        val prefs = context.getSharedPreferences("RoomPasswords", Context.MODE_PRIVATE)
+        val password = prefs.getString("password_$roomId", null)
+        if (password != null) {
+            Log.d("ROOM", "Znaleziono hasło dla pokoju: $roomId")
+        } else {
+            Log.w("ROOM", "⚠Brak hasła dla pokoju: $roomId")
+        }
+        return password
+    }
+
+    // usuń hasło pokoju
+    private fun removeRoomPassword(roomId: String) {
+        val prefs = context.getSharedPreferences("RoomPasswords", Context.MODE_PRIVATE)
+        prefs.edit().remove("password_$roomId").apply()
+        Log.d("ROOM", "Hasło usunięte dla pokoju: $roomId")
     }
 
 

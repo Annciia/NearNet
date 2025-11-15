@@ -329,4 +329,19 @@ object CryptoUtils {
             throw e
         }
     }
+
+    fun encryptStringWithRSA(plaintext: String, publicKey: PublicKey): String {
+        val cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding")
+        cipher.init(Cipher.ENCRYPT_MODE, publicKey)
+        val encryptedBytes = cipher.doFinal(plaintext.toByteArray(Charsets.UTF_8))
+        return android.util.Base64.encodeToString(encryptedBytes, android.util.Base64.NO_WRAP)
+    }
+
+    fun decryptStringWithRSA(encrypted: String, privateKey: PrivateKey): String {
+        val cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding")
+        cipher.init(Cipher.DECRYPT_MODE, privateKey)
+        val encryptedBytes = android.util.Base64.decode(encrypted, android.util.Base64.NO_WRAP)
+        val decryptedBytes = cipher.doFinal(encryptedBytes)
+        return String(decryptedBytes, Charsets.UTF_8)
+    }
 }
