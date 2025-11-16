@@ -1,6 +1,5 @@
 package com.nearnet.sessionlayer.logic
 
-import PublicKeyManager
 import android.content.Context
 import android.util.Log
 import com.google.gson.annotations.SerializedName
@@ -103,6 +102,32 @@ data class JoinRequestStatus(
     val status: String,
     val encryptedRoomKey: String? = null,
     val requestedAt: String? = null
+)
+
+data class DeclarePasswordCheckRequest(
+    val targetUserId: String
+)
+
+data class SendEncryptedPasswordRequest(
+    val encryptedPassword: String
+)
+
+data class RoomUsersStatusResponse(
+    val roomId: String,
+    val statuses: List<UserStatus>
+)
+
+data class UserStatus(
+    val userId: String,
+    val status: String,
+    val encryptedRoomKey: String? = null,
+    val requestedAt: String? = null,
+    val publicKey: String? = null
+)
+
+data class SendRoomKeyRequest(
+    val targetUserId: String,
+    val encryptedRoomKey: String  // JSON string
 )
 
 
@@ -219,6 +244,39 @@ interface RoomApiService {
         @Header("Authorization") token: String,
         @Path("id") roomId: String
     ): Response<Map<String, Any>>
+
+    @POST("/api/rooms/{id}/request-join-by-password")
+    suspend fun requestJoinByPassword(
+        @Header("Authorization") token: String,
+        @Path("id") roomId: String
+    ): Response<SimpleResponse>
+
+    @POST("/api/rooms/{id}/declare-password-check")
+    suspend fun declarePasswordCheck(
+        @Header("Authorization") token: String,
+        @Path("id") roomId: String,
+        @Body body: DeclarePasswordCheckRequest
+    ): Response<SimpleResponse>
+
+    @POST("/api/rooms/{id}/send-encrypted-password")
+    suspend fun sendEncryptedPassword(
+        @Header("Authorization") token: String,
+        @Path("id") roomId: String,
+        @Body body: SendEncryptedPasswordRequest
+    ): Response<SimpleResponse>
+
+    @GET("/api/rooms/{id}/room_users_status")
+    suspend fun getRoomUsersStatus(
+        @Header("Authorization") token: String,
+        @Path("id") roomId: String
+    ): Response<RoomUsersStatusResponse>
+
+    @POST("/api/rooms/{id}/send-room-key")
+    suspend fun sendRoomKey(
+        @Header("Authorization") token: String,
+        @Path("id") roomId: String,
+        @Body body: SendRoomKeyRequest
+    ): Response<SimpleResponse>
 
 
 }
@@ -1165,6 +1223,125 @@ class RoomRepository(private val context: Context) {
         val prefs = context.getSharedPreferences("RoomPasswords", Context.MODE_PRIVATE)
         prefs.edit().remove("password_$roomId").apply()
         Log.d("ROOM", "Hasło usunięte dla pokoju: $roomId")
+    }
+
+    suspend fun requestJoinByPassword(roomId: String): Boolean = withContext(Dispatchers.IO) {
+        val token = getToken()
+        if (token.isNullOrBlank()) {
+            Log.e("ROOM", "No token available")
+            return@withContext false
+        }
+
+        try {
+            val response = api.requestJoinByPassword(token, roomId)
+            val success = response.isSuccessful && response.body()?.success == true
+
+            if (success) {
+                Log.d("ROOM", "✓ Password join request sent")
+            }
+
+            return@withContext success
+        } catch (e: Exception) {
+            Log.e("ROOM", "Exception in requestJoinByPassword", e)
+            return@withContext false
+        }
+    }
+
+    suspend fun declarePasswordCheck(roomId: String, targetUserId: String): Boolean = withContext(Dispatchers.IO) {
+        val token = getToken()
+        if (token.isNullOrBlank()) return@withContext false
+
+        try {
+            val response = api.declarePasswordCheck(
+                token,
+                roomId,
+                DeclarePasswordCheckRequest(targetUserId)
+            )
+
+            val success = response.isSuccessful && response.body()?.success == true
+
+            if (success) {
+                Log.d("ROOM", "✓ Declared password check for user $targetUserId")
+            }
+
+            return@withContext success
+        } catch (e: Exception) {
+            Log.e("ROOM", "Exception in declarePasswordCheck", e)
+            return@withContext false
+        }
+    }
+
+    suspend fun sendEncryptedPassword(roomId: String, encryptedPassword: String): Boolean = withContext(Dispatchers.IO) {
+        val token = getToken()
+        if (token.isNullOrBlank()) return@withContext false
+
+        try {
+            val response = api.sendEncryptedPassword(
+                token,
+                roomId,
+                SendEncryptedPasswordRequest(encryptedPassword)
+            )
+
+            val success = response.isSuccessful && response.body()?.success == true
+
+            if (success) {
+                Log.d("ROOM", "✓ Encrypted password sent")
+            }
+
+            return@withContext success
+        } catch (e: Exception) {
+            Log.e("ROOM", "Exception in sendEncryptedPassword", e)
+            return@withContext false
+        }
+    }
+
+    suspend fun getRoomUsersStatus(roomId: String): List<UserStatus> = withContext(Dispatchers.IO) {
+        val token = getToken()
+        if (token.isNullOrBlank()) return@withContext emptyList()
+
+        try {
+            val response = api.getRoomUsersStatus(token, roomId)
+
+            if (response.isSuccessful) {
+                val statuses = response.body()?.statuses ?: emptyList()
+                Log.d("ROOM", "✓ Got ${statuses.size} users waiting for verification")
+                return@withContext statuses
+            } else {
+                Log.e("ROOM", "✗ Failed to get room users status: ${response.code()}")
+                return@withContext emptyList()
+            }
+        } catch (e: Exception) {
+            Log.e("ROOM", "Exception in getRoomUsersStatus", e)
+            return@withContext emptyList()
+        }
+    }
+
+    suspend fun sendRoomKeyToUser(
+        roomId: String,
+        targetUserId: String,
+        encryptedDataJson: String  // JSON string
+    ): Boolean = withContext(Dispatchers.IO) {
+        val token = getToken()
+        if (token.isNullOrBlank()) return@withContext false
+
+        try {
+            val response = api.sendRoomKey(
+                token,
+                roomId,
+                SendRoomKeyRequest(targetUserId, encryptedDataJson)
+            )
+
+            val success = response.isSuccessful && response.body()?.success == true
+
+            if (success) {
+                Log.d("ROOM", "✓ JSON sent to user $targetUserId")
+            }
+
+            return@withContext success
+        } catch (e: Exception) {
+            Log.e("ROOM", "Exception in sendRoomKeyToUser", e)
+            return@withContext false
+        }
     }
 
 

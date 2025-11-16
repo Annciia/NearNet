@@ -1,3 +1,4 @@
+package com.nearnet.sessionlayer.logic
 import android.content.Context
 import android.util.Log
 import com.nearnet.sessionlayer.logic.CryptoUtils

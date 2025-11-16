@@ -29,6 +29,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import java.util.LinkedList
+import com.nearnet.sessionlayer.logic.PublicKeyManager
+import com.nearnet.sessionlayer.logic.CryptoUtils
+import com.nearnet.sessionlayer.logic.UserStatus
+import org.json.JSONObject
 
 
 //Popup's type, popup's structure
@@ -223,7 +227,7 @@ class NearNetViewModel(): ViewModel() {
 
                 selectedUserMutable.value = userData
                 selectedUserEventMutable.emit(ProcessEvent.Success(userData))
-
+                startGlobalPasswordCheckPolling()
             } catch (e: Exception) {
                 Log.e("LoginError", "Failed to log in", e)
                 selectedUserEventMutable.emit(ProcessEvent.Error("Login failed. Please try again."))
@@ -253,6 +257,7 @@ class NearNetViewModel(): ViewModel() {
             if (user != null) {
                 status = repository.logOutUser() //tu po prostu czyszcze token przez co juz nic nie dostanie od serwera
             }
+            stopGlobalPasswordCheckPolling()
             selectedUserMutable.value = null
             clearAppState()
             if (status == true){
@@ -281,6 +286,9 @@ class NearNetViewModel(): ViewModel() {
         stopJoinRequestPolling()
         stopPendingRequestsPolling()
         stopWaitingForKeyPolling()
+        stopPasswordVerificationPolling()
+        stopGlobalPasswordCheckPolling()
+
     }
     // TODO tutaj chyba jakas oblusge/pola do additionalSettings
     fun updateUser(userName: String, currentPassword: String, newPassword: String, passwordConfirmation: String, avatar: String, additionalSettings: String){
@@ -367,12 +375,43 @@ class NearNetViewModel(): ViewModel() {
     fun resetWelcomeState(){
         welcomeStateMutable.value = false
     }
+//    fun loadMyRooms() {
+//        viewModelScope.launch {
+//            // TODO Call asynchronous function to fetch my rooms here.
+//            if (::roomRepository.isInitialized) {
+//                val roomsFromApi = roomRepository.getMyRooms()
+//                myRoomsMutable.value = roomsFromApi
+//                if (selectedUser.value != null && passwordCheckPollingJob?.isActive != true) {
+//                    startGlobalPasswordCheckPolling()
+//                }
+//            } else {
+//                Log.e("loadMyRooms", "RoomRepository is not initialized!")
+//            }
+//        }
+//    }
+
     fun loadMyRooms() {
         viewModelScope.launch {
-            // TODO Call asynchronous function to fetch my rooms here.
             if (::roomRepository.isInitialized) {
+                Log.d("ROOM", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+                Log.d("ROOM", "📚 Ładuję moje pokoje...")
+
                 val roomsFromApi = roomRepository.getMyRooms()
+
+                Log.d("ROOM", "📚 Otrzymałem ${roomsFromApi.size} pokoi z serwera:")
+                roomsFromApi.forEach { room ->
+                    Log.d("ROOM", "  📍 ${room.name}")
+                    Log.d("ROOM", "     ID: ${room.idRoom}")
+                    Log.d("ROOM", "     Private: ${room.isPrivate}")
+                    Log.d("ROOM", "     Admin: ${room.idAdmin}")
+                }
+                Log.d("ROOM", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+
                 myRoomsMutable.value = roomsFromApi
+
+                if (selectedUser.value != null && passwordCheckPollingJob?.isActive != true) {
+                    startGlobalPasswordCheckPolling()
+                }
             } else {
                 Log.e("loadMyRooms", "RoomRepository is not initialized!")
             }
@@ -575,46 +614,94 @@ class NearNetViewModel(): ViewModel() {
             }
         }
     }
-    fun joinRoom(room: RoomData, password: String){
+//    fun joinRoom(room: RoomData, password: String){
+//        viewModelScope.launch {
+//            //var status : Boolean = joinRoom(room.id, ””) //funkcja dla Marka -> podawane jest id pokoju gdzie dołączam i hasło lub pusty string->
+//            // hasło: dla publicznego pokoju pusty string podaję, dla  prywatnego podaję hasło które użytkownik wpisał lub pusty string gdy go nie zna,
+//            // jak jest publiczny lub użytkownik poda hasło, to klucz do rozszyfrowania wiadomości dostaje od dowolnego użytkownika, gdzie klucz jest zaszyfrowany przez RSA (+ osobno wiadomości zaszyfrowane AES, któree tym kluczem rozszyfruje sobie)
+//            // jak jest pokój prywatny i użytkownik nie zna hasła, to prośba o dołączenie idzie do admina i on potwierdza i wysyła mu on ten klucz szyfrowany przez RSA (+ osobno też wiadomości zaszyfrowane AES)
+//            //4 przypadki!!!
+//            //1.pokój prywatny i nie ma hasła od użytkownika (pusty string) ->prośba do admina o dołącznie
+//            //2.pokój prywatny i jest hasło od użytkownika -> dołącza po sprawdzeniu poprawności z hashem na serwerze lub status=false
+//            //3.pokój publiczny i nie ma hasła (pusty string) -> dołącza
+//            //4.pokój publiczny i jest hasło - PRZYPADEK NIE MA PRAWA ZAJŚĆ, w razie czego ignorujemy hasło i wpuszczamy do pokoju ->dołącza
+//            //hasło do pokoju trzymane w postaci hasha na serwerze, dodawane przy tworzeniu pokoju
+//            //var status :Boolean = true //wykomentować
+//            try {
+//                Log.d("NearNetVM", "Attempting to join room: ${room.name} with password=${if (password.isBlank()) "<empty>" else "<provided>"}")
+//
+//                var joinSuccess = false
+//
+//                //TODO tutaj trzeba dodacpopup z haslem, bo w rpzeciwnym wypadku dla kazdego pokoju prwatnego nawet z haselm sie te przypadek wyzej odpala
+//                // publiczny lub prywatny z hasłem
+//                val passwordToSend = if (room.isPrivate) password else "" // publiczny zawsze pusty string
+//                Log.d("NearNetVM", "Joining room: ${room.name} with password=${if (passwordToSend.isBlank()) "<empty>" else "<provided>"}")
+//
+//                if (::roomRepository.isInitialized) {
+//                    joinSuccess = roomRepository.addMyselfToRoom(room.idRoom, passwordToSend)
+//                    Log.d("NearNetVM", "Server returned joinSuccess=$joinSuccess for room: ${room.name}")
+//                } else {
+//                    Log.e("NearNetVM", "RoomRepository is not initialized!")
+//                }
+//
+//                if (joinSuccess) {
+//                    //selectRoom(room) //Nie przenosi do rooma , tylko z powrotem do discovery
+//                    if (room.isPrivate && password.isNotBlank()) {
+//                        roomRepository.fetchAndDecryptRoomKey(room.idRoom)
+//                    }
+//                    Log.d("NearNetVM", "Successfully joined room: ${room.name}")
+//                } else {
+//                    joinRoomEventMutable.emit(ProcessEvent.Error("Failed to join room — incorrect password or server error."))
+//                    Log.e("NearNetVM", "Could not join room: ${room.name}")
+//                }
+//
+//            } catch (e: Exception) {
+//                Log.e("NearNetVM", "Exception in joinRoom", e)
+//                joinRoomEventMutable.emit(ProcessEvent.Error("Unexpected error while joining the room."))
+//            }
+//        }
+//    }
+
+    fun joinRoom(room: RoomData, password: String) {
         viewModelScope.launch {
-            //var status : Boolean = joinRoom(room.id, ””) //funkcja dla Marka -> podawane jest id pokoju gdzie dołączam i hasło lub pusty string->
-            // hasło: dla publicznego pokoju pusty string podaję, dla  prywatnego podaję hasło które użytkownik wpisał lub pusty string gdy go nie zna,
-            // jak jest publiczny lub użytkownik poda hasło, to klucz do rozszyfrowania wiadomości dostaje od dowolnego użytkownika, gdzie klucz jest zaszyfrowany przez RSA (+ osobno wiadomości zaszyfrowane AES, któree tym kluczem rozszyfruje sobie)
-            // jak jest pokój prywatny i użytkownik nie zna hasła, to prośba o dołączenie idzie do admina i on potwierdza i wysyła mu on ten klucz szyfrowany przez RSA (+ osobno też wiadomości zaszyfrowane AES)
-            //4 przypadki!!!
-            //1.pokój prywatny i nie ma hasła od użytkownika (pusty string) ->prośba do admina o dołącznie
-            //2.pokój prywatny i jest hasło od użytkownika -> dołącza po sprawdzeniu poprawności z hashem na serwerze lub status=false
-            //3.pokój publiczny i nie ma hasła (pusty string) -> dołącza
-            //4.pokój publiczny i jest hasło - PRZYPADEK NIE MA PRAWA ZAJŚĆ, w razie czego ignorujemy hasło i wpuszczamy do pokoju ->dołącza
-            //hasło do pokoju trzymane w postaci hasha na serwerze, dodawane przy tworzeniu pokoju
-            //var status :Boolean = true //wykomentować
             try {
-                Log.d("NearNetVM", "Attempting to join room: ${room.name} with password=${if (password.isBlank()) "<empty>" else "<provided>"}")
+                Log.d("NearNetVM", "Attempting to join room: ${room.name}")
 
-                var joinSuccess = false
-
-                //TODO tutaj trzeba dodacpopup z haslem, bo w rpzeciwnym wypadku dla kazdego pokoju prwatnego nawet z haselm sie te przypadek wyzej odpala
-                // publiczny lub prywatny z hasłem
-                val passwordToSend = if (room.isPrivate) password else "" // publiczny zawsze pusty string
-                Log.d("NearNetVM", "Joining room: ${room.name} with password=${if (passwordToSend.isBlank()) "<empty>" else "<provided>"}")
-
-                if (::roomRepository.isInitialized) {
-                    joinSuccess = roomRepository.addMyselfToRoom(room.idRoom, passwordToSend)
-                    Log.d("NearNetVM", "Server returned joinSuccess=$joinSuccess for room: ${room.name}")
-                } else {
+                if (!::roomRepository.isInitialized) {
                     Log.e("NearNetVM", "RoomRepository is not initialized!")
+                    joinRoomEventMutable.emit(ProcessEvent.Error("Internal error"))
+                    return@launch
                 }
 
-                if (joinSuccess) {
-                    //selectRoom(room) //Nie przenosi do rooma , tylko z powrotem do discovery
-                    if (room.isPrivate && password.isNotBlank()) {
-                        roomRepository.fetchAndDecryptRoomKey(room.idRoom)
+                // Jeśli publiczny - standardowe dołączenie
+                if (!room.isPrivate) {
+                    val joinSuccess = roomRepository.addMyselfToRoom(room.idRoom, "")
+                    if (joinSuccess) {
+                        Log.d("NearNetVM", "✅ Joined public room")
+                        joinRoomEventMutable.emit(ProcessEvent.Success(Unit))
+                    } else {
+                        joinRoomEventMutable.emit(ProcessEvent.Error("Failed to join room"))
                     }
-                    Log.d("NearNetVM", "Successfully joined room: ${room.name}")
-                } else {
-                    joinRoomEventMutable.emit(ProcessEvent.Error("Failed to join room — incorrect password or server error."))
-                    Log.e("NearNetVM", "Could not join room: ${room.name}")
+                    return@launch
                 }
+
+                // ✅ POKÓJ PRYWATNY Z HASŁEM - użyj nowego przepływu
+                Log.d("NearNetVM", "🔐 Private room - sending password verification request...")
+
+                // Wyślij prośbę o weryfikację hasła
+                val requestSent = roomRepository.requestJoinByPassword(room.idRoom)
+
+                if (!requestSent) {
+                    joinRoomEventMutable.emit(ProcessEvent.Error("Failed to send request"))
+                    return@launch
+                }
+
+                Log.d("NearNetVM", "✅ Request sent, starting password verification polling...")
+
+                // Rozpocznij polling weryfikacji hasła
+                startPasswordVerificationPolling(room, password)
+
+                joinRoomEventMutable.emit(ProcessEvent.Success(Unit))
 
             } catch (e: Exception) {
                 Log.e("NearNetVM", "Exception in joinRoom", e)
@@ -622,6 +709,7 @@ class NearNetViewModel(): ViewModel() {
             }
         }
     }
+
     private var joinRequestPollingJob: Job? = null
     //proba do Admina o dołączenie do pokoju
     fun joinRoomRequest(room: RoomData) {
@@ -741,6 +829,544 @@ class NearNetViewModel(): ViewModel() {
         joinRequestPollingJob = null
         Log.d("ROOM", "🛑 Zatrzymano sprawdzanie statusu prośby")
     }
+
+    private var passwordVerificationPollingJob: Job? = null
+
+    private fun startPasswordVerificationPolling(room: RoomData, password: String) {
+        stopPasswordVerificationPolling()
+
+        passwordVerificationPollingJob = viewModelScope.launch {
+            var attempts = 0
+            val maxAttempts = 120 // 10 minut
+
+            Log.d("ROOM", "🔄 Rozpoczynam weryfikację hasła dla pokoju: ${room.name}")
+
+            while (isActive && attempts < maxAttempts) {
+                delay(3000) // Co 3 sekundy
+
+                try {
+                    val requestStatus = roomRepository.checkMyJoinRequest(room.idRoom)
+
+                    if (requestStatus == null) {
+                        attempts++
+                        continue
+                    }
+
+                    Log.d("ROOM", "📊 Status weryfikacji: ${requestStatus.status} (attempt ${attempts + 1}/$maxAttempts)")
+
+                    when (requestStatus.status) {
+//                        "declaredPasswordCheck" -> {
+//                            // Ktoś zadeklarował sprawdzenie - wyślij zaszyfrowane hasło
+//                            Log.d("ROOM", "🔐 Weryfikator gotowy - wysyłam zaszyfrowane hasło")
+//
+//                            val checkerId = requestStatus.encryptedRoomKey // ID weryfikatora
+//
+//                            if (!checkerId.isNullOrEmpty()) {
+//                                val context = contextProvider?.invoke()
+//                                if (context == null) {
+//                                    Log.e("ROOM", "✗ Context niedostępny")
+//                                    continue
+//                                }
+//
+//                                val checkerPublicKey = PublicKeyManager(context).getPublicKeyForUser(checkerId)
+//
+//                                if (checkerPublicKey != null) {
+//                                    val encryptedPassword = CryptoUtils.encryptStringWithRSA(password, checkerPublicKey)
+//
+//                                    val sent = roomRepository.sendEncryptedPassword(room.idRoom, encryptedPassword)
+//
+//                                    if (sent) {
+//                                        Log.d("ROOM", "✓ Zaszyfrowane hasło wysłane")
+//                                    }
+//                                }
+//                            }
+//                        }
+                        "declaredPasswordCheck" -> {
+                            Log.d("ROOM", "🔐 Weryfikator gotowy - wysyłam zaszyfrowane hasło")
+
+                            val checkerId = requestStatus.encryptedRoomKey // ID weryfikatora
+
+                            Log.d("ROOM", "🔍 CheckerId: $checkerId")  // ← DODAJ
+
+                            if (checkerId.isNullOrEmpty()) {
+                                Log.e("ROOM", "✗ CheckerId jest pusty!")  // ← DODAJ
+                                continue
+                            }
+
+                            Log.d("ROOM", "✓ CheckerId OK: $checkerId")  // ← DODAJ
+
+                            val context = contextProvider?.invoke()
+                            if (context == null) {
+                                Log.e("ROOM", "✗ Context niedostępny")
+                                continue
+                            }
+
+                            Log.d("ROOM", "✓ Context OK")  // ← DODAJ
+
+                            val checkerPublicKey = PublicKeyManager(context).getPublicKeyForUser(checkerId)
+
+                            Log.d("ROOM", "🔍 PublicKey dla $checkerId: ${if (checkerPublicKey != null) "FOUND" else "NULL"}")  // ← DODAJ
+
+                            if (checkerPublicKey != null) {
+                                Log.d("ROOM", "✓ Klucz publiczny weryfikatora pobrany")  // ← DODAJ
+
+                                try {
+                                    val encryptedPassword = CryptoUtils.encryptStringWithRSA(password, checkerPublicKey)
+
+                                    Log.d("ROOM", "✓ Hasło zaszyfrowane")  // ← DODAJ
+                                    Log.d("ROOM", "🔍 Encrypted password (50 chars): ${encryptedPassword.take(50)}")  // ← DODAJ
+
+                                    val sent = roomRepository.sendEncryptedPassword(room.idRoom, encryptedPassword)
+
+                                    if (sent) {
+                                        Log.d("ROOM", "✅ Zaszyfrowane hasło wysłane pomyślnie!")
+                                    } else {
+                                        Log.e("ROOM", "✗ Nie udało się wysłać zaszyfrowanego hasła")
+                                    }
+                                } catch (e: Exception) {
+                                    Log.e("ROOM", "❌ Błąd szyfrowania hasła", e)
+                                }
+                            } else {
+                                Log.e("ROOM", "✗ Nie można pobrać klucza publicznego weryfikatora")
+                            }
+                        }
+
+                        "accepted" -> {
+                            Log.d("ROOM", "✅ Hasło zweryfikowane! Pobieram dane pokoju...")
+
+                            if (!requestStatus.encryptedRoomKey.isNullOrEmpty()) {
+                                keysBeingSaved.add(room.idRoom)
+
+                                val keyFetched = roomRepository.fetchAndDecryptRoomKey(
+                                    room.idRoom,
+                                    requestStatus.encryptedRoomKey
+                                )
+
+                                keysBeingSaved.remove(room.idRoom)
+
+                                if (keyFetched) {
+                                    Log.d("ROOM", "✅ Dane pokoju zapisane lokalnie!")
+                                }
+                            }
+
+                            break
+                        }
+
+                        "rejected" -> {
+                            Log.d("ROOM", "❌ Niepoprawne hasło")
+                            joinRoomEventMutable.emit(ProcessEvent.Error("Incorrect password"))
+                            break
+                        }
+
+                        "requestJoin" -> {
+                            Log.d("ROOM", "⏳ Czekam na weryfikatora...")
+                        }
+                    }
+
+                    attempts++
+
+                } catch (e: Exception) {
+                    Log.e("ROOM", "Błąd weryfikacji hasła", e)
+                    attempts++
+                }
+            }
+
+            if (attempts >= maxAttempts) {
+                Log.w("ROOM", "⏱️ Timeout weryfikacji hasła")
+            }
+
+            passwordVerificationPollingJob = null
+        }
+    }
+
+    fun stopPasswordVerificationPolling() {
+        passwordVerificationPollingJob?.cancel()
+        passwordVerificationPollingJob = null
+        Log.d("ROOM", "🛑 Zatrzymano weryfikację hasła")
+    }
+
+    private var passwordCheckPollingJob: Job? = null
+    private val handledPasswordChecks = mutableSetOf<String>()
+
+//    fun startGlobalPasswordCheckPolling() {
+//        stopGlobalPasswordCheckPolling()
+//
+//        passwordCheckPollingJob = viewModelScope.launch {
+//            Log.d("ROOM", "🔄 Rozpoczynam globalny polling sprawdzania haseł")
+//
+//            while (isActive) {
+//                try {
+//                    // Pobierz WSZYSTKIE pokoje użytkownika
+//                    val myRoomsList = myRooms.value
+//
+//                    // Sprawdź każdy pokój prywatny
+//                    myRoomsList.filter { it.isPrivate }.forEach { room ->
+//                        try {
+//                            val usersWaiting = roomRepository.getRoomUsersStatus(room.idRoom)
+//
+//                            usersWaiting.forEach { userStatus ->
+//                                val key = "${userStatus.userId}-${room.idRoom}-${userStatus.status}"
+//
+//                                // Sprawdź czy już obsłużyliśmy
+//                                if (handledPasswordChecks.contains(key)) {
+//                                    return@forEach
+//                                }
+//
+//                                when (userStatus.status) {
+//                                    "requestJoin" -> {
+//                                        // Nowy użytkownik czeka - AUTOMATYCZNIE zadeklaruj sprawdzenie
+//                                        Log.d("ROOM", "👤 [${room.name}] Nowy użytkownik ${userStatus.userId} czeka - deklaruję sprawdzenie")
+//
+//                                        handledPasswordChecks.add(key)
+//
+//                                        val declared = roomRepository.declarePasswordCheck(room.idRoom, userStatus.userId)
+//
+//                                        if (declared) {
+//                                            Log.d("ROOM", "✓ [${room.name}] Zadeklarowano sprawdzenie hasła")
+//                                        }
+//                                    }
+//
+//                                    "passwordReadyToCheck" -> {
+//                                        // Użytkownik wysłał zaszyfrowane hasło - AUTOMATYCZNIE sprawdź
+//                                        Log.d("ROOM", "🔐 [${room.name}] Otrzymano zaszyfrowane hasło od ${userStatus.userId} - sprawdzam")
+//
+//                                        handledPasswordChecks.add(key)
+//
+//                                        // Sprawdź hasło w tle
+//                                        launch {
+//                                            verifyUserPassword(room, userStatus)
+//                                        }
+//                                    }
+//                                }
+//                            }
+//                        } catch (e: Exception) {
+//                            Log.e("ROOM", "Błąd sprawdzania pokoju ${room.name}", e)
+//                        }
+//                    }
+//
+//                } catch (e: Exception) {
+//                    Log.e("ROOM", "Błąd globalnego sprawdzania haseł", e)
+//                }
+//
+//                delay(3000) // Co 3 sekundy
+//            }
+//        }
+//    }
+
+    fun startGlobalPasswordCheckPolling() {
+        stopGlobalPasswordCheckPolling()
+
+        passwordCheckPollingJob = viewModelScope.launch {
+            Log.d("ROOM", "🔄 Rozpoczynam globalny polling sprawdzania haseł")
+
+            while (isActive) {
+                try {
+                    val myRoomsList = myRooms.value
+
+                    // 🔍 DODAJ SZCZEGÓŁOWE LOGI
+                    Log.d("ROOM", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+                    Log.d("ROOM", "📊 Globalny polling - sprawdzam ${myRoomsList.size} pokoi")
+
+                    val privateRooms = myRoomsList.filter { it.isPrivate }
+                    Log.d("ROOM", "🔐 Prywatnych pokoi do sprawdzenia: ${privateRooms.size}")
+
+                    privateRooms.forEach { room ->
+                        Log.d("ROOM", "🔍 Checking room: ${room.name} (${room.idRoom})")
+                    }
+
+                    privateRooms.forEach { room ->
+                        try {
+                            Log.d("ROOM", "🔍 [${room.name}] Pobieram statusy użytkowników...")
+
+                            val usersWaiting = roomRepository.getRoomUsersStatus(room.idRoom)
+
+                            Log.d("ROOM", "📊 [${room.name}] Znaleziono ${usersWaiting.size} użytkowników czekających")
+
+                            usersWaiting.forEach { userStatus ->
+                                Log.d("ROOM", "  👤 User: ${userStatus.userId}")
+                                Log.d("ROOM", "     Status: ${userStatus.status}")
+                                Log.d("ROOM", "     EncryptedRoomKey: ${userStatus.encryptedRoomKey?.take(20) ?: "null"}")
+
+                                val key = "${userStatus.userId}-${room.idRoom}-${userStatus.status}"
+
+                                // Sprawdź czy już obsłużyliśmy
+                                if (handledPasswordChecks.contains(key)) {
+                                    Log.d("ROOM", "  ⏭️ Już obsłużone - pomijam")
+                                    return@forEach
+                                }
+
+                                Log.d("ROOM", "  ✨ Nowy request - obsługuję!")
+
+                                when (userStatus.status) {
+                                    "requestJoin" -> {
+                                        Log.d("ROOM", "👤 [${room.name}] Nowy użytkownik ${userStatus.userId} czeka - deklaruję sprawdzenie")
+
+                                        handledPasswordChecks.add(key)
+
+                                        launch {
+                                            val declared = roomRepository.declarePasswordCheck(room.idRoom, userStatus.userId)
+
+                                            if (declared) {
+                                                Log.d("ROOM", "✓ [${room.name}] Zadeklarowano sprawdzenie hasła")
+                                            } else {
+                                                Log.e("ROOM", "✗ [${room.name}] Nie udało się zadeklarować sprawdzenia")
+                                            }
+                                        }
+                                    }
+
+                                    "passwordReadyToCheck" -> {
+                                        Log.d("ROOM", "🔐 [${room.name}] Otrzymano zaszyfrowane hasło od ${userStatus.userId} - sprawdzam")
+
+                                        handledPasswordChecks.add(key)
+
+                                        launch {
+                                            verifyUserPassword(room, userStatus)
+                                        }
+                                    }
+
+                                    else -> {
+                                        Log.d("ROOM", "  ℹ️ Status ${userStatus.status} - ignoruję")
+                                    }
+                                }
+                            }
+                        } catch (e: Exception) {
+                            Log.e("ROOM", "Błąd sprawdzania pokoju ${room.name}", e)
+                        }
+                    }
+
+                } catch (e: Exception) {
+                    Log.e("ROOM", "Błąd globalnego sprawdzania haseł", e)
+                }
+
+                delay(3000) // Co 3 sekundy
+            }
+        }
+    }
+
+    fun stopGlobalPasswordCheckPolling() {
+        passwordCheckPollingJob?.cancel()
+        passwordCheckPollingJob = null
+        handledPasswordChecks.clear()
+        Log.d("ROOM", "🛑 Zatrzymano globalny polling sprawdzania haseł")
+    }
+
+//    private suspend fun verifyUserPassword(room: RoomData, userStatus: UserStatus) {
+//        try {
+//            val context = contextProvider?.invoke()
+//            if (context == null) {
+//                Log.e("ROOM", "✗ Context niedostępny")
+//                return
+//            }
+//
+//            // Pobierz swój klucz prywatny
+//            val myLogin = UserRepository.getLoginFromPreferences(context) ?: return
+//            val myPrivateKey = CryptoUtils.getPrivateKey(context, myLogin) ?: return
+//
+//            // Odszyfruj hasło
+//            val encryptedPassword = userStatus.encryptedRoomKey ?: return
+//            val decryptedPassword = CryptoUtils.decryptStringWithRSA(encryptedPassword, myPrivateKey)
+//
+//            Log.d("ROOM", "🔓 Odszyfrowano hasło od użytkownika ${userStatus.userId}")
+//
+//            // Sprawdź hasło - porównaj z lokalnym hasłem pokoju
+//            val roomPassword = roomRepository.getRoomPassword(room.idRoom)
+//
+//            if (roomPassword == null) {
+//                Log.w("ROOM", "⚠️ Nie mam hasła pokoju - nie mogę zweryfikować")
+//                return
+//            }
+//
+//            val isCorrect = (decryptedPassword == roomPassword)
+//
+//            if (isCorrect) {
+//                Log.d("ROOM", "✅ Hasło poprawne! Wysyłam dane pokoju...")
+//
+//                // Pobierz klucz AES pokoju
+//                val roomAESKeyBase64 = roomRepository.getRoomAESKey(room.idRoom)
+//                if (roomAESKeyBase64 == null) {
+//                    Log.e("ROOM", "✗ Nie mam klucza pokoju!")
+//                    return
+//                }
+//
+//                val roomAESKey = CryptoUtils.stringToAESKey(roomAESKeyBase64)
+//
+//                // Pobierz klucz publiczny nowego użytkownika
+//                val targetPublicKey = PublicKeyManager(context).getPublicKeyForUser(userStatus.userId)
+//                if (targetPublicKey == null) {
+//                    Log.e("ROOM", "✗ Nie można pobrać klucza publicznego użytkownika ${userStatus.userId}")
+//                    return
+//                }
+//
+//                // Zaszyfruj klucz AES
+//                val encryptedAESKey = CryptoUtils.encryptAESKeyWithRSA(roomAESKey, targetPublicKey)
+//
+//                // Zaszyfruj hasło
+//                val encryptedPasswordToSend = CryptoUtils.encryptStringWithRSA(roomPassword, targetPublicKey)
+//
+//                // Stwórz JSON
+//                val jsonData = JSONObject().apply {
+//                    put("encryptedAESKey", encryptedAESKey)
+//                    put("encryptedPassword", encryptedPasswordToSend)
+//                }
+//
+//                val jsonString = jsonData.toString()
+//
+//                // Wyślij JSON
+//                val sent = roomRepository.sendRoomKeyToUser(room.idRoom, userStatus.userId, jsonString)
+//
+//                if (sent) {
+//                    Log.d("ROOM", "✅ Dane pokoju wysłane pomyślnie")
+//                }
+//            } else {
+//                Log.d("ROOM", "❌ Hasło niepoprawne - nie wysyłam danych")
+//            }
+//
+//        } catch (e: Exception) {
+//            Log.e("ROOM", "Błąd weryfikacji hasła", e)
+//        }
+//    }
+
+    private suspend fun verifyUserPassword(room: RoomData, userStatus: UserStatus) {
+        // ✅ DODAJ TEN LOG NA SAMYM POCZĄTKU
+        Log.d("ROOM", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        Log.d("ROOM", "🔐 WERYFIKACJA HASŁA - START")
+        Log.d("ROOM", "   Room: ${room.name} (${room.idRoom})")
+        Log.d("ROOM", "   User: ${userStatus.userId}")
+        Log.d("ROOM", "   Encrypted password: ${userStatus.encryptedRoomKey?.take(50)}")
+
+        try {
+            val context = contextProvider?.invoke()
+            if (context == null) {
+                Log.e("ROOM", "✗ Context niedostępny")
+                return
+            }
+
+            Log.d("ROOM", "✓ Context OK")
+
+            // Pobierz swój klucz prywatny
+            val myLogin = UserRepository.getLoginFromPreferences(context)
+
+            Log.d("ROOM", "🔍 Mój login: $myLogin")
+
+            if (myLogin == null) {
+                Log.e("ROOM", "✗ Nie można pobrać loginu")
+                return
+            }
+
+            Log.d("ROOM", "✓ Login OK: $myLogin")
+
+            val myPrivateKey = CryptoUtils.getPrivateKey(context, myLogin)
+
+            if (myPrivateKey == null) {
+                Log.e("ROOM", "✗ Nie można pobrać PrivateKey")
+                return
+            }
+
+            Log.d("ROOM", "✓ PrivateKey OK")
+
+            // Odszyfruj hasło
+            val encryptedPassword = userStatus.encryptedRoomKey
+
+            if (encryptedPassword == null) {
+                Log.e("ROOM", "✗ Brak zaszyfrowanego hasła")
+                return
+            }
+
+            Log.d("ROOM", "🔓 Odszyfrowuję hasło...")
+
+            val decryptedPassword = CryptoUtils.decryptStringWithRSA(encryptedPassword, myPrivateKey)
+
+            Log.d("ROOM", "✓ Hasło odszyfrowane: [${decryptedPassword.length} znaków]")
+
+            // Sprawdź hasło - porównaj z lokalnym hasłem pokoju
+            val roomPassword = roomRepository.getRoomPassword(room.idRoom)
+
+            Log.d("ROOM", "🔍 Pobieram hasło pokoju...")
+
+            if (roomPassword == null) {
+                Log.e("ROOM", "✗ Nie mam hasła pokoju - nie mogę zweryfikować")
+                return
+            }
+
+            Log.d("ROOM", "✓ Hasło pokoju: [${roomPassword.length} znaków]")
+            Log.d("ROOM", "🔍 Porównuję: '$decryptedPassword' vs '$roomPassword'")
+
+            val isCorrect = (decryptedPassword == roomPassword)
+
+            Log.d("ROOM", "📊 Wynik porównania: $isCorrect")
+
+            if (isCorrect) {
+                Log.d("ROOM", "✅ Hasło POPRAWNE! Wysyłam dane pokoju...")
+
+                // Pobierz klucz AES pokoju
+                val roomAESKeyBase64 = roomRepository.getRoomAESKey(room.idRoom)
+                if (roomAESKeyBase64 == null) {
+                    Log.e("ROOM", "✗ Nie mam klucza pokoju!")
+                    return
+                }
+
+                Log.d("ROOM", "✓ Klucz AES pokoju pobrany")
+
+                val roomAESKey = CryptoUtils.stringToAESKey(roomAESKeyBase64)
+
+                // Pobierz klucz publiczny nowego użytkownika
+                val targetPublicKey = PublicKeyManager(context).getPublicKeyForUser(userStatus.userId)
+                if (targetPublicKey == null) {
+                    Log.e("ROOM", "✗ Nie można pobrać klucza publicznego użytkownika ${userStatus.userId}")
+                    return
+                }
+
+                Log.d("ROOM", "✓ PublicKey nowego użytkownika pobrany")
+
+                // Zaszyfruj klucz AES
+                Log.d("ROOM", "🔐 Szyfruję klucz AES...")
+                val encryptedAESKey = CryptoUtils.encryptAESKeyWithRSA(roomAESKey, targetPublicKey)
+
+                Log.d("ROOM", "✓ Klucz AES zaszyfrowany")
+
+                // Zaszyfruj hasło
+                Log.d("ROOM", "🔐 Szyfruję hasło pokoju...")
+                val encryptedPasswordToSend = CryptoUtils.encryptStringWithRSA(roomPassword, targetPublicKey)
+
+                Log.d("ROOM", "✓ Hasło pokoju zaszyfrowane")
+
+                // Stwórz JSON
+                val jsonData = JSONObject().apply {
+                    put("encryptedAESKey", encryptedAESKey)
+                    put("encryptedPassword", encryptedPasswordToSend)
+                }
+
+                val jsonString = jsonData.toString()
+
+                Log.d("ROOM", "📦 JSON utworzony (${jsonString.length} znaków)")
+                Log.d("ROOM", "📤 Wysyłam dane do użytkownika...")
+
+                // Wyślij JSON
+                val sent = roomRepository.sendRoomKeyToUser(room.idRoom, userStatus.userId, jsonString)
+
+                if (sent) {
+                    Log.d("ROOM", "✅✅✅ Dane pokoju wysłane POMYŚLNIE! ✅✅✅")
+                } else {
+                    Log.e("ROOM", "❌ Nie udało się wysłać danych")
+                }
+            } else {
+                Log.d("ROOM", "❌❌❌ Hasło NIEPOPRAWNE - nie wysyłam danych ❌❌❌")
+                Log.d("ROOM", "   Otrzymane: '$decryptedPassword'")
+                Log.d("ROOM", "   Oczekiwane: '$roomPassword'")
+            }
+
+        } catch (e: Exception) {
+            Log.e("ROOM", "❌❌❌ BŁĄD weryfikacji hasła", e)
+        }
+
+        Log.d("ROOM", "🔐 WERYFIKACJA HASŁA - KONIEC")
+        Log.d("ROOM", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+    }
+
+
+
+
+
 
 
     //woła się, gdy admin zatwierdzi dołączenie jakiegoś usera do pokoju
@@ -1419,6 +2045,8 @@ class NearNetViewModel(): ViewModel() {
         stopPendingRequestsPolling()
         stopRealtime()
         stopWaitingForKeyPolling()
+        stopPasswordVerificationPolling()
+        stopGlobalPasswordCheckPolling()
     }
 
 }
