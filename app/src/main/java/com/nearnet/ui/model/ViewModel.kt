@@ -1124,6 +1124,16 @@ class NearNetViewModel(): ViewModel() {
                                         }
                                     }
 
+                                    "waitingForKey" -> {
+                                        Log.d("ROOM", "🔑 [${room.name}] Użytkownik ${userStatus.userId} potrzebuje klucza")
+
+                                        handledPasswordChecks.add(key)
+
+                                        launch {
+                                            sendKeyToUser(room, userStatus.userId)
+                                        }
+                                    }
+
                                     else -> {
                                         Log.d("ROOM", "  ℹ️ Status ${userStatus.status} - ignoruję")
                                     }
@@ -1148,6 +1158,86 @@ class NearNetViewModel(): ViewModel() {
         passwordCheckPollingJob = null
         handledPasswordChecks.clear()
         Log.d("ROOM", "🛑 Zatrzymano globalny polling sprawdzania haseł")
+    }
+
+    private suspend fun sendKeyToUser(room: RoomData, targetUserId: String) {
+        try {
+            Log.d("ROOM", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+            Log.d("ROOM", "🔑 WYSYŁAM KLUCZ - START")
+            Log.d("ROOM", "   Room: ${room.name}")
+            Log.d("ROOM", "   Target user: $targetUserId")
+
+            val context = contextProvider?.invoke()
+            if (context == null) {
+                Log.e("ROOM", "✗ Context niedostępny")
+                return
+            }
+
+            // Pobierz klucz AES pokoju
+            val roomAESKeyBase64 = roomRepository.getRoomAESKey(room.idRoom)
+            if (roomAESKeyBase64 == null) {
+                Log.e("ROOM", "✗ Nie mam klucza AES pokoju!")
+                return
+            }
+
+            Log.d("ROOM", "✓ Klucz AES pokoju pobrany")
+
+            // Pobierz hasło pokoju (jeśli jest)
+            val roomPassword = roomRepository.getRoomPassword(room.idRoom) ?: ""
+
+            if (roomPassword.isNotEmpty()) {
+                Log.d("ROOM", "✓ Hasło pokoju pobrane")
+            }
+
+            val roomAESKey = CryptoUtils.stringToAESKey(roomAESKeyBase64)
+
+            // Pobierz PublicKey użytkownika
+            val targetPublicKey = PublicKeyManager(context).getPublicKeyForUser(targetUserId)
+            if (targetPublicKey == null) {
+                Log.e("ROOM", "✗ Nie można pobrać PublicKey użytkownika $targetUserId")
+                return
+            }
+
+            Log.d("ROOM", "✓ PublicKey użytkownika pobrany")
+
+            // Zaszyfruj klucz AES
+            Log.d("ROOM", "🔐 Szyfruję klucz AES...")
+            val encryptedAESKey = CryptoUtils.encryptAESKeyWithRSA(roomAESKey, targetPublicKey)
+
+            Log.d("ROOM", "✓ Klucz AES zaszyfrowany")
+
+            // Zaszyfruj hasło
+            Log.d("ROOM", "🔐 Szyfruję hasło pokoju...")
+            val encryptedPassword = CryptoUtils.encryptStringWithRSA(roomPassword, targetPublicKey)
+
+            Log.d("ROOM", "✓ Hasło pokoju zaszyfrowane")
+
+            // Stwórz JSON
+            val jsonData = JSONObject().apply {
+                put("encryptedAESKey", encryptedAESKey)
+                put("encryptedPassword", encryptedPassword)
+            }
+
+            val jsonString = jsonData.toString()
+
+            Log.d("ROOM", "📦 JSON utworzony")
+            Log.d("ROOM", "📤 Wysyłam klucz do użytkownika...")
+
+            // Wyślij
+            val sent = roomRepository.sendRoomKeyToUser(room.idRoom, targetUserId, jsonString)
+
+            if (sent) {
+                Log.d("ROOM", "✅✅✅ Klucz wysłany POMYŚLNIE! ✅✅✅")
+            } else {
+                Log.e("ROOM", "❌ Nie udało się wysłać klucza")
+            }
+
+        } catch (e: Exception) {
+            Log.e("ROOM", "❌❌❌ BŁĄD wysyłania klucza", e)
+        }
+
+        Log.d("ROOM", "🔑 WYSYŁAM KLUCZ - KONIEC")
+        Log.d("ROOM", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     }
 
 //    private suspend fun verifyUserPassword(room: RoomData, userStatus: UserStatus) {
@@ -1492,6 +1582,10 @@ class NearNetViewModel(): ViewModel() {
                             Log.d("ROOM", "⏳ Nadal oczekuje na decyzję admina...")
                         }
 
+                        "waitingForKey" -> {
+                            Log.d("ROOM", "⏳ Czekam na klucz od innych użytkowników... (attempt ${attempts + 1}/$maxAttempts)")
+                        }
+
                         "inRoom" -> {
                             Log.d("ROOM", "✅ Już jesteś członkiem pokoju")
                             break
@@ -1619,54 +1713,47 @@ class NearNetViewModel(): ViewModel() {
     fun filterDiscoverRooms(filterText: String){
         searchDiscoverTextMutable.value = filterText
     }
-    fun selectRoom(room : RoomData, verifyKeyExist: Boolean = true) {
+
+    fun selectRoom(room: RoomData, verifyKeyExist: Boolean = true) {
         viewModelScope.launch {
             if (verifyKeyExist && room.isPrivate) {
-                // ✅ SPRAWDŹ czy klucz już nie został zapisany
+                // ✅ SPRAWDŹ czy mamy klucz AES
                 var hasKey = roomRepository.hasRoomAESKey(room.idRoom)
 
                 if (!hasKey) {
-                    Log.w("ROOM", "Brak klucza dla pokoju ${room.name}, próbuję pobrać...")
+                    Log.w("ROOM", "❌ Brak klucza AES dla pokoju ${room.name}")
+                    Log.d("ROOM", "🔄 Rozpoczynam pobieranie klucza od innych użytkowników...")
 
-                    // Spróbuj pobrać z serwera
-                    val keyFetched = roomRepository.fetchAndDecryptRoomKey(room.idRoom)
+                    // ✅ Wyślij request o klucz
+                    val requested = roomRepository.requestKeyAgain(room.idRoom)
 
-                    if (keyFetched) {
-                        Log.d("ROOM", "✓ Klucz pobrany z serwera!")
+                    if (requested) {
+                        Log.d("ROOM", "✅ Request wysłany - czekam na klucz...")
+
+                        // ✅ Rozpocznij polling odzyskiwania klucza
+                        startWaitingForKeyPolling(room)
+
+                        // Powiadom użytkownika
+                        selectedRoomEventMutable.emit(
+                            ProcessEvent.Error("Waiting for encryption key. Please wait...")
+                        )
                     } else {
-                        // ✅ SPRAWDŹ PONOWNIE - może polling już zapisał klucz
-                        delay(500) // Poczekaj chwilę
-                        hasKey = roomRepository.hasRoomAESKey(room.idRoom)
-
-                        if (hasKey) {
-                            Log.d("ROOM", "✓ Klucz został zapisany przez polling!")
-                        } else {
-                            Log.e("ROOM", "Nie można pobrać klucza z serwera")
-
-                            // Jako ostateczność, poproś innych użytkowników
-                            Log.d("ROOM", "Proszę innych użytkowników o klucz...")
-                            val requestSuccess = roomRepository.requestKeyAgain(room.idRoom)
-
-                            if (!requestSuccess) {
-                                selectedRoomEventMutable.emit(
-                                    ProcessEvent.Error("Cannot access this room. Please try again later.")
-                                )
-                                return@launch
-                            }
-
-                            selectedRoomEventMutable.emit(
-                                ProcessEvent.Error("Waiting for encryption key. Please try again in a moment.")
-                            )
-                            return@launch
-                        }
+                        Log.e("ROOM", "❌ Nie udało się wysłać requestu")
+                        selectedRoomEventMutable.emit(
+                            ProcessEvent.Error("Cannot access this room. Please try again later.")
+                        )
                     }
+
+                    return@launch
                 }
+
+                Log.d("ROOM", "✅ Mam klucz AES - wchodzę do pokoju")
             }
 
-            // Wejście do pokoju
+            // Normalnie wchodzimy do pokoju
             knownUserIds.clear()
             selectedRoomMutable.value = room
-            Log.e("KOT", "SELECT ROOM "+room.name+ " " + room.idAdmin)
+            Log.d("ROOM", "✅ Wybrany pokój: ${room.name}")
 
             if (selectedRoomMutable.value != null) {
                 selectedRoomEventMutable.emit(ProcessEvent.Success(room))
@@ -1675,6 +1762,62 @@ class NearNetViewModel(): ViewModel() {
             }
         }
     }
+//    fun selectRoom(room : RoomData, verifyKeyExist: Boolean = true) {
+//        viewModelScope.launch {
+//            if (verifyKeyExist && room.isPrivate) {
+//                // ✅ SPRAWDŹ czy klucz już nie został zapisany
+//                var hasKey = roomRepository.hasRoomAESKey(room.idRoom)
+//
+//                if (!hasKey) {
+//                    Log.w("ROOM", "Brak klucza dla pokoju ${room.name}, próbuję pobrać...")
+//
+//                    // Spróbuj pobrać z serwera
+//                    val keyFetched = roomRepository.fetchAndDecryptRoomKey(room.idRoom)
+//
+//                    if (keyFetched) {
+//                        Log.d("ROOM", "✓ Klucz pobrany z serwera!")
+//                    } else {
+//                        // ✅ SPRAWDŹ PONOWNIE - może polling już zapisał klucz
+//                        delay(500) // Poczekaj chwilę
+//                        hasKey = roomRepository.hasRoomAESKey(room.idRoom)
+//
+//                        if (hasKey) {
+//                            Log.d("ROOM", "✓ Klucz został zapisany przez polling!")
+//                        } else {
+//                            Log.e("ROOM", "Nie można pobrać klucza z serwera")
+//
+//                            // Jako ostateczność, poproś innych użytkowników
+//                            Log.d("ROOM", "Proszę innych użytkowników o klucz...")
+//                            val requestSuccess = roomRepository.requestKeyAgain(room.idRoom)
+//
+//                            if (!requestSuccess) {
+//                                selectedRoomEventMutable.emit(
+//                                    ProcessEvent.Error("Cannot access this room. Please try again later.")
+//                                )
+//                                return@launch
+//                            }
+//
+//                            selectedRoomEventMutable.emit(
+//                                ProcessEvent.Error("Waiting for encryption key. Please try again in a moment.")
+//                            )
+//                            return@launch
+//                        }
+//                    }
+//                }
+//            }
+//
+//            // Wejście do pokoju
+//            knownUserIds.clear()
+//            selectedRoomMutable.value = room
+//            Log.e("KOT", "SELECT ROOM "+room.name+ " " + room.idAdmin)
+//
+//            if (selectedRoomMutable.value != null) {
+//                selectedRoomEventMutable.emit(ProcessEvent.Success(room))
+//            } else {
+//                selectedRoomEventMutable.emit(ProcessEvent.Error("Failed to enter the room."))
+//            }
+//        }
+//    }
 
 //    fun selectRoom(room : RoomData, verifyKeyExist: Boolean = true) {
 //        viewModelScope.launch {
