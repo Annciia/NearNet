@@ -11,22 +11,32 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.*
 
+// ============================================================================
+// MODELE DANYCH - Struktury odpowiedzi API
+// ============================================================================
+
+//Odpowiedź serwera na rejestrację użytkownika
 data class RegisterResponse(
     val success: Boolean = false,
     val error: String? = null
 )
 
+//Odpowiedź serwera na logowanie użytkownika
 data class LoginResponse(
     val success: Boolean,
     val token: String?,
     val userData: UserData?
 )
 
+//Odpowiedź zawierająca klucz publiczny użytkownika
 data class PublicKeyResponse(
     val id: String,
     val publicKey: String
 )
 
+// ============================================================================
+// RETROFIT API SERVICE - Definicje endpointów użytkownika
+// ============================================================================
 
 interface ApiService {
     @POST("/api/register")
@@ -55,6 +65,10 @@ interface ApiService {
     ): Response<PublicKeyResponse>
 }
 
+// ============================================================================
+// USER REPOSITORY - Główna klasa zarządzania użytkownikami
+// ============================================================================
+
 class UserRepository(private val context: Context) {
     //private val db = AppDatabase.getDatabase(context)
 
@@ -65,8 +79,17 @@ class UserRepository(private val context: Context) {
 
     private val api = retrofit.create(ApiService::class.java)
 
+    // ============================================================================
+    // FUNKCJE REJESTRACJI I LOGOWANIA
+    // ============================================================================
 
-
+    /**
+     * Rejestruje nowego użytkownika w systemie
+     *
+     * @param login Login użytkownika
+     * @param password Hasło użytkownika
+     * @return true jeśli rejestracja się powiodła, false w przeciwnym razie
+     */
     suspend fun registerUser(login: String, password: String): Boolean = withContext(Dispatchers.IO) {
 
         try {
@@ -89,7 +112,7 @@ class UserRepository(private val context: Context) {
 
             if (response.isSuccessful) {
                 val registerResponse = response.body()
-                Log.d("REST", "✓ Rejestracja zakończona pomyślnie!")
+                Log.d("REST", "Rejestracja zakończona pomyślnie!")
                 Log.d("REST", "  Response body: $registerResponse")
                 Log.d("REST", "  Success: ${registerResponse?.success}")
 
@@ -135,7 +158,14 @@ class UserRepository(private val context: Context) {
         }
     }
 
-
+    /**
+     * Loguje użytkownika do systemu
+     *
+     *
+     * @param login Login użytkownika
+     * @param password Hasło użytkownika
+     * @return Dane użytkownika (UserData)
+     */
     suspend fun loginUser(login: String, password: String): UserData = withContext(Dispatchers.IO) {
         //czyszczenie starego tokenu
         val sharedPref = context.getSharedPreferences("UserPrefs", Context.MODE_PRIVATE)
@@ -149,60 +179,72 @@ class UserRepository(private val context: Context) {
             "password" to password.trim()
         )
         Log.d("LOGIN_DEBUG", "Request body: $body")
-
+        // wysłanie żądania logowania
         val response = api.login(body)
         Log.d("LOGIN_DEBUG", "HTTP response code: ${response.code()}")
 
         if (!response.isSuccessful) {
             val errorBody = response.errorBody()?.string()
             Log.e("LOGIN_DEBUG", "HTTP error body: $errorBody")
-            throw Exception("Login failed: ${response.code()}")
+            throw Exception("Logowanie nieudane: ${response.code()}")
         }
 
         val res = response.body()
         if (res == null) {
             Log.e("LOGIN_DEBUG", "Response body is null")
-            throw Exception("Login failed: empty response")
+            throw Exception("Logowanie nieudane: pusta odpowiedź")
         }
 
         Log.d("LOGIN_DEBUG", "Response: success=${res.success}, token=${res.token}, userData=${res.userData}")
 
         if (res.success && res.token != null && res.userData != null) {
+            // zapisanie tokenu i loginu
             saveTokenToPreferences(res.token)
             saveLoginToPreferences(login.trim())
 
             val userData = res.userData.copy(login = login.trim())
 
             Log.d("LOGIN_DEBUG", "Mapped UserData: $userData")
-
+            // weryfikacja i regeneracja kluczy RSA jeśli potrzeba
             try {
                 val keysOk = verifyAndRegenerateKeysIfNeeded(userData.id, login.trim())
                 if (keysOk) {
-                    Log.d("LOGIN_DEBUG", "RSA keys verified/regenerated successfully")
+                    Log.d("LOGIN_DEBUG", "Klucze RSA zweryfikowane/zregenerowane pomyślnie")
                 } else {
-                    Log.w("LOGIN_DEBUG", "RSA keys verification had issues (but login continues)")
+                    Log.w("LOGIN_DEBUG", "Problemy z weryfikacją kluczy RSA (ale logowanie kontynuowane)")
                     // Nie przerywamy logowania - user może dalej korzystać
                 }
             } catch (e: Exception) {
-                Log.e("LOGIN_DEBUG", "Exception during key verification", e)
+                Log.e("LOGIN_DEBUG", "Wyjątek podczas weryfikacji kluczy", e)
             }
             return@withContext userData
         } else {
-            if (!res.success) Log.e("LOGIN_DEBUG", "Login failed: success=false")
-            if (res.token == null) Log.e("LOGIN_DEBUG", "Login failed: token=null")
-            if (res.userData == null) Log.e("LOGIN_DEBUG", "Login failed: userData=null")
+            if (!res.success) Log.e("LOGIN_DEBUG", "Logowanie nieudane: success=false")
+            if (res.token == null) Log.e("LOGIN_DEBUG", "Logowanie nieudane: token=null")
+            if (res.userData == null) Log.e("LOGIN_DEBUG", "Logowanie nieudane: userData=null")
 
-            throw Exception("Login failed: invalid credentials or incomplete response")
+            throw Exception("Logowanie nieudane: nieprawidłowe dane lub niekompletna odpowiedź")
         }
     }
 
+    // ============================================================================
+    // FUNKCJE AKTUALIZACJI I USUWANIA UŻYTKOWNIKA
+    // ============================================================================
 
+    /**
+     * Aktualizuje dane użytkownika na serwerze
+     *
+     * @param user Dane użytkownika do aktualizacji
+     * @param currentPassword Obecne hasło (opcjonalne, wymagane przy zmianie hasła)
+     * @param newPassword Nowe hasło (opcjonalne)
+     * @return true jeśli aktualizacja się powiodła, false w przeciwnym razie
+     */
     suspend fun updateUser(user: UserData,
                            currentPassword: String = "",
                            newPassword: String = ""
     ): Boolean = withContext(Dispatchers.IO) {
         val token = getTokenFromPreferences(context) ?: return@withContext false
-        Log.d("REST", "Updating user for token: $token")
+        Log.d("REST", "Aktualizacja użytkownika dla token: $token")
 
 
         val payload: MutableMap<String, String> = mutableMapOf(
@@ -223,24 +265,30 @@ class UserRepository(private val context: Context) {
             if (response.isSuccessful) {
                 val raw = response.body()?.string()
                 val json = raw ?: "{}"
-                Log.d("REST", "Update response: $json")
+                Log.d("REST", "Response: $json")
 
                 if (json.trimStart().startsWith("<html", ignoreCase = true)) {
-                    Log.w("REST", "Server returned HTML instead of JSON (possible error page).")
+                    Log.w("REST", "Serwer zwrócił HTML zamiast JSON")
                 }
                 Log.e("KOT", ""+json)
                 return@withContext true
             } else {
                 val errorText = response.errorBody()?.string() ?: "Unknown error"
-                Log.e("REST", "Update failed: ${response.code()} $errorText")
+                Log.e("REST", "Aktualizacja nieudana: ${response.code()} $errorText")
             }
         } catch (e: Exception) {
-            Log.e("REST", "Exception during update: ${e.message}")
+            Log.e("REST", "Wyjątek podczas aktualizacji: ${e.message}")
         }
         return@withContext false
 
     }
 
+    /**
+     * Usuwa konto użytkownika
+     *
+     * @param password Hasło użytkownika (potwierdzenie)
+     * @return true jeśli usunięcie się powiodło, false w przeciwnym razie
+     */
     suspend fun deleteUser(password: String): Boolean = withContext(Dispatchers.IO) {
         val token = getTokenFromPreferences(context) ?: return@withContext false
 
@@ -249,30 +297,42 @@ class UserRepository(private val context: Context) {
             if (response.isSuccessful) {
                 val res = response.body()
                 if (res?.success == true) {
-                    Log.d("REST", "User deleted")
+                    Log.d("REST", "Użytkownik usunięty pomyślnie")
                     clearToken()
                     true
                 } else {
-                    Log.d("REST", "Delete failed: ${res?.error}")
+                    Log.d("REST", "Usuwanie nieudane: ${res?.error}")
                     false
                 }
             } else {
-                Log.e("REST", "Delete error: ${response.code()} ${response.errorBody()?.string()}")
+                Log.e("REST", "Błąd usuwania: ${response.code()} ${response.errorBody()?.string()}")
                 false
             }
         } catch (e: Exception) {
-            Log.e("REST", "Exception during delete: ${e.message}")
+            Log.e("REST", "Wyjątek podczas usuwania: ${e.message}")
             false
         }
     }
 
-
+    /**
+     * Wylogowuje użytkownika - czyści token z SharedPreferences
+     *
+     * @return true zawsze (operacja zawsze się powiedzie)
+     */
     fun logOutUser(): Boolean {
         clearToken()
         return true
     }
 
-    //zapisanie tokenu w SharedPreferences
+    // ============================================================================
+    // FUNKCJE ZARZĄDZANIA TOKENEM I LOGINEM W SHAREDPREFERENCES
+    // ============================================================================
+
+    /**
+     * Zapisuje token w SharedPreferences
+     *
+     * @param token Token autoryzacyjny
+     */
     private fun saveTokenToPreferences(token: String) {
         val sharedPref = context.getSharedPreferences("UserPrefs", Context.MODE_PRIVATE)
         with(sharedPref.edit()) {
@@ -280,7 +340,12 @@ class UserRepository(private val context: Context) {
             apply()
         }
     }
-    //zapisanie loginu w SharedPreferences
+
+    /**
+     * Zapisuje login w SharedPreferences
+     *
+     * @param login Login użytkownika
+     */
     private fun saveLoginToPreferences(login: String) {
         val sharedPref = context.getSharedPreferences("UserPrefs", Context.MODE_PRIVATE)
         with(sharedPref.edit()) {
@@ -289,7 +354,9 @@ class UserRepository(private val context: Context) {
         }
     }
 
-    //czyszczenie tokena z SharedPreferences
+    /**
+     * Czyści token z SharedPreferences
+     */
     private fun clearToken() {
         val sharedPref = context.getSharedPreferences("UserPrefs", Context.MODE_PRIVATE)
         with(sharedPref.edit()) {
@@ -297,20 +364,46 @@ class UserRepository(private val context: Context) {
             apply()
         }
     }
-    //pobieranie tokenu/loginu
+
+
     companion object {
+
+        // ============================================================================
+        // FUNKCJE STATYCZNE - Pobieranie tokenu i loginu
+        // ============================================================================
+
+        /**
+         * Pobiera token z SharedPreferences
+         *
+         * @return Token lub null jeśli nie istnieje
+         */
         fun getTokenFromPreferences(context: Context): String? {
             val sharedPref = context.getSharedPreferences("UserPrefs", Context.MODE_PRIVATE)
             return sharedPref.getString("user_token", null)
         }
 
+        /**
+         * Pobiera login z SharedPreferences
+         *
+         * @return Login lub null jeśli nie istnieje
+         */
         fun getLoginFromPreferences(context: Context): String? {
             val sharedPref = context.getSharedPreferences("UserPrefs", Context.MODE_PRIVATE)
             return sharedPref.getString("user_login", null)
         }
     }
 
-    //pobieranie klucza publicznego innego uzytkownika
+
+    // ============================================================================
+    // FUNKCJE ZARZĄDZANIA KLUCZAMI PUBLICZNYMI
+    // ============================================================================
+
+    /**
+     * Pobiera klucz publiczny innego użytkownika z serwera
+     *
+     * @param userId ID użytkownika
+     * @return Klucz publiczny w formacie Base64 lub null jeśli nie znaleziono
+     */
     suspend fun getUserPublicKey(userId: String): String? = withContext(Dispatchers.IO) {
 
         val token = getTokenFromPreferences(context) ?: return@withContext null
@@ -347,7 +440,13 @@ class UserRepository(private val context: Context) {
             return@withContext null
         }
     }
-    //aktualizacja klucza publicznego na serwerze,
+
+    /**
+     * Aktualizuje klucz publiczny na serwerze
+     *
+     * @param publicKeyString Klucz publiczny w formacie Base64
+     * @return true jeśli aktualizacja się powiodła, false w przeciwnym razie
+     */
     private suspend fun updatePublicKeyOnServer(publicKeyString: String): Boolean = withContext(Dispatchers.IO) {
         val token = getTokenFromPreferences(context) ?: return@withContext false
 
@@ -363,27 +462,35 @@ class UserRepository(private val context: Context) {
 
             if (response.isSuccessful) {
                 val raw = response.body()?.string()
-                Log.d("USER_KEYS", "✓ Server accepted new public key")
-                Log.d("USER_KEYS", "  Response: $raw")
+                Log.d("USER_KEYS", "Serwer zaakceptował nowy klucz publiczny")
+                Log.d("USER_KEYS", "Response: $raw")
                 return@withContext true
             } else {
                 val errorText = response.errorBody()?.string() ?: "Unknown error"
-                Log.e("USER_KEYS", "✗ Server rejected public key: ${response.code()} $errorText")
+                Log.e("USER_KEYS", "Serwer odrzucił klucz publiczny: ${response.code()} $errorText")
                 return@withContext false
             }
 
         } catch (e: Exception) {
-            Log.e("USER_KEYS", "✗ Exception sending public key to server", e)
+            Log.e("USER_KEYS", "Wyjątek podczas wysyłania klucza publicznego na serwer", e)
             return@withContext false
         }
     }
 
+    /**
+     * Weryfikuje i regeneruje klucze RSA jeśli potrzeba
+     * Używane przy logowaniu na nowym urządzeniu
+     *
+     * @param userId ID użytkownika
+     * @param login Login użytkownika
+     * @return true jeśli klucze są prawidłowe/zregenerowane, false w przypadku błędu
+     */
     suspend fun verifyAndRegenerateKeysIfNeeded(userId: String, login: String): Boolean = withContext(Dispatchers.IO) {
-        Log.d("USER_KEYS", "=== Verifying RSA keys for user: $login (ID: $userId) ===")
+        Log.d("USER_KEYS", "Weryfikacja kluczy RSA dla użytkownika: $login (ID: $userId)")
 
         //sprawdzanie, czy uzytkownik ma klucze RSA lokalnie
         val hasKeys = CryptoUtils.hasKeysForUser(context, login)
-        Log.d("USER_KEYS", "User has local keys: $hasKeys")
+        Log.d("USER_KEYS", "Użytkownik ma lokalne klucze: $hasKeys")
 
         if (hasKeys) {
             // sprawdzenie, czy klucze sa czytelne
@@ -391,31 +498,31 @@ class UserRepository(private val context: Context) {
             val publicKey = CryptoUtils.getPublicKey(context, login)
 
             if (privateKey != null && publicKey != null) {
-                Log.d("USER_KEYS", "Keys are valid and readable")
+                Log.d("USER_KEYS", "Klucze są prawidłowe i czytelne")
                 return@withContext true
             } else {
-                Log.w("USER_KEYS", "Keys exist but are corrupted - regenerating")
+                Log.w("USER_KEYS", "Klucze istnieją ale są uszkodzone - regeneracja")
             }
         } else {
-            Log.w("USER_KEYS", "User does NOT have keys - new device detected")
+            Log.w("USER_KEYS", "Użytkownik NIE ma kluczy - wykryto nowe urządzenie")
         }
 
         //jesli nie ma kluczy generuje nowe
-        Log.d("USER_KEYS", "Generating new RSA key pair...")
+        Log.d("USER_KEYS", "Generowanie nowej pary kluczy RSA...")
 
         try {
             val newKeyPair = CryptoUtils.generateRSAKeys()
-            Log.d("USER_KEYS", "New key pair generated")
+            Log.d("USER_KEYS", "Nowa para kluczy wygenerowana")
 
             //zapis kluczy prywatnie
             CryptoUtils.savePrivateKey(context, login, newKeyPair.private)
             CryptoUtils.savePublicKey(context, login, newKeyPair.public)
-            Log.d("USER_KEYS", "Keys saved locally")
+            Log.d("USER_KEYS", "Klucze zapisane lokalnie")
 
             // weryfikacja zapisu
             val savedSuccessfully = CryptoUtils.hasKeysForUser(context, login)
             if (!savedSuccessfully) {
-                Log.e("USER_KEYS", "Failed to save keys locally!")
+                Log.e("USER_KEYS", "Nie udało się zapisać kluczy lokalnie!")
                 return@withContext false
             }
 
@@ -425,25 +532,20 @@ class UserRepository(private val context: Context) {
             val success = updatePublicKeyOnServer(publicKeyString)
 
             if (success) {
-                Log.d("USER_KEYS", "Public key sent to server successfully")
-                Log.d("USER_KEYS", "Key regeneration complete")
+                Log.d("USER_KEYS", "Klucz publiczny wysłany na serwer pomyślnie")
+                Log.d("USER_KEYS", "Regeneracja kluczy zakończona")
                 return@withContext true
             } else {
-                Log.e("USER_KEYS", "Failed to send public key to server")
+                Log.e("USER_KEYS", "Nie udało się wysłać klucza publicznego na serwer")
                 // llucze są zapisane lokalnie, ale serwer ich nie ma
                 return@withContext false
             }
 
         } catch (e: Exception) {
-            Log.e("USER_KEYS", "✗ Exception during key regeneration", e)
+            Log.e("USER_KEYS", "Wyjątek podczas regeneracji kluczy", e)
             return@withContext false
         }
     }
-
-
-
-
-
 
 }
 

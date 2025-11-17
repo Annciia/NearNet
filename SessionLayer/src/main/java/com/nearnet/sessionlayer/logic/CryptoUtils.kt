@@ -6,7 +6,6 @@ import android.util.Log
 import java.security.KeyFactory
 import java.security.KeyPair
 import java.security.KeyPairGenerator
-import java.security.MessageDigest
 import java.security.PrivateKey
 import java.security.PublicKey
 import java.security.SecureRandom
@@ -18,22 +17,49 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
+// ============================================================================
+// CRYPTO UTILS - Narzędzia kryptograficzne dla aplikacji NearNet
+// ============================================================================
 
+/**
+ * Singleton zawierający funkcje kryptograficzne dla aplikacji
+ *
+ * Obsługuje:
+ * - Generowanie i zarządzanie kluczami RSA (szyfrowanie asymetryczne)
+ * - Generowanie i zarządzanie kluczami AES (szyfrowanie symetryczne)
+ * - Szyfrowanie/deszyfrowanie wiadomości
+ * - Szyfrowanie kluczy AES kluczami RSA
+ * - Konwersje kluczy do/z Base64
+ * - Zapis i odczyt kluczy z SharedPreferences
+ */
 
 object CryptoUtils {
     private const val TAG = "CryptoUtils"
+
+    // Konfiguracja RSA
     private const val RSA_KEY_SIZE = 2048
     private const val PREFS_NAME = "CryptoPrefs"
     private const val PRIVATE_KEY_PREFIX = "private_key_"
     private const val PUBLIC_KEY_PREFIX = "public_key_"
 
+    // Konfiguracja AES-GCM
     private const val AES_KEY_SIZE = 256
     private const val GCM_TAG_LENGTH = 128
     private const val GCM_IV_LENGTH = 12
 
 
+    // ============================================================================
+    // FUNKCJE ZARZĄDZANIA KLUCZAMI RSA
+    // ============================================================================
 
-    //generowanie pary kluczy RSA - przy rejestracji
+    /**
+     * Generuje parę kluczy RSA (publiczny + prywatny)
+     *
+     * Używane przy rejestracji nowego użytkownika
+     * Rozmiar klucza: 2048 bitów
+     *
+     * @return Para kluczy RSA (KeyPair)
+     */
     fun generateRSAKeys(): KeyPair {
         try {
             val keyPairGenerator = KeyPairGenerator.getInstance("RSA")
@@ -48,7 +74,12 @@ object CryptoUtils {
     }
 
 
-    //konwersja klucza publicznego na Bsae64
+    /**
+     * Konwertuje klucz publiczny RSA do formatu Base64
+     *
+     * @param publicKey Klucz publiczny do konwersji
+     * @return Klucz publiczny jako string Base64
+     */
     fun publicKeyToString(publicKey: PublicKey): String {
         Log.d(TAG, "Konwersja klucza publicznego do Base64")
         val encoded = Base64.encodeToString(publicKey.encoded, Base64.NO_WRAP)
@@ -56,7 +87,12 @@ object CryptoUtils {
     }
 
 
-    //konwersja klucza prywatnego do Base64
+    /**
+     * Konwertuje klucz prywatny RSA do formatu Base64
+     *
+     * @param privateKey Klucz prywatny do konwersji
+     * @return Klucz prywatny jako string Base64
+     */
     fun privateKeyToString(privateKey: PrivateKey): String {
         Log.d(TAG, "Konwersja klucza prywatnego do Base64...")
         val encoded = Base64.encodeToString(privateKey.encoded, Base64.NO_WRAP)
@@ -65,7 +101,12 @@ object CryptoUtils {
     }
 
 
-    //Base64->klucz publiczny
+    /**
+     * Konwertuje string Base64 na klucz publiczny RSA
+     *
+     * @param keyString Klucz publiczny w formacie Base64
+     * @return Obiekt PublicKey
+     */
     fun stringToPublicKey(keyString: String): PublicKey {
         Log.d(TAG, "Odtwarzanie klucza publicznego z Base64")
         try {
@@ -81,7 +122,12 @@ object CryptoUtils {
     }
 
 
-    //Base64-> klucz prywatny
+    /**
+     * Konwertuje string Base64 na klucz prywatny RSA
+     *
+     * @param keyString Klucz prywatny w formacie Base64
+     * @return Obiekt PrivateKey
+     */
     fun stringToPrivateKey(keyString: String): PrivateKey {
         Log.d(TAG, "Odtwarzanie klucza prywatnego z Base64")
         try {
@@ -96,8 +142,19 @@ object CryptoUtils {
         }
     }
 
+    // ============================================================================
+    // FUNKCJE ZAPISU I ODCZYTU KLUCZY RSA Z SHAREDPREFERENCES
+    // ============================================================================
 
-    //zapisanie klucza prywatnego w SharedPreferences + weryfikacja zapisu
+    /**
+     * Zapisuje klucz prywatny w SharedPreferences
+     *
+     * Klucz jest konwertowany do Base64 i zapisywany lokalnie
+     * Po zapisie następuje weryfikacja poprawności zapisu
+     *
+     * @param userId ID użytkownika (login)
+     * @param privateKey Klucz prywatny do zapisania
+     */
     fun savePrivateKey(context: Context, userId: String, privateKey: PrivateKey) {
         try {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -119,7 +176,12 @@ object CryptoUtils {
     }
 
 
-    //zapisanie klucza publicznego w SharedPreferences(lokalnie) - klucz publiczny jest na serwerze i tak
+    /**
+     * Zapisuje klucz publiczny w SharedPreferences (lokalnie)
+     *
+     * @param userId ID użytkownika (login)
+     * @param publicKey Klucz publiczny do zapisania
+     */
     fun savePublicKey(context: Context, userId: String, publicKey: PublicKey) {
         Log.d(TAG, "Zapisywanie klucza publicznego dla uzytkownika: $userId")
         try {
@@ -134,7 +196,12 @@ object CryptoUtils {
     }
 
 
-    //pobieranie klucza prywatnego
+    /**
+     * Pobiera klucz prywatny z SharedPreferences
+     *
+     * @param userId ID użytkownika (login)
+     * @return Klucz prywatny lub null jeśli nie znaleziono
+     */
     fun getPrivateKey(context: Context, userId: String): PrivateKey? {
         try {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -153,7 +220,12 @@ object CryptoUtils {
     }
 
 
-    //pobieranie klucza publicznego lokalnie
+    /**
+     * Pobiera klucz publiczny z SharedPreferences (lokalnie)
+     *
+     * @param userId ID użytkownika (login)
+     * @return Klucz publiczny lub null jeśli nie znaleziono
+     */
     fun getPublicKey(context: Context, userId: String): PublicKey? {
         Log.d(TAG, "Pobieranie klucza publicznego dla użytkownika: $userId")
         try {
@@ -173,9 +245,12 @@ object CryptoUtils {
         }
     }
 
-
-
-    //sprawdzenie czy klucze sa zapisane lokalnie
+    /**
+     * Sprawdza czy użytkownik ma zapisane klucze lokalnie
+     *
+     * @param userId ID użytkownika (login)
+     * @return true jeśli klucz prywatny istnieje, false w przeciwnym razie
+     */
     fun hasKeysForUser(context: Context, userId: String): Boolean {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val hasPrivate = prefs.contains("$PRIVATE_KEY_PREFIX$userId")
@@ -184,8 +259,16 @@ object CryptoUtils {
         return hasPrivate
     }
 
+    // ============================================================================
+    // FUNKCJE ZARZĄDZANIA KLUCZAMI AES
+    // ============================================================================
 
-    //generacja klucza aes do szyfrowania wiadomosci w pokoju
+    /**
+     * Generuje klucz AES do szyfrowania wiadomości w pokoju
+     * Algorytm: AES-256
+     * Używany do szyfrowania wiadomości w pokojach prywatnych
+     * @return Wygenerowany klucz AES
+     */
     fun generateAESKey(): SecretKey {
         try {
             val keyGenerator = KeyGenerator.getInstance("AES")
@@ -199,8 +282,11 @@ object CryptoUtils {
         }
     }
 
-
-    //konwersja klucza AES do Base64
+    /**
+     * Konwertuje klucz AES do formatu Base64
+     * @param secretKey Klucz AES do konwersji
+     * @return Klucz AES jako string Base64
+     */
     fun aesKeyToString(secretKey: SecretKey): String {
         Log.d(TAG, "Konwersja klucza AES do Base64...")
         val encoded = Base64.encodeToString(secretKey.encoded, Base64.NO_WRAP)
@@ -208,7 +294,11 @@ object CryptoUtils {
     }
 
 
-    //Base64->AES
+    /**
+     * Konwertuje string Base64 na klucz AES
+     * @param keyString Klucz AES w formacie Base64
+     * @return Obiekt SecretKey (klucz AES)
+     */
     fun stringToAESKey(keyString: String): SecretKey {
         Log.d(TAG, "Odtwarzanie klucza AES z Base64")
         try {
@@ -222,11 +312,24 @@ object CryptoUtils {
         }
     }
 
-    /**
-     szyfrowanie wiadomosci kluczem AES
-     zwraca zaszyfrowana wiadomosc (Base64: IV + ciphertext)
-     **/
+    // ============================================================================
+    // FUNKCJE SZYFROWANIA/DESZYFROWANIA WIADOMOŚCI (AES-GCM)
+    // ============================================================================
 
+
+    /**
+     * Szyfruje wiadomość kluczem AES (tryb AES-GCM)
+     *
+     * Proces:
+     * 1. Generuje losowy wektor inicjalizacyjny (IV) - 12 bajtów
+     * 2. Szyfruje wiadomość w trybie AES/GCM/NoPadding
+     * 3. Łączy IV + zaszyfrowane dane
+     * 4. Koduje całość do Base64
+     *
+     * @param message Wiadomość do zaszyfrowania (plaintext)
+     * @param secretKey Klucz AES
+     * @return Zaszyfrowana wiadomość w formacie Base64 (IV + ciphertext)
+     */
     fun encryptMessage(message: String, secretKey: SecretKey): String {
         Log.d(TAG, "Szyfrowanie wiadomości...")
         Log.d(TAG, "  Długość wiadomości: ${message.length} znaków")
@@ -258,9 +361,20 @@ object CryptoUtils {
         }
     }
 
-
-
-    //deszyfruje wiadomosci kluczem AES
+    /**
+     * Odszyfrowuje wiadomość kluczem AES (tryb AES-GCM)
+     *
+     * Proces:
+     * 1. Dekoduje Base64
+     * 2. Rozdziela IV (pierwsze 12 bajtów) od zaszyfrowanych danych
+     * 3. Odszyfrowuje dane w trybie AES/GCM/NoPadding
+     * 4. Weryfikuje integralność (tag GCM)
+     * 5. Zwraca odszyfrowaną wiadomość
+     *
+     * @param encryptedMessage Zaszyfrowana wiadomość w formacie Base64 (IV + ciphertext)
+     * @param secretKey Klucz AES
+     * @return Odszyfrowana wiadomość (plaintext)
+     */
     fun decryptMessage(encryptedMessage: String, secretKey: SecretKey): String {
         Log.d(TAG, "Deszyfrowanie wiadomości...")
 
@@ -290,8 +404,20 @@ object CryptoUtils {
         }
     }
 
+    // ============================================================================
+    // FUNKCJE SZYFROWANIA KLUCZY AES KLUCZAMI RSA
+    // ============================================================================
 
-    //szyfrowanie klucza AES kluczem poblicznym RSA uzytkownika
+    /**
+     * Szyfruje klucz AES kluczem publicznym RSA użytkownika
+     *
+     * Używane do bezpiecznego przekazywania kluczy AES między użytkownikami
+     * Algorytm: RSA/ECB/PKCS1Padding
+     *
+     * @param aesKey Klucz AES do zaszyfrowania
+     * @param rsaPublicKey Klucz publiczny RSA użytkownika docelowego
+     * @return Zaszyfrowany klucz AES w formacie Base64
+     */
     fun encryptAESKeyWithRSA(aesKey: SecretKey, rsaPublicKey: PublicKey): String {
 
         try {
@@ -310,7 +436,16 @@ object CryptoUtils {
     }
 
 
-    //deszyfrowanie klucza AES kluczem prywatnym
+    /**
+     * Odszyfrowuje klucz AES kluczem prywatnym RSA
+     *
+     * Używane do odbioru klucza AES zaszyfrowanego naszym kluczem publicznym
+     * Algorytm: RSA/ECB/PKCS1Padding
+     *
+     * @param encryptedAESKey Zaszyfrowany klucz AES w formacie Base64
+     * @param rsaPrivateKey Nasz klucz prywatny RSA
+     * @return Odszyfrowany klucz AES
+     */
     fun decryptAESKeyWithRSA(encryptedAESKey: String, rsaPrivateKey: PrivateKey): SecretKey {
 
         try {
@@ -330,6 +465,22 @@ object CryptoUtils {
         }
     }
 
+    // ============================================================================
+    // FUNKCJE SZYFROWANIA/DESZYFROWANIA STRINGÓW RSA
+    // ============================================================================
+
+    /**
+     * Szyfruje dowolny string kluczem publicznym RSA
+     *
+     * Używane do:
+     * - Szyfrowania haseł pokojów
+     *
+     * Algorytm: RSA/ECB/PKCS1Padding
+     *
+     * @param plaintext Tekst do zaszyfrowania
+     * @param publicKey Klucz publiczny RSA
+     * @return Zaszyfrowany tekst w formacie Base64
+     */
     fun encryptStringWithRSA(plaintext: String, publicKey: PublicKey): String {
         val cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding")
         cipher.init(Cipher.ENCRYPT_MODE, publicKey)
@@ -337,6 +488,18 @@ object CryptoUtils {
         return android.util.Base64.encodeToString(encryptedBytes, android.util.Base64.NO_WRAP)
     }
 
+    /**
+     * Odszyfrowuje string zaszyfrowany kluczem RSA
+     *
+     * Używane do:
+     * - Odszyfrowywania haseł pokojów
+     *
+     * Algorytm: RSA/ECB/PKCS1Padding
+     *
+     * @param encrypted Zaszyfrowany tekst w formacie Base64
+     * @param privateKey Klucz prywatny RSA
+     * @return Odszyfrowany tekst (plaintext)
+     */
     fun decryptStringWithRSA(encrypted: String, privateKey: PrivateKey): String {
         val cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding")
         cipher.init(Cipher.DECRYPT_MODE, privateKey)

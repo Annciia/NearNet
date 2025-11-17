@@ -21,12 +21,17 @@ import retrofit2.http.Path
 import java.io.IOException
 import javax.crypto.SecretKey
 
+// ============================================================================
+// MODELE DANYCH - Struktury żądań i odpowiedzi API wiadomości
+// ============================================================================
 
+//Żądanie wysłania wiadomości do pokoju
 data class SendMessageRequest(
     val channelId: String,
     val messageList: List<MessagePayload>
 )
 
+//Pojedyncza wiadomość w pakiecie
 data class MessagePayload(
     val userId: String? = null,
     val timestamp: String,
@@ -35,35 +40,45 @@ data class MessagePayload(
     val additionalData: String = ""
 )
 
+//Odpowiedź serwera na wysłanie wiadomości
 data class SendMessageResponse(
     val success: Boolean,
     val error: String? = null
 )
 
+//Żądanie historii wiadomości z pokoju
 data class RequestLastMessagesRequest(
     val idRoom: String
 )
 
+//Odpowiedź zawierająca historię wiadomości
 data class RequestLastMessagesResponse(
     val roomData: RoomData?,
     val login: String,
     val `package`: PackageData
 )
 
+//Pakiet wiadomości z serwera
 data class PackageData(
     val channelId: String,
     val encryptedPassword: String,
     val messageList: List<MessagePayload>
 )
 
+//Odpowiedź zawierająca listę użytkowników pokoju
 data class RoomUsersResponse(
     val roomData: RoomData,
     val userList: UserListWrapper
 )
 
+//Wrapper dla listy użytkowników
 data class UserListWrapper(
     val rooms: List<UserData>
 )
+
+// ============================================================================
+// RETROFIT API SERVICE - Definicje endpointów wiadomości
+// ============================================================================
 
 interface MessageApiService {
     @POST("/api/messages/send")
@@ -85,11 +100,32 @@ interface MessageApiService {
     ): Response<RoomUsersResponse>
 }
 
+// ============================================================================
+// MESSAGE UTILS - Główna klasa zarządzania wiadomościami
+// ============================================================================
+
+/**
+ * Singleton do zarządzania wiadomościami w aplikacji
+ *
+ * Obsługuje:
+ * - Wysyłanie wiadomości (zaszyfrowanych i niezaszyfrowanych)
+ * - Odbieranie wiadomości w czasie rzeczywistym (SSE)
+ * - Automatyczne szyfrowanie/deszyfrowanie wiadomości
+ * - Pobieranie historii wiadomości
+ * - Zarządzanie kluczami AES dla pokojów
+ * - Pobieranie listy użytkowników pokoju
+ */
 object MessageUtils {
 
     private var tokenProvider: (() -> String?)? = null
     private var contextProvider: (() -> Context?)? = null
 
+    /**
+     * Inicjalizacja MessageUtils z providerami tokenu i kontekstu
+     *
+     * @param tokenProv Lambda dostarczająca token autoryzacyjny
+     * @param contextProv Lambda dostarczająca kontekst aplikacji
+     */
     fun init(tokenProv: () -> String?, contextProv: () -> Context?) {
         tokenProvider = tokenProv
         contextProvider = contextProv
@@ -104,7 +140,7 @@ object MessageUtils {
     private val client = OkHttpClient()
     private val gson = Gson()
 
-    // ---- SSE STREAM ----
+    // Zarządzanie SSE Stream
     private var sseThread: Thread? = null
     @Volatile private var running = false
     private var activeRoomId: String? = null
@@ -114,7 +150,12 @@ object MessageUtils {
     // ============================================
 
 
-    //pobieranie klucza AES dla pokoju
+    /**
+     * Pobiera klucz AES dla pokoju z SharedPreferences
+     *
+     * @param roomId ID pokoju
+     * @return Klucz AES lub null jeśli nie znaleziono
+     */
     private fun getRoomAESKey(context: Context, roomId: String): SecretKey? {
         val prefs = context.getSharedPreferences("RoomKeys", Context.MODE_PRIVATE)
         val keyString = prefs.getString("aes_key_$roomId", null)
@@ -131,13 +172,29 @@ object MessageUtils {
         }
     }
 
-    //sprawdzenie czy pokoj ma klucz AES
+
+    /**
+     * Sprawdza czy pokój ma klucz AES (czy jest zaszyfrowany)
+     *
+     * @param roomId ID pokoju
+     * @return true jeśli pokój ma klucz (jest zaszyfrowany), false jeśli publiczny
+     */
     private fun hasRoomKey(context: Context, roomId: String): Boolean {
         val prefs = context.getSharedPreferences("RoomKeys", Context.MODE_PRIVATE)
         return prefs.contains("aes_key_$roomId")
     }
 
-    //wysylanie wiadomosci + szyfrowanie
+    // ============================================================================
+    // FUNKCJE WYSYŁANIA WIADOMOŚCI
+    // ============================================================================
+
+    /**
+     * Wysyła wiadomość do pokoju
+     *
+     * @param roomId ID pokoju docelowego
+     * @param message Obiekt wiadomości do wysłania
+     * @return true jeśli wysłanie się powiodło, false w przeciwnym razie
+     */
     suspend fun sendMessage(roomId: String, message: Message): Boolean = withContext(Dispatchers.IO) {
         val token = tokenProvider?.invoke() ?: return@withContext false
         val context = contextProvider?.invoke() ?: return@withContext false
@@ -184,16 +241,25 @@ object MessageUtils {
                 }
                 return@withContext success
             } else {
-                Log.e("MESSAGE", "sendMessage failed: ${response.code()} ${response.errorBody()?.string()}")
+                Log.e("MESSAGE", "sendMessage nieudane: ${response.code()} ${response.errorBody()?.string()}")
                 return@withContext false
             }
         } catch (e: Exception) {
-            Log.e("MESSAGE", "Exception in sendMessage", e)
+            Log.e("MESSAGE", "Wyjątek podczas wysyłania wiadomości", e)
             return@withContext false
         }
     }
 
-    // mapowanie i deszyfrowanie
+    // ============================================================================
+    // FUNKCJE MAPOWANIA I DESZYFROWANIA WIADOMOŚCI
+    // ============================================================================
+    /**
+     * Mapuje payload z serwera na obiekty Message z automatycznym deszyfrowaniem
+     *
+     * @param roomId ID pokoju
+     * @param messageList Lista payload'ów z serwera
+     * @return Lista obiektów Message z odszyfrowanymi wiadomościami
+     */
     fun mapPayloadToMessages(roomId: String, messageList: List<MessagePayload>): List<Message> {
 
         val context = contextProvider?.invoke()
@@ -217,6 +283,7 @@ object MessageUtils {
         //mapowanie i deszyfrowanie
         return messageList.map { payload ->
             val decryptedMessage = if (roomKey != null) {
+                // POKÓJ ZASZYFROWANY - deszyfrowanie
                 try {
                     val decrypted = CryptoUtils.decryptMessage(payload.data, roomKey)
                     decrypted
@@ -225,6 +292,7 @@ object MessageUtils {
                     "[Nie można odszyfrować]"
                 }
             } else {
+                // POKÓJ PUBLICZNY - plaintext
                 Log.d("MESSAGE", "Wiadomość niezaszyfrowana: ${payload.data}")
                 payload.data
             }
@@ -241,47 +309,74 @@ object MessageUtils {
         }
     }
 
-    //pobieranie historii
+    // ============================================================================
+    // FUNKCJE POBIERANIA HISTORII I UŻYTKOWNIKÓW
+    // ============================================================================
+
+    /**
+     * Pobiera historię wiadomości z pokoju
+     *
+     * @param roomId ID pokoju
+     * @return Odpowiedź z historią wiadomości lub null jeśli błąd
+     */
     suspend fun requestLastMessages(roomId: String): RequestLastMessagesResponse? = withContext(Dispatchers.IO) {
         val token = tokenProvider?.invoke() ?: return@withContext null
         try {
             val response = api.requestLastMessages("Bearer $token", RequestLastMessagesRequest(roomId))
-            Log.d("MessageUtils", "Raw response: code=${response.code()}, success=${response.isSuccessful}")
+            Log.d("MESSAGE", "Raw response: code=${response.code()}, success=${response.isSuccessful}")
 
             if (response.isSuccessful) {
                 val body = response.body()
-                Log.d("MessageUtils", "Response body: $body")
+                Log.d("MESSAGE", "Response body: $body")
                 body
             } else {
-                Log.e("MessageUtils", "Error body: ${response.errorBody()?.string()}")
+                Log.e("MESSAGE", " Błąd pobierania historii: ${response.errorBody()?.string()}")
                 null
             }
         } catch (e: Exception) {
-            Log.e("MessageUtils", "Exception in requestLastMessages", e)
+            Log.e("MESSAGE", "Wyjątek podczas pobierania historii", e)
             null
         }
     }
 
+    /**
+     * Pobiera listę użytkowników w pokoju
+     *
+     * @param roomId ID pokoju
+     * @return Odpowiedź z listą użytkowników lub null jeśli błąd
+     */
     suspend fun requestRoomUsers(roomId: String): RoomUsersResponse? = withContext(Dispatchers.IO) {
         val token = tokenProvider?.invoke() ?: return@withContext null
         try {
             val response = api.getRoomUsers("Bearer $token", roomId)
-            Log.d("MessageUtils", "requestRoomUsers: code=${response.code()}, success=${response.isSuccessful}")
+            Log.d("MESSAGE", "requestRoomUsers: code=${response.code()}, success=${response.isSuccessful}")
 
             if (response.isSuccessful) {
                 val body = response.body()
-                Log.d("MessageUtils", "Room users response body: $body")
+                Log.d("MESSAGE", "Room users response body: $body")
                 body
             } else {
-                Log.e("MessageUtils", "requestRoomUsers failed: ${response.code()} ${response.errorBody()?.string()}")
+                Log.e("MESSAGE", "requestRoomUsers nieudane: ${response.code()} ${response.errorBody()?.string()}")
                 null
             }
         } catch (e: Exception) {
-            Log.e("MessageUtils", "Exception in requestRoomUsers", e)
+            Log.e("MESSAGE", "Wyjątek podczas pobierania użytkowników", e)
             null
         }
     }
-    //odbieranie wiadomosci w czasie rzeczywistym
+
+    // ============================================================================
+    // FUNKCJE SSE - Odbieranie wiadomości w czasie rzeczywistym
+    // ============================================================================
+
+    /**
+     * Uruchamia odbieranie wiadomości w czasie rzeczywistym przez SSE
+     *
+     * @param roomId ID pokoju do nasłuchiwania
+     * @param userId ID użytkownika
+     * @param onMessage Callback wywoływany przy nowych wiadomościach
+     * @param onReconnect Callback wywoływany przy reconnect (opcjonalny)
+     */
     fun receiveMessagesStream(
         roomId: String,
         userId: String,
@@ -307,13 +402,13 @@ object MessageUtils {
                 try {
                     client.newCall(request).execute().use { response ->
                         if (!response.isSuccessful) {
-                            Log.e("SSE", "Connection failed: ${response.code}")
+                            Log.d("SSE", "Connection failed: ${response.code}")
                             Thread.sleep(5000)
                             return@use
                         }
                         //odebranie wiadomosci
                         val source = response.body?.source() ?: return@use
-                        Log.i("SSE", "Connected to stream for room=$roomId")
+                        Log.i("SSE", "Połączono ze streamem dla pokoju:$roomId")
 
                         while (running && !source.exhausted()) {
                             val line = source.readUtf8Line() ?: continue
@@ -327,43 +422,54 @@ object MessageUtils {
                                     //callback do viewmodelu
                                     onMessage(msgs)
                                 } catch (je: Exception) {
-                                    Log.e("SSE", "JSON parse error: $json", je)
+                                    Log.e("SSE", "Błąd parsowania JSON: $json", je)
                                 }
                             }
                         }
                     }
                 } catch (io: IOException) {
                     //reconect po bledzie
-                    Log.w("SSE", "Connection lost, will retry...", io)
+                    Log.w("SSE", "Utracono połączenie, próba ponownego połączenia za 5s...", io)
                     onReconnect?.invoke()
                     if (!safeSleep(5000)) break
                 } catch (e: Exception) {
-                    Log.e("SSE", "Unexpected error", e)
+                    Log.e("SSE", "Nieoczekiwany błąd w SSE", e)
                     if (!safeSleep(5000)) break
                 }
             }
-            Log.i("SSE", "Stream for $roomId closed")
+            Log.i("SSE", "Stream dla pokoju $roomId zamknięty")
         }
 
         sseThread?.start()
     }
 
+    /**
+     * Bezpieczne usypianie wątku z obsługą przerwania
+     *
+     * @param millis Czas uśpienia w milisekundach
+     * @return true jeśli sen zakończył się normalnie, false jeśli przerwano
+     */
     private fun safeSleep(millis: Long): Boolean {
         return try {
             Thread.sleep(millis)
             true
         } catch (ie: InterruptedException) {
-            Log.i("SSE", "Thread interrupted during sleep, stopping SSE")
+            Log.i("SSE", "Wątek przerwany podczas uśpienia - zatrzymywanie SSE")
             false
         }
     }
 
+    /**
+     * Zatrzymuje odbieranie wiadomości SSE
+     *
+     * Przerywa wątek SSE i czyści stan
+     */
     fun stopReceivingMessages() {
         if (running) {
             running = false
             sseThread?.interrupt()
             sseThread = null
-            Log.d("SSE", "Stream stopped for room=$activeRoomId")
+            Log.d("SSE", "Stream zatrzymany dla pokoju: $activeRoomId")
             activeRoomId = null
         }
     }
