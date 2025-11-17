@@ -156,6 +156,8 @@ class MainActivity : ComponentActivity() {
             lifecycleOwner.lifecycle.addObserver(observer)
             onDispose {
                 lifecycleOwner.lifecycle.removeObserver(observer)
+                vm.stopJoinRequestPolling()
+                vm.stopPendingRequestsPolling()
             }
         }
         vm.repository = UserRepository(this)
@@ -1070,9 +1072,9 @@ class MainActivity : ComponentActivity() {
                         onClick = {
                             inProgress.value = true
                             if (selectedRoom != null) { //roomSettingsScreen
-                                vm.updateRoom(roomName, roomDescription, avatar.value, getPassword(), passwordConfirmation.value, !isCheckedPublic, !isCheckedVisible, "")
+                                vm.updateRoom(roomName, roomDescription, avatar.value, getPassword(), passwordConfirmation.value, !isCheckedPublic, !isCheckedVisible, additionalSettings = """{"theme":"dark","test":"value"}""")
                             } else { //createRoomScreen
-                                vm.createRoom(roomName, roomDescription, avatar.value, getPassword(), passwordConfirmation.value, !isCheckedPublic, !isCheckedVisible, "")
+                                vm.createRoom(roomName, roomDescription, avatar.value, getPassword(), passwordConfirmation.value, !isCheckedPublic, !isCheckedVisible, additionalSettings = """{"theme":"dark","test":"value"}""")
                             }
                             //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
                         },
@@ -1223,6 +1225,9 @@ class MainActivity : ComponentActivity() {
         val newPassword = remember { mutableStateOf("") }
         val passwordConfirmation = remember { mutableStateOf("") }
         val avatar = remember { mutableStateOf(vm.selectedUser.value?.avatar ?: "") }
+        val additionalSettings = remember {
+            mutableStateOf(vm.selectedUser.value?.additionalSettings ?: "")
+        }
 
         //Wygląd ekranu
         Column(
@@ -1246,6 +1251,17 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.weight(1f)
                     )
                 }
+                Spacer(Modifier.height(10.dp))
+
+                Spacer(Modifier.height(5.dp))
+                PlainTextField(
+                    value = additionalSettings.value,
+                    onValueChange = { text -> additionalSettings.value = text },
+                    placeholderText = "additionalSettings",
+                    singleLine = false,
+                    maxChars = 500,
+                    modifier = Modifier.fillMaxWidth()
+                )
                 Spacer(Modifier.height(10.dp))
                 PlainTextField(
                     value = currentPassword.value,
@@ -1279,6 +1295,7 @@ class MainActivity : ComponentActivity() {
                     maxChars = USER_PASSWORD_MAX_LENGTH,
                     passwordField = true,
                     modifier = Modifier.fillMaxWidth()
+
                 )
                 Spacer(Modifier.height(20.dp))
                 Row(
@@ -1303,10 +1320,10 @@ class MainActivity : ComponentActivity() {
                     Spacer(Modifier.width(10.dp))
                     Button(
                         onClick = {
-                            vm.updateUser(userName.value, currentPassword.value, newPassword.value, passwordConfirmation.value, avatar.value, "")
+                            vm.updateUser(userName.value, currentPassword.value, newPassword.value, passwordConfirmation.value, avatar.value, additionalSettings.value)
                             //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
                         },
-                        enabled = vm.validateUpdateUser(userName.value, currentPassword.value, newPassword.value, passwordConfirmation.value, avatar.value, "")
+                        enabled = vm.validateUpdateUser(userName.value, currentPassword.value, newPassword.value, passwordConfirmation.value, avatar.value, additionalSettings.value)
                     ) {
                         Text("Accept")
                     }
@@ -1437,6 +1454,7 @@ class MainActivity : ComponentActivity() {
                     }
                     Lifecycle.Event.ON_STOP -> {
                         vm.stopRealtime()
+                        vm.stopJoinRequestPolling()
                         vm.stopPendingRequestsPolling()
                     }
                     else -> {}
@@ -1445,6 +1463,8 @@ class MainActivity : ComponentActivity() {
             lifecycleOwner.lifecycle.addObserver(observer)
             onDispose {
                 lifecycleOwner.lifecycle.removeObserver(observer)
+                vm.stopJoinRequestPolling()
+                vm.stopPendingRequestsPolling()
             }
         }
 

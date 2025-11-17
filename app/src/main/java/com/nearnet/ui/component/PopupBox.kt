@@ -224,6 +224,7 @@ fun JoinRoomConfirmationPopup(popupContext: PopupContext) {
         },
         onCancel = {
             vm.closePopup()
+            vm.stopJoinRequestPolling()
         }
     ) {
         if (!room.isPrivate) {
