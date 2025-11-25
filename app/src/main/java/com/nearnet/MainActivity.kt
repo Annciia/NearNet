@@ -1021,35 +1021,40 @@ class MainActivity : ComponentActivity() {
                 )
 
                 if (selectedRoom == null || isAdminOrFree()) {
+                    if (selectedRoom == null || selectedRoom.isPrivate) {
+                        Spacer(Modifier.height(10.dp))
+                        PlainTextField(
+                            value = password.value,
+                            onValueChange = { text -> password.value = text },
+                            placeholderText = "password",
+                            singleLine = true,
+                            maxChars = ROOM_PASSWORD_MAX_LENGTH,
+                            passwordField = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            enable = !isCheckedPublic
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        PlainTextField(
+                            value = passwordConfirmation.value,
+                            onValueChange = { text -> passwordConfirmation.value = text },
+                            placeholderText = "confirm password",
+                            singleLine = true,
+                            maxChars = ROOM_PASSWORD_MAX_LENGTH,
+                            passwordField = true,
+                            modifier = Modifier.fillMaxWidth(),
+                            enable = !isCheckedPublic
+                        )
+                    }
                     Spacer(Modifier.height(10.dp))
-                    PlainTextField(
-                        value = password.value,
-                        onValueChange = { text -> password.value = text },
-                        placeholderText = "password",
-                        singleLine = true,
-                        maxChars = ROOM_PASSWORD_MAX_LENGTH,
-                        passwordField = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        enable = !isCheckedPublic
-                    )
-                    Spacer(Modifier.height(10.dp))
-                    PlainTextField(
-                        value = passwordConfirmation.value,
-                        onValueChange = { text -> passwordConfirmation.value = text },
-                        placeholderText = "confirm password",
-                        singleLine = true,
-                        maxChars = ROOM_PASSWORD_MAX_LENGTH,
-                        passwordField = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        enable = !isCheckedPublic
-                    )
-                    Spacer(Modifier.height(20.dp))
                     //Switches
-                    LabeledSwitch(
-                        title = "Allow for public access",
-                        description = "When enabled, everyone can join the room without your approval.",
-                        isChecked = isCheckedPublic,
-                        onCheckedChange = { switchState -> isCheckedPublic = switchState })
+                    if (selectedRoom == null) {
+                        Spacer(Modifier.height(10.dp))
+                        LabeledSwitch(
+                            title = "Allow for public access",
+                            description = "When enabled, everyone can join the room without your approval.",
+                            isChecked = isCheckedPublic,
+                            onCheckedChange = { switchState -> isCheckedPublic = switchState })
+                    }
                     Spacer(Modifier.height(10.dp))
                     LabeledSwitch(
                         title = "Visible only by name",
@@ -1251,9 +1256,8 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.weight(1f)
                     )
                 }
-                Spacer(Modifier.height(10.dp))
-
-                Spacer(Modifier.height(5.dp))
+                //additional settings field
+                /*Spacer(Modifier.height(10.dp))
                 PlainTextField(
                     value = additionalSettings.value,
                     onValueChange = { text -> additionalSettings.value = text },
@@ -1261,7 +1265,7 @@ class MainActivity : ComponentActivity() {
                     singleLine = false,
                     maxChars = 500,
                     modifier = Modifier.fillMaxWidth()
-                )
+                )*/
                 Spacer(Modifier.height(10.dp))
                 PlainTextField(
                     value = currentPassword.value,
