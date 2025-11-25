@@ -9,6 +9,7 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -468,14 +469,10 @@ class MainActivity : ComponentActivity() {
                 modifier = Modifier.fillMaxWidth().height(580.dp).verticalScroll(scrollPosition),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Icon(
-                    imageVector = Icons.Default.AccountCircle,
+                Image(
+                    painter = painterResource(R.drawable.nearnet_logotype),
                     contentDescription = "Application logo",
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.size(200.dp).background(
-                        color = MaterialTheme.colorScheme.primary,
-                        shape = RoundedCornerShape(6.dp)
-                    )
+                    modifier = Modifier.size(200.dp)
                 )
                 Spacer(Modifier.height(40.dp))
                 PlainTextField(
@@ -627,14 +624,10 @@ class MainActivity : ComponentActivity() {
                 modifier = Modifier.fillMaxWidth().height(580.dp).verticalScroll(scrollPosition),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Icon(
-                    imageVector = Icons.Default.AccountCircle,
+                Image(
+                    painter = painterResource(R.drawable.nearnet_logotype),
                     contentDescription = "Application logo",
-                    tint = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.size(200.dp).background(
-                        color = MaterialTheme.colorScheme.primary,
-                        shape = RoundedCornerShape(6.dp)
-                    )
+                    modifier = Modifier.size(200.dp)
                 )
                 Spacer(Modifier.height(40.dp))
                 Row(
@@ -1299,7 +1292,6 @@ class MainActivity : ComponentActivity() {
                     maxChars = USER_PASSWORD_MAX_LENGTH,
                     passwordField = true,
                     modifier = Modifier.fillMaxWidth()
-
                 )
                 Spacer(Modifier.height(20.dp))
                 Row(
