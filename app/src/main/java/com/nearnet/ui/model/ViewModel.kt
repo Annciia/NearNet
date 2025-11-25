@@ -1726,6 +1726,12 @@ class NearNetViewModel(): ViewModel() {
 
         //Pobranie wiadomości z serwera
         Log.d("loadMessages", "Pobieram wiadomości dla pokoju=${room.idRoom}")
+
+        val startTime = System.currentTimeMillis()
+        //Zuzycie pamieci przed zaladowaniem wiadomosci
+        logMemoryUsage("PRZED")
+        Log.d("PERFORMANCE_TEST_2", "Rozpoczynam ładowanie wiadomości dla pokoju: ${room.name}")
+
         val response = try {
             Log.d("loadMessages", "Pobieram wiadomości dla pokoju=${room.idRoom}")
             MessageUtils.requestLastMessages(room.idRoom)
@@ -1761,6 +1767,15 @@ class NearNetViewModel(): ViewModel() {
             room.idRoom,
             messageList ?: emptyList()
         )
+        //Zuzycie pamieci po zaladowaniem wiadomosci
+        logMemoryUsage("PO")
+        // KONIEC POMIARU
+        val endTime = System.currentTimeMillis()
+        val duration = endTime - startTime
+        val msgCount = messagesMutable.value.size
+
+        Log.d("PERFORMANCE_TEST_2", "CZAS_LADOWANIA: ${duration}ms | LICZBA_WIADOMOSCI: ${msgCount}")
+
     }
 
 
@@ -1786,12 +1801,15 @@ class NearNetViewModel(): ViewModel() {
 
             //Log.d("sendMessage", "Wysyłam wiadomość na backend: $newMessage")
             Log.d("sendMessage", "Wysyłam wiadomość: userId='${newMessage.userId}'")
-
+            //POMIAR CZASU - START
+            val startTime = System.currentTimeMillis()
             try {
                 val success = MessageUtils.sendMessage(room.idRoom, newMessage)
-
+                val endTime = System.currentTimeMillis()
+                val duration = endTime - startTime
                 if (success) {
                     Log.d("sendMessage", "Wiadomość wysłana poprawnie")
+                    Log.d("PERFORMANCE_TEST_1", "CZAS_WYSYLANIA: ${duration}ms")
                 } else {
                     Log.e("sendMessage", "Nie udało się wysłać wiadomości")
                 }
@@ -1850,6 +1868,88 @@ class NearNetViewModel(): ViewModel() {
                 }
             }
         )
+    }
+
+    /**
+     * Generuje i wysyła określoną liczbę wiadomości testowych do pokoju
+     * Używane do testów wydajnościowych
+     *
+     * @param room Pokój docelowy
+     * @param count Liczba wiadomości do wygenerowania
+     * @param delayMs Opóźnienie między wiadomościami (ms)
+     */
+    fun generateTestMessages(room: RoomData, count: Int, delayMs: Long = 50) {
+        viewModelScope.launch {
+            Log.d("TEST_GENERATOR", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+            Log.d("TEST_GENERATOR", "🔧 GENERATOR WIADOMOŚCI TESTOWYCH")
+            Log.d("TEST_GENERATOR", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+            Log.d("TEST_GENERATOR", "📊 Pokój: ${room.name}")
+            Log.d("TEST_GENERATOR", "📊 Liczba: $count wiadomości")
+            Log.d("TEST_GENERATOR", "📊 Opóźnienie: ${delayMs}ms")
+            Log.d("TEST_GENERATOR", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+
+            val startTime = System.currentTimeMillis()
+            var successCount = 0
+            var errorCount = 0
+
+            for (i in 1..count) {
+                val user = selectedUser.value
+                if (user == null) {
+                    Log.e("TEST_GENERATOR", "❌ Brak zalogowanego użytkownika - przerwano na #$i")
+                    break
+                }
+
+                val timestamp = System.currentTimeMillis().toString()
+                val testMessage = Message(
+                    id = timestamp,
+                    roomId = room.idRoom,
+                    userId = user.id,
+                    messageType = MessageType.TEXT.name,
+                    message = "Wiadomość testowa #$i z ${count}",
+                    additionalData = "",
+                    timestamp = timestamp
+                )
+
+                try {
+                    val success = MessageUtils.sendMessage(room.idRoom, testMessage)
+
+                    if (success) {
+                        successCount++
+
+                        // Log co 50 wiadomości
+                        if (i % 50 == 0) {
+                            val elapsed = (System.currentTimeMillis() - startTime) / 1000.0
+                            val rate = i / elapsed
+                            Log.d("TEST_GENERATOR", "✅ Postęp: $i/$count (${String.format("%.1f", rate)} msg/s)")
+                        }
+                    } else {
+                        errorCount++
+                        Log.e("TEST_GENERATOR", "❌ Błąd wysyłania #$i")
+                    }
+
+                } catch (e: Exception) {
+                    errorCount++
+                    Log.e("TEST_GENERATOR", "❌ Wyjątek #$i: ${e.message}")
+                }
+
+                // Opóźnienie między wiadomościami
+                if (i < count) {
+                    delay(delayMs)
+                }
+            }
+
+            val totalTime = (System.currentTimeMillis() - startTime) / 1000.0
+
+            Log.d("TEST_GENERATOR", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+            Log.d("TEST_GENERATOR", "🏁 ZAKOŃCZONO GENEROWANIE")
+            Log.d("TEST_GENERATOR", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+            Log.d("TEST_GENERATOR", "✅ Sukces: $successCount")
+            Log.d("TEST_GENERATOR", "❌ Błędy: $errorCount")
+            Log.d("TEST_GENERATOR", "📊 Łącznie: ${successCount + errorCount}")
+            Log.d("TEST_GENERATOR", "⏱️  Czas: ${String.format("%.2f", totalTime)}s")
+            Log.d("TEST_GENERATOR", "📈 Średnia: ${String.format("%.2f", successCount / totalTime)} msg/s")
+            Log.d("TEST_GENERATOR", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        }
     }
 
     fun stopRealtime() {
@@ -1934,6 +2034,17 @@ class NearNetViewModel(): ViewModel() {
     }
     fun clearQueuedPopups() {
         queuedPopupList.clear()
+    }
+    /**
+     * pomiar zużycia pamięci RAM przy łądowaniu wiadomości w pokoju
+     */
+    fun logMemoryUsage(label: String) {
+        val runtime = Runtime.getRuntime()
+        val usedMemory = (runtime.totalMemory() - runtime.freeMemory()) / 1024 / 1024
+        val maxMemory = runtime.maxMemory() / 1024 / 1024
+        val percentUsed = (usedMemory.toFloat() / maxMemory.toFloat() * 100).toInt()
+
+        Log.d("PERFORMANCE_TEST_3", "PAMIEC_RAM [$label]: ${usedMemory}MB / ${maxMemory}MB (${percentUsed}%)")
     }
 
     /**

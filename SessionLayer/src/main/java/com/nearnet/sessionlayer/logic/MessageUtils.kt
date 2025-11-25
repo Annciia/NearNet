@@ -387,7 +387,7 @@ object MessageUtils {
         stopReceivingMessages()
 
         val token = tokenProvider?.invoke() ?: return
-        val url = "http://$SERVER_ADDRESS:$SERVER_PORT/api/messages/stream/$roomId?userId=$userId"
+        val url = "https://$SERVER_ADDRESS:$SERVER_PORT/api/messages/stream/$roomId?userId=$userId"
 
         val request = Request.Builder()
             .url(url)

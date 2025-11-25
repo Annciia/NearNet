@@ -312,7 +312,7 @@ interface RoomApiService {
 class RoomRepository(private val context: Context) {
 
     private val retrofit = Retrofit.Builder()
-        .baseUrl("http://$SERVER_ADDRESS:$SERVER_PORT")
+        .baseUrl("https://$SERVER_ADDRESS:$SERVER_PORT")
         .addConverterFactory(GsonConverterFactory.create())
         .build()
 

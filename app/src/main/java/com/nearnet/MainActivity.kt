@@ -113,6 +113,7 @@ import com.nearnet.ui.model.USER_NAME_MAX_LENGTH
 import com.nearnet.ui.model.USER_PASSWORD_MAX_LENGTH
 import com.nearnet.ui.model.saveMessagesToUri
 import com.nearnet.ui.theme.NearNetTheme
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 
@@ -1516,6 +1517,34 @@ class MainActivity : ComponentActivity() {
             contextProv = { applicationContext }
         )
         setContent {
+            val vm: NearNetViewModel = viewModel()
+
+            // ═══════════════════════════════════════════════════════════
+            // AUTO-GENERATOR WIADOMOŚCI TESTOWYCH
+            // ═══════════════════════════════════════════════════════════
+            val autoGenerateEnabled = false  //  zmiana true przy wlaczeniu i wejsciu do pokoju generuje wiadomosci
+            val messageCount = 5000          //  zmiana liczba wiadomosci
+            val delayBetweenMessages = 50L  //
+
+            if (autoGenerateEnabled) {
+                LaunchedEffect(Unit) {
+                    delay(30000) // Odczekaj 30s az zacznie generowac wiadomosci w pokoju
+
+                    val room = vm.selectedRoom.value
+                    val user = vm.selectedUser.value
+
+                    if (room != null && user != null) {
+                        Log.d("AUTO_TEST", "START: Generowanie $messageCount wiadomości...")
+                        Log.d("AUTO_TEST", "Pokój: ${room.name}")
+                        Log.d("AUTO_TEST", "Użytkownik: ${user.name}")
+
+                        vm.generateTestMessages(room, messageCount, delayBetweenMessages)
+                    } else {
+                        Log.w("AUTO_TEST", "Brak pokoju lub użytkownika - zaloguj się i wejdź do pokoju!")
+                    }
+                }
+            }
+            // ═══════════════════════════════════════════════════════════
             App()
         }
     }
