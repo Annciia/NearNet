@@ -132,7 +132,7 @@ object MessageUtils {
     }
 
     private val retrofit = Retrofit.Builder()
-        .baseUrl("http://$SERVER_ADDRESS:$SERVER_PORT")
+        .baseUrl("https://$SERVER_ADDRESS:$SERVER_PORT")
         .addConverterFactory(GsonConverterFactory.create())
         .build()
 

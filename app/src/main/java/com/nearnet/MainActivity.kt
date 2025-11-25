@@ -1515,9 +1515,17 @@ class MainActivity : ComponentActivity() {
         setContent {
             val vm: NearNetViewModel = viewModel()
 
-            // ═══════════════════════════════════════════════════════════
-            // AUTO-GENERATOR WIADOMOŚCI TESTOWYCH
-            // ═══════════════════════════════════════════════════════════
+
+            /**
+             * AUTO-GENERATOR WIADOMOŚCI TESTOWYCH
+             *
+             * stosowane przy testach wydajnościowych,
+             * aby wygenerować wiadmości należy:
+             * autoGenerateEnabled = true
+             * messageCount = ilość zadanych wiadomości
+             * następnie po włączeniu aplikacji w ciagu 30 sekund należy się zalogować i wejść do pokoju, w którym chcemy wygenerować wiadomości
+             *
+             */
             val autoGenerateEnabled = false  //  zmiana true przy wlaczeniu i wejsciu do pokoju generuje wiadomosci
             val messageCount = 5000          //  zmiana liczba wiadomosci
             val delayBetweenMessages = 50L  //
