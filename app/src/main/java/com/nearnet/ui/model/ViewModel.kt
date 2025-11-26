@@ -171,7 +171,7 @@ class NearNetViewModel(): ViewModel() {
     val deleteRoomEvent = deleteRoomEventMutable.asSharedFlow()
 
     //Join the room
-    private val joinRoomEventMutable = MutableSharedFlow<ProcessEvent<Unit>>()
+    private val joinRoomEventMutable = MutableSharedFlow<ProcessEvent<String>>()
     val joinRoomEvent = joinRoomEventMutable.asSharedFlow()
 
     //Join room admin approve
@@ -543,6 +543,17 @@ class NearNetViewModel(): ViewModel() {
             val room = selectedRoom.value
             val result = roomRepository.updateRoomAdmin(room!!.idRoom)
             if (result) {
+
+                // Zaktualizuj lokalny stan pokoju
+                val updatedRoom = room.copy(idAdmin = idAdmin)
+                selectedRoomMutable.value = updatedRoom
+
+                // Zaktualizuj listę pokoi
+                val updatedRooms = myRooms.value.map { r ->
+                    if (r.idRoom == room.idRoom) updatedRoom else r
+                }
+                myRoomsMutable.value = updatedRooms
+
                 updateRoomEventMutable.emit(ProcessEvent.Success(Unit))
             } else {
                 updateRoomEventMutable.emit(ProcessEvent.Error("Failed to update room. Please try again."))
@@ -639,7 +650,7 @@ class NearNetViewModel(): ViewModel() {
                     val joinSuccess = roomRepository.addMyselfToRoom(room.idRoom, "")
                     if (joinSuccess) {
                         Log.d("VIEWMODEL", "Dołączono do pokoju publicznego")
-                        joinRoomEventMutable.emit(ProcessEvent.Success(Unit))
+                        joinRoomEventMutable.emit(ProcessEvent.Success("You have joined the room ${room.name}!"))
                     } else {
                         joinRoomEventMutable.emit(ProcessEvent.Error("Failed to join room"))
                     }
@@ -662,7 +673,7 @@ class NearNetViewModel(): ViewModel() {
                 // Rozpocznij polling weryfikacji hasła
                 startPasswordVerificationPolling(room, password)
 
-                joinRoomEventMutable.emit(ProcessEvent.Success(Unit))
+                joinRoomEventMutable.emit(ProcessEvent.Success("Keep your fingers crossed for approval!"))
 
             } catch (e: Exception) {
                 Log.e("VIEWMODEL", "Wyjątek podczas dołączania do pokoju", e)
@@ -698,7 +709,7 @@ class NearNetViewModel(): ViewModel() {
                 return@launch
             }
 
-            joinRoomEventMutable.emit(ProcessEvent.Success(Unit))
+            joinRoomEventMutable.emit(ProcessEvent.Success("Keep your fingers crossed for approval!"))
             Log.d("VIEWMODEL", "Prośba wysłana, oczekuję na decyzję admina...")
 
             // Uruchom polling oczekiwania na decyzję admina
