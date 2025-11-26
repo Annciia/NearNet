@@ -308,10 +308,7 @@ class NearNetViewModel(): ViewModel() {
                     name = if (userName.isNotBlank()) userName else currentUser.name,
                     avatar = if (avatar.isNotBlank()) avatar else currentUser.avatar,
                     publicKey = currentUser.publicKey,
-                    additionalSettings = if (additionalSettings.isNotBlank())
-                        additionalSettings
-                    else
-                        currentUser.additionalSettings
+                    additionalSettings = additionalSettings
                 )
 
                 val result = repository.updateUser(userData, currentPassword, newPassword)
@@ -527,10 +524,7 @@ class NearNetViewModel(): ViewModel() {
                 password = password ?: currentRoom.password,
                 isPrivate = isPrivate,
                 isVisible = isVisible,
-                additionalSettings = if (additionalSettings.isNotBlank())
-                    additionalSettings
-                else
-                    currentRoom.additionalSettings
+                additionalSettings = additionalSettings
             )
 
             val result = roomRepository.updateRoom(updatedRoomData)

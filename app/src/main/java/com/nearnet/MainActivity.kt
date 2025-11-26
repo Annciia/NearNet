@@ -35,7 +35,6 @@ import androidx.compose.foundation.text.selection.LocalTextSelectionColors
 import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.twotone.PlayArrow
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Button
@@ -1071,9 +1070,9 @@ class MainActivity : ComponentActivity() {
                         onClick = {
                             inProgress.value = true
                             if (selectedRoom != null) { //roomSettingsScreen
-                                vm.updateRoom(roomName, roomDescription, avatar.value, getPassword(), passwordConfirmation.value, !isCheckedPublic, !isCheckedVisible, additionalSettings = """{"theme":"dark","test":"value"}""")
+                                vm.updateRoom(roomName, roomDescription, avatar.value, getPassword(), passwordConfirmation.value, !isCheckedPublic, !isCheckedVisible, additionalSettings = "")
                             } else { //createRoomScreen
-                                vm.createRoom(roomName, roomDescription, avatar.value, getPassword(), passwordConfirmation.value, !isCheckedPublic, !isCheckedVisible, additionalSettings = """{"theme":"dark","test":"value"}""")
+                                vm.createRoom(roomName, roomDescription, avatar.value, getPassword(), passwordConfirmation.value, !isCheckedPublic, !isCheckedVisible, additionalSettings = "")
                             }
                             //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
                         },
