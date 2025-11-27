@@ -45,7 +45,8 @@ enum class PopupType {
     LEAVE_ROOM_CONFIRMATION,
     DROP_ADMIN_CONFIRMATION,
     EDIT_AVATAR,
-    USER_LIST_IN_ROOM
+    USER_LIST_IN_ROOM,
+    SERVER_SETTINGS
 }
 class PopupContext(
     val type: PopupType,
@@ -2040,6 +2041,40 @@ class NearNetViewModel(): ViewModel() {
     fun clearQueuedPopups() {
         queuedPopupList.clear()
     }
+
+    fun setServerAddress(serverAddress : String){
+        viewModelScope.launch {
+            // TODO Call asynchronous function to set a custom server address and port.
+            // setServerAddress(serverAddress) //funkcja wpisuje damyślny serwer i port w shared preferences
+        }
+    }
+    fun setDefaultServerAddress(){
+        viewModelScope.launch {
+            // TODO Call asynchronous function to set the default server address and port.
+            // setDefaultServerAddress() //funkcja wpisuje pusty string w shared preferences (czy tam kasuje ten wpis z shared preferences z customowym adresem serwera)
+        }
+    }
+    //I TERAZ NA START APKI SPRAWDZASZ, CZY JEST COŚ W SHARED PREFERENCES, JAK JEST TO TO STOSUJESZ JAKO SERWER NA KTÓRY SIĘ ŁĄCZĘ Z TEGO URZĄDZENIA, JAK NIE MA -TO ŁĄCZĘ SIĘ NA DOMYŚLNY SERWER, czyli TEN Z ServerConfig
+    //do shared preferences ustawia serwer i port funkcja setServerAddress
+    //z shared preferences kasuje serwer i port usera funkcja setDefaultServerAddress
+
+    fun validateServerAddress(serverAddress: String) : Boolean {
+        val parts = serverAddress.split(":")
+        if (parts.size != 2) return false
+
+        val ip = parts[0]
+        val port = parts[1].toIntOrNull() ?: return false
+
+        // Sprawdzenie zakresu portu
+        if (port !in 1..65535) return false
+
+        // Sprawdzenie poprawności IP
+        val ipRegex = Regex("^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\\.|$)){4}$")
+        if (!ip.matches(ipRegex)) return false
+
+        return true
+    }
+
     /**
      * pomiar zużycia pamięci RAM przy łądowaniu wiadomości w pokoju
      */
