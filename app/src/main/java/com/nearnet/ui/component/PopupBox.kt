@@ -221,6 +221,9 @@ fun JoinRoomConfirmationPopup(popupContext: PopupContext) {
         onAccept = {
             vm.closePopup()
             vm.joinRoom(room, password.value)
+            if (!room.isPrivate) {
+                vm.selectRoom(room)
+            }
         },
         onCancel = {
             vm.closePopup()

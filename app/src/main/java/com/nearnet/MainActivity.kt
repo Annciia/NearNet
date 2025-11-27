@@ -924,7 +924,7 @@ class MainActivity : ComponentActivity() {
             launch {
                 vm.joinRoomEvent.collect { event ->
                     when (event) {
-                        is ProcessEvent.Success -> {
+                        is ProcessEvent.Success<String> -> {
                             Toast.makeText(context, event.data, Toast.LENGTH_LONG).show()
                         }
                         is ProcessEvent.Error -> {

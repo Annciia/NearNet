@@ -673,7 +673,7 @@ class NearNetViewModel(): ViewModel() {
                 // Rozpocznij polling weryfikacji hasła
                 startPasswordVerificationPolling(room, password)
 
-                joinRoomEventMutable.emit(ProcessEvent.Success("Keep your fingers crossed for approval!"))
+                joinRoomEventMutable.emit(ProcessEvent.Success("Verifying password. This may take some time."))
 
             } catch (e: Exception) {
                 Log.e("VIEWMODEL", "Wyjątek podczas dołączania do pokoju", e)
