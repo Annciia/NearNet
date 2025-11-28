@@ -1,7 +1,10 @@
 package com.nearnet.ui.model
 
+import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -31,8 +34,11 @@ import kotlinx.coroutines.isActive
 import java.util.LinkedList
 import com.nearnet.sessionlayer.logic.PublicKeyManager
 import com.nearnet.sessionlayer.logic.CryptoUtils
+import com.nearnet.sessionlayer.logic.ServerConfig
 import com.nearnet.sessionlayer.logic.UserStatus
 import org.json.JSONObject
+import kotlinx.coroutines.delay
+import kotlin.system.exitProcess
 
 
 //Popup's type, popup's structure
@@ -2046,14 +2052,99 @@ class NearNetViewModel(): ViewModel() {
         viewModelScope.launch {
             // TODO Call asynchronous function to set a custom server address and port.
             // setServerAddress(serverAddress) //funkcja wpisuje damyślny serwer i port w shared preferences
+            val context = contextProvider?.invoke()
+            if (context == null) {
+                Log.e("ViewModel", "Brak kontekstu - nie można zapisać adresu serwera")
+                return@launch
+            }
+
+            val success = ServerConfig.setCustomServer(context, serverAddress)
+
+            if (success) {
+                Log.d("ViewModel", "Serwer ustawiony: $serverAddress")
+//                // Informuj użytkownika o konieczności ponownego zalogowania
+//                Toast.makeText(context, "Server changed. Please log in again.", Toast.LENGTH_LONG).show()
+//
+//                // Wyloguj użytkownika, aby mógł się połączyć z nowym serwerem
+//                restartApp(context)
+                ServerConfig.clearCache()
+
+                Toast.makeText(context, "Server changed to $serverAddress", Toast.LENGTH_LONG).show()
+
+                // Wyloguj i wyczyść stan
+                clearAppState()
+                selectedUserMutable.value = null
+
+                // Nie restartuj - po prostu komunikat
+                delay(1000)
+                Toast.makeText(context, "Please restart the app", Toast.LENGTH_LONG).show()
+
+                // Zamknij aplikację (user musi ręcznie otworzyć)
+                if (context is Activity) {
+                    context.finishAffinity()
+                }
+                exitProcess(0)
+            } else {
+                Log.e("ViewModel", "Nie udało się ustawić serwera")
+                Toast.makeText(context, "Invalid server address", Toast.LENGTH_SHORT).show()
+            }
+
         }
     }
     fun setDefaultServerAddress(){
         viewModelScope.launch {
             // TODO Call asynchronous function to set the default server address and port.
             // setDefaultServerAddress() //funkcja wpisuje pusty string w shared preferences (czy tam kasuje ten wpis z shared preferences z customowym adresem serwera)
+            val context = contextProvider?.invoke()
+            if (context == null) {
+                Log.e("ViewModel", "Brak kontekstu - nie można przywrócić domyślnego serwera")
+                return@launch
+            }
+
+//            ServerConfig.setDefaultServer(context)
+//            Log.d("ViewModel", "Przywrócono domyślny serwer")
+//
+//            // Informuj użytkownika
+//            Toast.makeText(context, "Default server restored. Please log in again.", Toast.LENGTH_LONG).show()
+//
+//            restartApp(context)
+
+            ServerConfig.setDefaultServer(context)
+            ServerConfig.clearCache()
+
+            Log.d("ViewModel", "Przywrócono domyślny serwer")
+
+            Toast.makeText(context, "Default server restored", Toast.LENGTH_LONG).show()
+
+            // Wyloguj i wyczyść
+            clearAppState()
+            selectedUserMutable.value = null
+
+            delay(1000)
+            Toast.makeText(context, "Please restart the app", Toast.LENGTH_LONG).show()
+
+            // Zamknij aplikację
+            if (context is Activity) {
+                context.finishAffinity()
+            }
+            exitProcess(0)
         }
     }
+
+    /**
+     * Restartuje aplikację
+     */
+    private suspend fun restartApp(context: Context) {
+        val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+        intent?.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        intent?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        intent?.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        context.startActivity(intent)
+        delay(1000)
+        // Zabij obecny proces
+        android.os.Process.killProcess(android.os.Process.myPid())
+    }
+
     //I TERAZ NA START APKI SPRAWDZASZ, CZY JEST COŚ W SHARED PREFERENCES, JAK JEST TO TO STOSUJESZ JAKO SERWER NA KTÓRY SIĘ ŁĄCZĘ Z TEGO URZĄDZENIA, JAK NIE MA -TO ŁĄCZĘ SIĘ NA DOMYŚLNY SERWER, czyli TEN Z ServerConfig
     //do shared preferences ustawia serwer i port funkcja setServerAddress
     //z shared preferences kasuje serwer i port usera funkcja setDefaultServerAddress

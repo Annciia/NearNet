@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.nearnet.sessionlayer.data.model.RoomData
+import com.nearnet.sessionlayer.logic.ServerConfig
 import com.nearnet.ui.model.LocalViewModel
 import com.nearnet.ui.model.PopupContext
 import com.nearnet.ui.model.PopupContextApprovalData
@@ -41,6 +42,7 @@ import com.nearnet.ui.model.PopupType
 import com.nearnet.ui.model.ProcessEvent
 import com.nearnet.ui.model.ROOM_PASSWORD_MAX_LENGTH
 import com.nearnet.ui.model.USER_PASSWORD_MAX_LENGTH
+
 
 @Composable
 fun PopupBox() {
@@ -424,12 +426,26 @@ fun UserListInRoomPopup() {
 
 @Composable
 fun ServerSettingsPopus() {
+    val context = LocalContext.current
     val vm = LocalViewModel.current
     val serverAddress = remember { mutableStateOf("") }
+
+    val isValid = remember(serverAddress.value) {
+        vm.validateServerAddress(serverAddress.value)
+    }
+
+    // Pokaż aktualny serwer jeśli niestandardowy
+    LaunchedEffect(Unit) {
+        if (ServerConfig.isUsingCustomServer(context)) {
+            val current = "${ServerConfig.getServerAddress(context)}:${ServerConfig.getServerPort(context)}"
+            serverAddress.value = current
+        }
+    }
     DialogPopup(
         title = "Server settings",
         text = "Enter a custom server address or use the default one.",
-        acceptEnabled = vm.validateServerAddress(serverAddress.value),
+        //acceptEnabled = vm.validateServerAddress(serverAddress.value),
+        acceptEnabled = isValid,
         onAccept = {
             vm.closePopup()
             vm.setServerAddress(serverAddress.value) //ustawienie personalizowanej wartości serwera
@@ -448,7 +464,7 @@ fun ServerSettingsPopus() {
             PlainTextField(
                 value = serverAddress.value,
                 onValueChange = { text -> serverAddress.value = text },
-                placeholderText = "0.0.0.0:3000",
+                placeholderText = "95.108.77.2001:3002",
                 singleLine = true,
                 maxChars = 21,
                 modifier = Modifier.fillMaxWidth()
@@ -469,6 +485,16 @@ fun ServerSettingsPopus() {
             ) {
                 Text(text = "Use Default Server")
             }
+            // Informacja o aktualnym serwerze
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = "Current: ${ServerConfig.getServerAddress(context)}:${ServerConfig.getServerPort(context)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
         }
     }
-}
+
