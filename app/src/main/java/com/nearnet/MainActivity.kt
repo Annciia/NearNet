@@ -86,6 +86,7 @@ import com.nearnet.sessionlayer.data.model.RoomData
 import com.nearnet.sessionlayer.data.model.UserData
 import com.nearnet.sessionlayer.logic.MessageUtils
 import com.nearnet.sessionlayer.logic.RoomRepository
+import com.nearnet.sessionlayer.logic.ServerConfig
 import com.nearnet.sessionlayer.logic.UserRepository
 import com.nearnet.ui.component.AvatarCircle
 import com.nearnet.ui.component.AvatarPicker
@@ -1534,6 +1535,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+
+        ServerConfig.initialize(applicationContext)
 
         MessageUtils.init(
             tokenProv = {

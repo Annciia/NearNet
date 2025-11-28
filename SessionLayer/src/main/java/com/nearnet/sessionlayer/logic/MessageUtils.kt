@@ -131,12 +131,31 @@ object MessageUtils {
         contextProvider = contextProv
     }
 
-    private val retrofit = Retrofit.Builder()
-        .baseUrl("https://$SERVER_ADDRESS:$SERVER_PORT")
-        .addConverterFactory(GsonConverterFactory.create())
-        .build()
+//    private val retrofit = Retrofit.Builder()
+//        .baseUrl("https://$SERVER_ADDRESS:$SERVER_PORT")
+//        .addConverterFactory(GsonConverterFactory.create())
+//        .build()
 
-    private val api = retrofit.create(MessageApiService::class.java)
+    private val retrofit by lazy {
+        val context = contextProvider?.invoke()
+        val baseUrl = if (context != null) {
+            ServerConfig.getBaseUrl(context)
+        } else {
+            "http://${ServerConfig.DEFAULT_ADDRESS}:${ServerConfig.DEFAULT_PORT}"
+        }
+
+        Log.d("MessageUtils", "Tworze Retrofit z baseUrl: $baseUrl")
+
+        Retrofit.Builder()
+            .baseUrl(baseUrl)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+    }
+
+    private val api: MessageApiService
+        get() = retrofit.create(MessageApiService::class.java)
+
+    //private val api = retrofit.create(MessageApiService::class.java)
     private val client = OkHttpClient()
     private val gson = Gson()
 
@@ -145,10 +164,10 @@ object MessageUtils {
     @Volatile private var running = false
     private var activeRoomId: String? = null
 
+
     // ============================================
     // FUNKCJE POMOCNICZE - Zarządzanie kluczami AES
     // ============================================
-
 
     /**
      * Pobiera klucz AES dla pokoju z SharedPreferences
@@ -387,7 +406,17 @@ object MessageUtils {
         stopReceivingMessages()
 
         val token = tokenProvider?.invoke() ?: return
-        val url = "https://$SERVER_ADDRESS:$SERVER_PORT/api/messages/stream/$roomId?userId=$userId"
+        val context = contextProvider?.invoke()
+
+        //val url = "https://$SERVER_ADDRESS:$SERVER_PORT/api/messages/stream/$roomId?userId=$userId"
+        val baseUrl = if (context != null) {
+            ServerConfig.getBaseUrl(context)
+        } else {
+            "https://${ServerConfig.DEFAULT_ADDRESS}:${ServerConfig.DEFAULT_PORT}"
+        }
+        val url = "$baseUrl/api/messages/stream/$roomId?userId=$userId"
+
+        Log.d("SSE", "Łaczenie z SSE: $url")
 
         val request = Request.Builder()
             .url(url)
