@@ -430,7 +430,7 @@ fun ServerSettingsPopus() {
     val vm = LocalViewModel.current
     val serverAddress = remember { mutableStateOf("") }
 
-    val isValid = remember(serverAddress.value) {
+    /*val isValid = remember(serverAddress.value) {
         vm.validateServerAddress(serverAddress.value)
     }
 
@@ -440,12 +440,12 @@ fun ServerSettingsPopus() {
             val current = "${ServerConfig.getServerAddress(context)}:${ServerConfig.getServerPort(context)}"
             serverAddress.value = current
         }
-    }
+    }*/
     DialogPopup(
         title = "Server settings",
         text = "Enter a custom server address or use the default one.",
-        //acceptEnabled = vm.validateServerAddress(serverAddress.value),
-        acceptEnabled = isValid,
+        acceptEnabled = vm.validateServerAddress(serverAddress.value),
+        //acceptEnabled = isValid,
         onAccept = {
             vm.closePopup()
             vm.setServerAddress(serverAddress.value) //ustawienie personalizowanej wartości serwera
@@ -464,7 +464,7 @@ fun ServerSettingsPopus() {
             PlainTextField(
                 value = serverAddress.value,
                 onValueChange = { text -> serverAddress.value = text },
-                placeholderText = "95.108.77.2001:3002",
+                placeholderText = "0.0.0.0:3000",
                 singleLine = true,
                 maxChars = 21,
                 modifier = Modifier.fillMaxWidth()
@@ -494,7 +494,6 @@ fun ServerSettingsPopus() {
                 modifier = Modifier.fillMaxWidth()
             )
         }
-
-        }
     }
+}
 
