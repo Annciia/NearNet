@@ -1,7 +1,10 @@
 package com.nearnet.ui.model
 
+import android.app.Activity
 import android.content.Context
+import android.content.Intent
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -31,8 +34,10 @@ import kotlinx.coroutines.isActive
 import java.util.LinkedList
 import com.nearnet.sessionlayer.logic.PublicKeyManager
 import com.nearnet.sessionlayer.logic.CryptoUtils
+import com.nearnet.sessionlayer.logic.ServerConfig
 import com.nearnet.sessionlayer.logic.UserStatus
 import org.json.JSONObject
+import kotlin.system.exitProcess
 
 
 //Popup's type, popup's structure
@@ -45,7 +50,8 @@ enum class PopupType {
     LEAVE_ROOM_CONFIRMATION,
     DROP_ADMIN_CONFIRMATION,
     EDIT_AVATAR,
-    USER_LIST_IN_ROOM
+    USER_LIST_IN_ROOM,
+    SERVER_SETTINGS
 }
 class PopupContext(
     val type: PopupType,
@@ -73,7 +79,6 @@ sealed class ProcessEvent<out T> {
 class NearNetViewModel(): ViewModel() {
     lateinit var repository: UserRepository
     lateinit var roomRepository: RoomRepository
-    //lateinit var messageUtils: MessageUtils
     private var contextProvider: (() -> Context)? = null
     private val keysBeingSaved = mutableSetOf<String>()
 
@@ -88,7 +93,7 @@ class NearNetViewModel(): ViewModel() {
     fun initMessageUtils(context: Context) {
         MessageUtils.init(
             tokenProv = { UserRepository.getTokenFromPreferences(context) },
-            contextProv = { context } // ← DODAJ
+            contextProv = { context }
         )
 
         contextProvider = { context }
@@ -171,7 +176,7 @@ class NearNetViewModel(): ViewModel() {
     val deleteRoomEvent = deleteRoomEventMutable.asSharedFlow()
 
     //Join the room
-    private val joinRoomEventMutable = MutableSharedFlow<ProcessEvent<Unit>>()
+    private val joinRoomEventMutable = MutableSharedFlow<ProcessEvent<String>>()
     val joinRoomEvent = joinRoomEventMutable.asSharedFlow()
 
     //Join room admin approve
@@ -189,7 +194,7 @@ class NearNetViewModel(): ViewModel() {
     //Room users
     private val roomUsersMutable = MutableStateFlow(listOf<UserData>())
     val roomUsers = roomUsersMutable.asStateFlow()
-    private val knownUserIds = mutableSetOf<String>() //dodane zeby unknown nie bylo
+    private val knownUserIds = mutableSetOf<String>()
 
     //Messages
     private val messagesMutable = MutableStateFlow(listOf<Message>())
@@ -213,8 +218,6 @@ class NearNetViewModel(): ViewModel() {
     val selectedPopup = selectedPopupMutable.asStateFlow()
 
 
-
-    //TODO dziala ok - ujednolicielm UserData
     fun logInUser(login: String, password: String) {
         viewModelScope.launch {
             try {
@@ -230,7 +233,7 @@ class NearNetViewModel(): ViewModel() {
             }
         }
     }
-    //TODO tez ok dziala
+
     fun registerUser(login: String, password: String){
         viewModelScope.launch {
             // TODO Call asynchronous function to register user. //DONE
@@ -245,7 +248,7 @@ class NearNetViewModel(): ViewModel() {
         }
     }
 
-    //tutaj czysci po prostu token = wylogowuje
+    //czysci token = wylogowuje
     fun logOutUser(){ //wylogowuje nawet jak coś poszło nie tak z internetem/serwerem
         viewModelScope.launch{
             val user = selectedUser.value
@@ -285,9 +288,11 @@ class NearNetViewModel(): ViewModel() {
         stopWaitingForKeyPolling()
         stopPasswordVerificationPolling()
         stopGlobalPasswordCheckPolling()
+        handledPasswordChecks.clear()
+        Log.d("POLLING", "Wyczyszczono wszystkie klucze weryfikacji przy wylogowaniu")
 
     }
-//    // TODO tutaj chyba jakas oblusge/pola do additionalSettings
+
     fun updateUser(userName: String, currentPassword: String, newPassword: String, passwordConfirmation: String, avatar: String, additionalSettings: String){
         viewModelScope.launch {
             if (!validateUpdateUser(userName, currentPassword, newPassword, passwordConfirmation, avatar, additionalSettings)) {
@@ -308,10 +313,7 @@ class NearNetViewModel(): ViewModel() {
                     name = if (userName.isNotBlank()) userName else currentUser.name,
                     avatar = if (avatar.isNotBlank()) avatar else currentUser.avatar,
                     publicKey = currentUser.publicKey,
-                    additionalSettings = if (additionalSettings.isNotBlank())
-                        additionalSettings
-                    else
-                        currentUser.additionalSettings
+                    additionalSettings = additionalSettings
                 )
 
                 val result = repository.updateUser(userData, currentPassword, newPassword)
@@ -323,7 +325,6 @@ class NearNetViewModel(): ViewModel() {
                         avatar = userData.avatar,
                         additionalSettings = userData.additionalSettings
                     )
-                    //selectedUserMutable.value = currentUser.copy(name = userName, avatar = avatar, additionalSettings = additionalSettings)
                     updateUserEventMutable.emit(ProcessEvent.Success(Unit))
                 } else {
                     updateUserEventMutable.emit(ProcessEvent.Error("Update failed."))
@@ -334,7 +335,6 @@ class NearNetViewModel(): ViewModel() {
             }
         }
     }
-
 
     fun validateUpdateUser(userName: String, currentPassword: String, newPassword: String, passwordConfirmation: String, avatar: String, additionalSettings: String): Boolean {
         val user = selectedUser.value
@@ -361,6 +361,7 @@ class NearNetViewModel(): ViewModel() {
         }
         return true
     }
+
     fun deleteUser(password: String){
         viewModelScope.launch {
             val user = selectedUser.value
@@ -379,10 +380,10 @@ class NearNetViewModel(): ViewModel() {
             }
         }
     }
+
     fun resetWelcomeState(){
         welcomeStateMutable.value = false
     }
-
 
     /**
      * Ładuje pokoje użytkownika z serwera
@@ -527,10 +528,7 @@ class NearNetViewModel(): ViewModel() {
                 password = password ?: currentRoom.password,
                 isPrivate = isPrivate,
                 isVisible = isVisible,
-                additionalSettings = if (additionalSettings.isNotBlank())
-                    additionalSettings
-                else
-                    currentRoom.additionalSettings
+                additionalSettings = additionalSettings
             )
 
             val result = roomRepository.updateRoom(updatedRoomData)
@@ -549,6 +547,17 @@ class NearNetViewModel(): ViewModel() {
             val room = selectedRoom.value
             val result = roomRepository.updateRoomAdmin(room!!.idRoom)
             if (result) {
+
+                // Zaktualizuj lokalny stan pokoju
+                val updatedRoom = room.copy(idAdmin = idAdmin)
+                selectedRoomMutable.value = updatedRoom
+
+                // Zaktualizuj listę pokoi
+                val updatedRooms = myRooms.value.map { r ->
+                    if (r.idRoom == room.idRoom) updatedRoom else r
+                }
+                myRoomsMutable.value = updatedRooms
+
                 updateRoomEventMutable.emit(ProcessEvent.Success(Unit))
             } else {
                 updateRoomEventMutable.emit(ProcessEvent.Error("Failed to update room. Please try again."))
@@ -599,6 +608,7 @@ class NearNetViewModel(): ViewModel() {
         }
         return true
     }
+
     fun deleteRoom(room: RoomData?) {
         viewModelScope.launch {
             val selectedRoom = selectedRoom.value
@@ -645,7 +655,7 @@ class NearNetViewModel(): ViewModel() {
                     val joinSuccess = roomRepository.addMyselfToRoom(room.idRoom, "")
                     if (joinSuccess) {
                         Log.d("VIEWMODEL", "Dołączono do pokoju publicznego")
-                        joinRoomEventMutable.emit(ProcessEvent.Success(Unit))
+                        joinRoomEventMutable.emit(ProcessEvent.Success("You have joined the room ${room.name}!"))
                     } else {
                         joinRoomEventMutable.emit(ProcessEvent.Error("Failed to join room"))
                     }
@@ -668,7 +678,7 @@ class NearNetViewModel(): ViewModel() {
                 // Rozpocznij polling weryfikacji hasła
                 startPasswordVerificationPolling(room, password)
 
-                joinRoomEventMutable.emit(ProcessEvent.Success(Unit))
+                joinRoomEventMutable.emit(ProcessEvent.Success("Verifying password. This may take some time."))
 
             } catch (e: Exception) {
                 Log.e("VIEWMODEL", "Wyjątek podczas dołączania do pokoju", e)
@@ -682,6 +692,7 @@ class NearNetViewModel(): ViewModel() {
     // ============================================================================
 
     private var joinRequestPollingJob: Job? = null
+
     /**
      * Wysyła prośbę do admina o dołączenie do pokoju prywatnego
      *
@@ -704,14 +715,13 @@ class NearNetViewModel(): ViewModel() {
                 return@launch
             }
 
-            joinRoomEventMutable.emit(ProcessEvent.Success(Unit))
+            joinRoomEventMutable.emit(ProcessEvent.Success("Keep your fingers crossed for approval!"))
             Log.d("VIEWMODEL", "Prośba wysłana, oczekuję na decyzję admina...")
 
             // Uruchom polling oczekiwania na decyzję admina
             startJoinRequestPolling(room)
 
     }}
-
 
     /**
      * Polling oczekiwania na decyzję admina
@@ -877,18 +887,18 @@ class NearNetViewModel(): ViewModel() {
 
                             val checkerId = requestStatus.encryptedRoomKey // ID weryfikatora
 
-                            Log.d("POLLING", "🔍 CheckerId: $checkerId")
+                            Log.d("POLLING", "CheckerId: $checkerId")
 
                             if (checkerId.isNullOrEmpty()) {
-                                Log.e("POLLING", "✗ CheckerId jest pusty!")
+                                Log.e("POLLING", "CheckerId jest pusty!")
                                 continue
                             }
 
-                            Log.d("POLLING", "✓ CheckerId OK: $checkerId")
+                            Log.d("POLLING", "CheckerId OK: $checkerId")
 
                             val context = contextProvider?.invoke()
                             if (context == null) {
-                                Log.e("POLLING", "✗ Context niedostępny")
+                                Log.e("POLLING", "Context niedostępny")
                                 continue
                             }
 
@@ -896,7 +906,7 @@ class NearNetViewModel(): ViewModel() {
                             // Pobierz klucz publiczny weryfikatora
                             val checkerPublicKey = PublicKeyManager(context).getPublicKeyForUser(checkerId)
 
-                            Log.d("POLLING", "PublicKey dla $checkerId: ${if (checkerPublicKey != null) "FOUND" else "NULL"}")  // ← DODAJ
+                            Log.d("POLLING", "PublicKey dla $checkerId: ${if (checkerPublicKey != null) "FOUND" else "NULL"}")
 
                             if (checkerPublicKey != null) {
                                 Log.d("POLLING", "Klucz publiczny weryfikatora pobrany")
@@ -906,7 +916,7 @@ class NearNetViewModel(): ViewModel() {
                                     val encryptedPassword = CryptoUtils.encryptStringWithRSA(password, checkerPublicKey)
 
                                     Log.d("POLLING", "Hasło zaszyfrowane")
-                                    Log.d("POLLING", "Encrypted password (50 chars): ${encryptedPassword.take(50)}")  // ← DODAJ
+                                    Log.d("POLLING", "Encrypted password (50 chars): ${encryptedPassword.take(50)}")
                                     // Wyślij zaszyfrowane hasło
                                     val sent = roomRepository.sendEncryptedPassword(room.idRoom, encryptedPassword)
 
@@ -988,6 +998,44 @@ class NearNetViewModel(): ViewModel() {
     private val handledPasswordChecks = mutableSetOf<String>()
 
     /**
+     * Usuwa wszystkie wpisy z handledPasswordChecks związane z danym użytkownikiem w danym pokoju
+     *
+     * Używane gdy:
+     * - Użytkownik opuszcza pokój
+     * - Admin usuwa użytkownika z pokoju
+     *
+     * @param userId ID użytkownika
+     * @param roomId ID pokoju
+     */
+    private fun cleanupHandledPasswordChecksForUser(userId: String, roomId: String) {
+        val keysToRemove = mutableListOf<String>()
+
+        // Wszystkie możliwe statusy
+        val statuses = listOf(
+            "requestJoin",
+            "declaredPasswordCheck",
+            "passwordReadyToCheck",
+            "waitingForKey"
+        )
+
+        statuses.forEach { status ->
+            val key = "$userId-$roomId-$status"
+            if (handledPasswordChecks.contains(key)) {
+                keysToRemove.add(key)
+            }
+        }
+
+        keysToRemove.forEach { key ->
+            handledPasswordChecks.remove(key)
+        }
+
+        if (keysToRemove.isNotEmpty()) {
+            Log.d("POLLING", "Wyczyszczono ${keysToRemove.size} kluczy dla użytkownika $userId w pokoju $roomId")
+            Log.d("POLLING", "Wyczyszczono ${keysToRemove.size} kluczy dla użytkownika $userId w pokoju $roomId: $keysToRemove")
+        }
+    }
+
+    /**
      * Globalny polling sprawdzający prośby o weryfikację haseł we WSZYSTKICH pokojach użytkownika
      *
      * Uruchamiany automatycznie po zalogowaniu
@@ -1011,15 +1059,8 @@ class NearNetViewModel(): ViewModel() {
                 try {
                     val myRoomsList = myRooms.value
 
-                    //Log.d("POLLING", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-                    //Log.d("POLLING", "Globalny polling - sprawdzam ${myRoomsList.size} pokoi")
-
                     val privateRooms = myRoomsList.filter { it.isPrivate }
                     Log.d("ROOM", " Prywatnych pokoi do sprawdzenia: ${privateRooms.size}")
-
-                    privateRooms.forEach { room ->
-                        //Log.d("POLLING", " Checking room: ${room.name} (${room.idRoom})")
-                    }
 
                     privateRooms.forEach { room ->
                         try {
@@ -1030,9 +1071,44 @@ class NearNetViewModel(): ViewModel() {
                             Log.d("POLLING", " [${room.name}] Znaleziono ${usersWaiting.size} użytkowników czekających")
 
                             usersWaiting.forEach { userStatus ->
-                                //Log.d("POLLING", "     User: ${userStatus.userId}")
-                                //Log.d("POLLING", "     Status: ${userStatus.status}")
-                                //Log.d("POLLING", "     EncryptedRoomKey: ${userStatus.encryptedRoomKey?.take(20) ?: "null"}")
+                                Log.d("POLLING", "     User: ${userStatus.userId}")
+                                Log.d("POLLING", "     Status: ${userStatus.status}")
+                                Log.d("POLLING", "     EncryptedRoomKey: ${userStatus.encryptedRoomKey?.take(20) ?: "null"}")
+
+                                if (userStatus.status == "declaredPasswordCheck") {
+                                    val requestTime = try {
+                                        java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US)
+                                            .parse(userStatus.requestedAt ?: "")?.time ?: 0L
+                                    } catch (e: Exception) {
+                                        Log.e("POLLING-DEBUG", "Błąd parsowania: ${e.message}")
+                                        0L
+                                    }
+
+                                    Log.d("POLLING-DEBUG", "Parsed time: $requestTime")
+                                    Log.d("POLLING-DEBUG", "Current time: ${System.currentTimeMillis()}")
+
+                                    val now = System.currentTimeMillis()
+                                    val timeoutMs = 30000 // 30 sekund
+
+                                    if (requestTime > 0 && now - requestTime > timeoutMs) {
+                                        Log.d("POLLING", "[${room.name}] Timeout - resetuję")
+
+                                        launch {
+                                            val reset = roomRepository.resetPasswordCheckTimeout(room.idRoom, userStatus.userId)
+                                            if (reset) {
+                                                Log.d("POLLING", "[${room.name}] Status zresetowany do requestJoin")
+                                                val oldDeclaredKey = "${userStatus.userId}-${room.idRoom}-declaredPasswordCheck"
+                                                val oldRequestKey = "${userStatus.userId}-${room.idRoom}-requestJoin"
+
+                                                handledPasswordChecks.remove(oldDeclaredKey)
+                                                handledPasswordChecks.remove(oldRequestKey)
+                                            } else {
+                                                Log.e("POLLING", "[${room.name}] Nie udało się zresetować statusu")
+                                            }
+                                        }
+                                        return@forEach
+                                    }
+                                }
 
                                 val key = "${userStatus.userId}-${room.idRoom}-${userStatus.status}"
 
@@ -1046,10 +1122,7 @@ class NearNetViewModel(): ViewModel() {
 
                                 when (userStatus.status) {
                                     "requestJoin" -> {
-                                        // Nowy użytkownik czeka - AUTOMATYCZNIE zadeklaruj sprawdzenie
                                         Log.d("POLLING", "[${room.name}] Nowy użytkownik ${userStatus.userId} czeka - deklaruję sprawdzenie")
-
-                                        handledPasswordChecks.add(key)
 
                                         launch {
                                             val declared = roomRepository.declarePasswordCheck(room.idRoom, userStatus.userId)
@@ -1057,19 +1130,21 @@ class NearNetViewModel(): ViewModel() {
                                             if (declared) {
                                                 Log.d("POLLING", "[${room.name}] Zadeklarowano sprawdzenie hasła")
                                             } else {
-                                                Log.e("POLLING", "[${room.name}] Nie udało się zadeklarować sprawdzenia")
+                                                Log.e("POLLING", "[${room.name}] Nie udało się zadeklarować sprawdzenia - NIE dodaję do handled (retry możliwy)")
                                             }
                                         }
                                     }
 
                                     "passwordReadyToCheck" -> {
-                                        // Użytkownik wysłał zaszyfrowane hasło - AUTOMATYCZNIE sprawdź
+                                        // Użytkownik wysłał zaszyfrowane hasło
                                         Log.d("POLLING", "[${room.name}] Otrzymano zaszyfrowane hasło od ${userStatus.userId} - sprawdzam")
 
-                                        handledPasswordChecks.add(key)
-
                                         launch {
-                                            verifyUserPassword(room, userStatus)
+                                            try {
+                                                verifyUserPassword(room, userStatus)
+                                            } catch (e: Exception) {
+                                                Log.e("POLLING", "[${room.name}] Błąd weryfikacji - usuwam klucz z handled", e)
+                                            }
                                         }
                                     }
 
@@ -1315,7 +1390,14 @@ class NearNetViewModel(): ViewModel() {
                     Log.e("POLLING", "Nie udało się wysłać danych")
                 }
             } else {
-                Log.d("POLLING", "Hasło NIEPOPRAWNE - nie wysyłam danych")
+                Log.d("POLLING", "Hasło NIEPOPRAWNE - odrzucam request")
+                val rejected = roomRepository.rejectPassword(room.idRoom, userStatus.userId)
+                if (rejected) {
+                    Log.d("POLLING", "Request odrzucony - user dostanie błąd")
+                } else {
+                    Log.e("POLLING", "Nie udało się odrzucić requestu")
+                }
+
             }
 
         } catch (e: Exception) {
@@ -1500,26 +1582,45 @@ class NearNetViewModel(): ViewModel() {
         handledRequests.clear()
     }
 
-
-
     fun leaveRoom(){
         viewModelScope.launch {
+            Log.d("LEAVE_DEBUG", "====== LEAVE ROOM START ======")
             var isLeftRoom : Boolean = false
             val room = selectedRoom.value!!
+            val userId = selectedUser.value?.id
+            Log.d("LEAVE_DEBUG", "Room: ${room.name} (${room.idRoom})")
+            Log.d("LEAVE_DEBUG", "UserId: $userId")
+
             //TODO Call asynchronous function to user leave their room.
             isLeftRoom = roomRepository.leaveRoom(room.idRoom)
+
+            Log.d("LEAVE_DEBUG", "Left room: $isLeftRoom")
+
             if (isLeftRoom){
+                //Wyczyść klucze weryfikacji dla tego użytkownika
+                if (userId != null) {
+                    Log.d("LEAVE_DEBUG", "Calling cleanup for userId=$userId, roomId=${room.idRoom}")
+                    cleanupHandledPasswordChecksForUser(userId, room.idRoom)
+                    Log.d("LEAVE_DEBUG", "Cleanup completed")
+                } else {
+                    Log.e("LEAVE_DEBUG", "userId is NULL - cannot cleanup!")
+                }
+
                 leaveRoomEventMutable.emit(ProcessEvent.Success(Unit))
-            } else { //błąd gdzieś i nie udało się
+            } else {
+                Log.e("LEAVE_DEBUG", "Failed to leave room!")
                 leaveRoomEventMutable.emit(ProcessEvent.Error("Failed to leave the room. Please try again."))
             }
         }
     }
+
     fun removeUserFromRoom(user: UserData, room: RoomData) {
         viewModelScope.launch {
-            //TODO Call function to remove user from the room.
             val isUserRemoved = roomRepository.removeUserFromRoom(room.idRoom, user.id)
             if (isUserRemoved) {
+                //Wyczyść klucze weryfikacji dla usuniętego użytkownika
+                cleanupHandledPasswordChecksForUser(user.id, room.idRoom)
+
                 roomUsersMutable.value = roomUsersMutable.value.filter { it.id != user.id }
             } else {
                 leaveRoomEventMutable.emit(ProcessEvent.Error("Failed to remove the user from the room."))
@@ -1597,7 +1698,6 @@ class NearNetViewModel(): ViewModel() {
         searchDiscoverTextMutable.value = filterText
     }
 
-
     /**
      * Wybiera pokój i przygotowuje do wejścia
      *
@@ -1621,7 +1721,6 @@ class NearNetViewModel(): ViewModel() {
      * @param room Pokój który użytkownik chce otworzyć
      * @param verifyKeyExist Czy weryfikować istnienie klucza (domyślnie true)
      */
-    //w tej wersji moze byc wyscig, ale nasza apka taka mala, ze raczej nie bedzie problemu
     fun selectRoom(room: RoomData, verifyKeyExist: Boolean = true) {
         viewModelScope.launch {
             // weryfikacja klucza dla pokoju prywatnego
@@ -1723,9 +1822,14 @@ class NearNetViewModel(): ViewModel() {
 
     suspend fun loadMessages(room: RoomData) {
 
-
         //Pobranie wiadomości z serwera
         Log.d("loadMessages", "Pobieram wiadomości dla pokoju=${room.idRoom}")
+
+        val startTime = System.currentTimeMillis()
+        //Zuzycie pamieci przed zaladowaniem wiadomosci
+        logMemoryUsage("PRZED")
+        Log.d("PERFORMANCE_TEST_2", "Rozpoczynam ładowanie wiadomości dla pokoju: ${room.name}")
+
         val response = try {
             Log.d("loadMessages", "Pobieram wiadomości dla pokoju=${room.idRoom}")
             MessageUtils.requestLastMessages(room.idRoom)
@@ -1761,8 +1865,16 @@ class NearNetViewModel(): ViewModel() {
             room.idRoom,
             messageList ?: emptyList()
         )
-    }
+        //Zuzycie pamieci po zaladowaniem wiadomosci
+        logMemoryUsage("PO")
+        // KONIEC POMIARU
+        val endTime = System.currentTimeMillis()
+        val duration = endTime - startTime
+        val msgCount = messagesMutable.value.size
 
+        Log.d("PERFORMANCE_TEST_2", "CZAS_LADOWANIA: ${duration}ms | LICZBA_WIADOMOSCI: ${msgCount}")
+
+    }
 
     fun sendMessage(messageText : String, room : RoomData, messageType: MessageType){
         viewModelScope.launch{
@@ -1784,14 +1896,16 @@ class NearNetViewModel(): ViewModel() {
                 timestamp = timestamp
             )
 
-            //Log.d("sendMessage", "Wysyłam wiadomość na backend: $newMessage")
             Log.d("sendMessage", "Wysyłam wiadomość: userId='${newMessage.userId}'")
-
+            //POMIAR CZASU - START
+            val startTime = System.currentTimeMillis()
             try {
                 val success = MessageUtils.sendMessage(room.idRoom, newMessage)
-
+                val endTime = System.currentTimeMillis()
+                val duration = endTime - startTime
                 if (success) {
                     Log.d("sendMessage", "Wiadomość wysłana poprawnie")
+                    Log.d("PERFORMANCE_TEST_1", "CZAS_WYSYLANIA: ${duration}ms")
                 } else {
                     Log.e("sendMessage", "Nie udało się wysłać wiadomości")
                 }
@@ -1852,6 +1966,82 @@ class NearNetViewModel(): ViewModel() {
         )
     }
 
+    /**
+     * Generuje i wysyła określoną liczbę wiadomości testowych do pokoju
+     * Używane do testów wydajnościowych
+     *
+     * @param room Pokój docelowy
+     * @param count Liczba wiadomości do wygenerowania
+     * @param delayMs Opóźnienie między wiadomościami (ms)
+     */
+    fun generateTestMessages(room: RoomData, count: Int, delayMs: Long = 50) {
+        viewModelScope.launch {
+            Log.d("TEST_GENERATOR", "GENERATOR WIADOMOŚCI TESTOWYCH")
+            Log.d("TEST_GENERATOR", "Pokój: ${room.name}")
+            Log.d("TEST_GENERATOR", "Liczba: $count wiadomości")
+
+            val startTime = System.currentTimeMillis()
+            var successCount = 0
+            var errorCount = 0
+
+            for (i in 1..count) {
+                val user = selectedUser.value
+                if (user == null) {
+                    Log.e("TEST_GENERATOR", "Brak zalogowanego użytkownika - przerwano na #$i")
+                    break
+                }
+
+                val timestamp = System.currentTimeMillis().toString()
+                val testMessage = Message(
+                    id = timestamp,
+                    roomId = room.idRoom,
+                    userId = user.id,
+                    messageType = MessageType.TEXT.name,
+                    message = "Wiadomość testowa #$i z ${count}",
+                    additionalData = "",
+                    timestamp = timestamp
+                )
+
+                try {
+                    val success = MessageUtils.sendMessage(room.idRoom, testMessage)
+
+                    if (success) {
+                        successCount++
+
+                        // Log co 50 wiadomości
+                        if (i % 50 == 0) {
+                            val elapsed = (System.currentTimeMillis() - startTime) / 1000.0
+                            val rate = i / elapsed
+                            Log.d("TEST_GENERATOR", "Postęp: $i/$count (${String.format("%.1f", rate)} msg/s)")
+                        }
+                    } else {
+                        errorCount++
+                        Log.e("TEST_GENERATOR", "Błąd wysyłania #$i")
+                    }
+
+                } catch (e: Exception) {
+                    errorCount++
+                    Log.e("TEST_GENERATOR", "Wyjątek #$i: ${e.message}")
+                }
+
+                // Opóźnienie między wiadomościami
+                if (i < count) {
+                    delay(delayMs)
+                }
+            }
+
+            val totalTime = (System.currentTimeMillis() - startTime) / 1000.0
+
+
+            Log.d("TEST_GENERATOR", "ZAKOŃCZONO GENEROWANIE")
+            Log.d("TEST_GENERATOR", "Sukces: $successCount")
+            Log.d("TEST_GENERATOR", "Błędy: $errorCount")
+            Log.d("TEST_GENERATOR", "Łącznie: ${successCount + errorCount}")
+            Log.d("TEST_GENERATOR", "Czas: ${String.format("%.2f", totalTime)}s")
+            Log.d("TEST_GENERATOR", "Średnia: ${String.format("%.2f", successCount / totalTime)} msg/s")
+        }
+    }
+
     fun stopRealtime() {
         stopRealtimeFlag = true
         reconnectJob?.cancel()
@@ -1862,8 +2052,6 @@ class NearNetViewModel(): ViewModel() {
 
     fun loadRecentMessages() {
         viewModelScope.launch {
-            // TODO Call asynchronous function to fetch recent messages here.
-            //recentMutable.value = getRecentMessages(idUser) //zwraca listę trójek (Room, lastMessage,user)
             //funkcja: grupuje wiadomości po pokojach, dla każdej grupy uzyskuje dane pokoju, a następnie tworzy trójki
             //typu (wiadomość, pokój, nazwa użytkownika), w SQL join pokoju do wiadomości i do usera, i groupby po pokojach ,
             //a potem select na te trójki
@@ -1934,6 +2122,117 @@ class NearNetViewModel(): ViewModel() {
     }
     fun clearQueuedPopups() {
         queuedPopupList.clear()
+    }
+
+    fun setServerAddress(serverAddress : String){
+        viewModelScope.launch {
+            val context = contextProvider?.invoke()
+            if (context == null) {
+                Log.e("ViewModel", "Brak kontekstu - nie można zapisać adresu serwera")
+                return@launch
+            }
+
+            val success = ServerConfig.setCustomServer(context, serverAddress)
+
+            if (success) {
+                Log.d("ViewModel", "Serwer ustawiony: $serverAddress")
+
+                ServerConfig.clearCache()
+
+                Toast.makeText(context, "Server changed to $serverAddress", Toast.LENGTH_LONG).show()
+
+                // Wyloguj i wyczyść stan
+                clearAppState()
+                selectedUserMutable.value = null
+
+                // Nie restartuj - po prostu komunikat
+                delay(1000)
+                Toast.makeText(context, "Please restart the app", Toast.LENGTH_LONG).show()
+
+                // Zamknij aplikację (user musi ręcznie otworzyć)
+                if (context is Activity) {
+                    context.finishAffinity()
+                }
+                exitProcess(0)
+            } else {
+                Log.e("ViewModel", "Nie udało się ustawić serwera")
+                Toast.makeText(context, "Invalid server address", Toast.LENGTH_SHORT).show()
+            }
+
+        }
+    }
+
+    fun setDefaultServerAddress(){
+        viewModelScope.launch {
+            val context = contextProvider?.invoke()
+            if (context == null) {
+                Log.e("ViewModel", "Brak kontekstu - nie można przywrócić domyślnego serwera")
+                return@launch
+            }
+
+            ServerConfig.setDefaultServer(context)
+            ServerConfig.clearCache()
+
+            Log.d("ViewModel", "Przywrócono domyślny serwer")
+
+            Toast.makeText(context, "Default server restored", Toast.LENGTH_LONG).show()
+
+            // Wyloguj i wyczyść
+            clearAppState()
+            selectedUserMutable.value = null
+
+            delay(1000)
+            Toast.makeText(context, "Please restart the app", Toast.LENGTH_LONG).show()
+
+            // Zamknij aplikację
+            if (context is Activity) {
+                context.finishAffinity()
+            }
+            exitProcess(0)
+        }
+    }
+
+    /**
+     * Restartuje aplikację
+     */
+    private suspend fun restartApp(context: Context) {
+        val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+        intent?.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        intent?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        intent?.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        context.startActivity(intent)
+        delay(1000)
+        // Zabij obecny proces
+        android.os.Process.killProcess(android.os.Process.myPid())
+    }
+
+    fun validateServerAddress(serverAddress: String) : Boolean {
+        val parts = serverAddress.split(":")
+        if (parts.size != 2) return false
+
+        val ip = parts[0]
+        val port = parts[1].toIntOrNull() ?: return false
+
+        // Sprawdzenie zakresu portu
+        if (port !in 1..65535) return false
+
+        // Sprawdzenie poprawności IP
+        val ipRegex = Regex("^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)(\\.|$)){4}$")
+        if (!ip.matches(ipRegex)) return false
+
+        return true
+    }
+
+    /**
+     * pomiar zużycia pamięci RAM przy łądowaniu wiadomości w pokoju
+     */
+    fun logMemoryUsage(label: String) {
+        val runtime = Runtime.getRuntime()
+        val usedMemory = (runtime.totalMemory() - runtime.freeMemory()) / 1024 / 1024
+        val maxMemory = runtime.maxMemory() / 1024 / 1024
+        val percentUsed = (usedMemory.toFloat() / maxMemory.toFloat() * 100).toInt()
+
+        Log.d("PERFORMANCE_TEST_3", "PAMIEC_RAM [$label]: ${usedMemory}MB / ${maxMemory}MB (${percentUsed}%)")
     }
 
     /**

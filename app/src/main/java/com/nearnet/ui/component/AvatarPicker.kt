@@ -108,7 +108,6 @@ fun AvatarCircle(avatarBase64: String, defaultAvatar: Int) {
             tint = MaterialTheme.colorScheme.onPrimary,
             contentDescription = "Avatar",
             modifier = Modifier.size(80.dp).clip(CircleShape)
-            //.border(2.dp, MaterialTheme.colorScheme.onPrimary, CircleShape)
             .padding(2.dp)
         )
     }

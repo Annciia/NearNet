@@ -35,7 +35,6 @@ import androidx.compose.foundation.text.selection.LocalTextSelectionColors
 import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.twotone.PlayArrow
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Button
@@ -87,6 +86,7 @@ import com.nearnet.sessionlayer.data.model.RoomData
 import com.nearnet.sessionlayer.data.model.UserData
 import com.nearnet.sessionlayer.logic.MessageUtils
 import com.nearnet.sessionlayer.logic.RoomRepository
+import com.nearnet.sessionlayer.logic.ServerConfig
 import com.nearnet.sessionlayer.logic.UserRepository
 import com.nearnet.ui.component.AvatarCircle
 import com.nearnet.ui.component.AvatarPicker
@@ -114,12 +114,10 @@ import com.nearnet.ui.model.USER_NAME_MAX_LENGTH
 import com.nearnet.ui.model.USER_PASSWORD_MAX_LENGTH
 import com.nearnet.ui.model.saveMessagesToUri
 import com.nearnet.ui.theme.NearNetTheme
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 
-//data class Room(val id: String, var name: String, var description: String, var avatar: String, var additionalSettings: String, var isPrivate: Boolean, var isVisible: Boolean, var idAdmin: String, var users: List<String>)
-//data class Message(val id: String, val userId: String, val roomId: String, val data: String, val timestamp: String, val messageType: String, var additionalData: String)
-//data class User(val id: String, val login: String, val name: String, var avatar: String, var additionalSettings: String, var publicKey: String)
 data class Recent(val message: Message, val room: RoomData?, val user: UserData?)
 
 class MainActivity : ComponentActivity() {
@@ -182,10 +180,6 @@ class MainActivity : ComponentActivity() {
                     content = { padding ->
                         Column(modifier = Modifier.padding(padding).padding(horizontal = 16.dp)) {
                             ContentArea(navController)
-                            /*Button(onClick = {}) {
-                                Text("MIAU")
-                            }*/
-
                         }
                     }
                 )
@@ -346,19 +340,19 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    fun StandardButton(image: Int, onClick: ()->Unit){
+    fun StandardButton(image: Int, iconColor : Color = MaterialTheme.colorScheme.onPrimary, containerColor : Color = MaterialTheme.colorScheme.secondary, onClick: ()->Unit){
         Button(
             onClick = onClick,
             shape = RoundedCornerShape(6.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.secondary),
+                containerColor = containerColor),
             contentPadding = PaddingValues(0.dp),
             modifier = Modifier.size(36.dp),
             content = {
                 Icon(
                     painter = painterResource(image),
                     contentDescription = "Print conversation",
-                    tint = MaterialTheme.colorScheme.onPrimary,
+                    tint = iconColor,
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(6.dp)
@@ -385,7 +379,6 @@ class MainActivity : ComponentActivity() {
                 ){}
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    //verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceEvenly
 
                 ){
@@ -460,66 +453,78 @@ class MainActivity : ComponentActivity() {
 
         val userRepository = remember { UserRepository(context) }
 
-        //ScreenTitle("Log in or create account!")
         Box(
-            modifier = Modifier.fillMaxSize().padding(40.dp),
-            contentAlignment = Alignment.Center
+            contentAlignment = Alignment.TopEnd,
+            modifier = Modifier.padding(vertical = 16.dp)
         ) {
-            Column(
-                modifier = Modifier.fillMaxWidth().height(580.dp).verticalScroll(scrollPosition),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Image(
-                    painter = painterResource(R.drawable.nearnet_logotype),
-                    contentDescription = "Application logo",
-                    modifier = Modifier.size(200.dp)
-                )
-                Spacer(Modifier.height(40.dp))
-                PlainTextField(
-                    placeholderText = "login",
-                    singleLine = true,
-                    maxChars = USER_LOGIN_MAX_LENGTH,
-                    value = login.value,
-                    onValueChange = { login.value = it } // {x -> login.value = x }
-                )
-                Spacer(Modifier.height(10.dp))
-                PlainTextField(
-                    placeholderText = "password",
-                    singleLine = true,
-                    maxChars = USER_PASSWORD_MAX_LENGTH,
-                    passwordField = true,
-                    value = password.value,
-                    onValueChange = { password.value = it }
-                )
-                Spacer(Modifier.height(10.dp))
-                Button(
-                    onClick = {
-                        inProgress.value = true
-                        vm.logInUser(login.value, password.value)
-                        //tu animacja czekania na logowanie w postaci kota biegającego w kółko
-                    },
-                    enabled = !inProgress.value,
-                    modifier = Modifier.widthIn(max = 200.dp).fillMaxWidth()
-                ) {
-                    Text(text = "Sign in")
+            StandardButton(
+                image=R.drawable.gear,
+                containerColor = Color.Transparent,
+                iconColor = MaterialTheme.colorScheme.primary,
+                onClick = { // change server IP address
+                    vm.selectPopup(PopupType.SERVER_SETTINGS)
                 }
-                Spacer(Modifier.height(10.dp))
-                Text(
-                    text = "or",
-                    style = LocalTextStyle.current.copy(
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
-                )
-                Spacer(Modifier.height(10.dp))
-                Button(
-                    onClick = {
-                        navController.navigate("registerScreen") {
-                            launchSingleTop = true
-                        }
-                    },
-                    modifier = Modifier.widthIn(max = 200.dp).fillMaxWidth()
+            )
+            Box(
+                modifier = Modifier.fillMaxSize().padding(40.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().height(580.dp)
+                        .verticalScroll(scrollPosition),
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Text(text = "Create account")
+                    Image(
+                        painter = painterResource(R.drawable.nearnet_logotype),
+                        contentDescription = "Application logo",
+                        modifier = Modifier.size(200.dp)
+                    )
+                    Spacer(Modifier.height(40.dp))
+                    PlainTextField(
+                        placeholderText = "login",
+                        singleLine = true,
+                        maxChars = USER_LOGIN_MAX_LENGTH,
+                        value = login.value,
+                        onValueChange = { login.value = it }
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    PlainTextField(
+                        placeholderText = "password",
+                        singleLine = true,
+                        maxChars = USER_PASSWORD_MAX_LENGTH,
+                        passwordField = true,
+                        value = password.value,
+                        onValueChange = { password.value = it }
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Button(
+                        onClick = {
+                            inProgress.value = true
+                            vm.logInUser(login.value, password.value)
+                        },
+                        enabled = !inProgress.value,
+                        modifier = Modifier.widthIn(max = 200.dp).fillMaxWidth()
+                    ) {
+                        Text(text = "Sign in")
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        text = "or",
+                        style = LocalTextStyle.current.copy(
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Button(
+                        onClick = {
+                            navController.navigate("registerScreen") {
+                                launchSingleTop = true
+                            }
+                        },
+                        modifier = Modifier.widthIn(max = 200.dp).fillMaxWidth()
+                    ) {
+                        Text(text = "Create account")
+                    }
                 }
             }
         }
@@ -529,64 +534,6 @@ class MainActivity : ComponentActivity() {
                 when (event) {
                     is ProcessEvent.Success -> {
                         if (event.data !== null) {
-
-
-//                            Log.d("LOGIN_TEST", "TESTY KLUCZY RSA DLA: ${login.value}")
-//                            // 1: Sprawdzenie czy uzytkownik ma klucze
-//                            val hasKeys = CryptoUtils.hasKeysForUser(context, login.value)
-//                            Log.d("LOGIN_TEST", "Użytkownik ma klucze RSA: $hasKeys")
-//
-//                            if (hasKeys) {
-//                                // 2: Odczytanie klucza prywatnego
-//                                val privateKey = CryptoUtils.getPrivateKey(context, login.value)
-//                                if (privateKey != null) {
-//                                    Log.d("LOGIN_TEST", " Klucz prywatny DOSTĘPNY")
-//                                } else {
-//                                    Log.e("LOGIN_TEST", " Klucz prywatny NIEDOSTĘPNY")
-//                                }
-//
-//                                // 3: Odczytanie klucza publicznego
-//                                val publicKey = CryptoUtils.getPublicKey(context, login.value)
-//                                if (publicKey != null) {
-//                                    Log.d("LOGIN_TEST", " Klucz publiczny DOSTĘPNY")
-//                                } else {
-//                                    Log.e("LOGIN_TEST", " Klucz publiczny NIEDOSTĘPNY")
-//                                }
-//                            } else {
-//                                Log.w("LOGIN_TEST", " Użytkownik nie ma kluczy")
-//                            }
-//
-//                            Log.d("LOGIN_TEST", "Pobieranie klucza publicznego z serwera")
-//
-//                            // pobranie userID (jesli dostepne)
-//                            val userId = event.data.id
-//                            if (userId != null) {
-//                                try {
-//                                    val publicKeyFromServer = userRepository.getUserPublicKey(userId)
-//
-//                                    if (publicKeyFromServer != null) {
-//                                        Log.d("LOGIN_TEST", " Klucz pobrany z serwera")
-//
-//                                        // Porównaj z lokalnym kluczem
-//                                        val localPublicKey = CryptoUtils.getPublicKey(context, login.value)
-//                                        if (localPublicKey != null) {
-//                                            val localBase64 = CryptoUtils.publicKeyToString(localPublicKey)
-//
-//                                            if (localBase64 == publicKeyFromServer) {
-//                                                Log.d("LOGIN_TEST", " Klucze identyczne (serwer = lokalny)")
-//                                            } else {
-//                                                Log.w("LOGIN_TEST", " Klucze sie roznia!")
-//                                            }
-//                                        }
-//                                    } else {
-//                                        Log.e("LOGIN_TEST", " Nie udało się pobrac klucza z serwera")
-//                                    }
-//                                } catch (e: Exception) {
-//                                    Log.e("LOGIN_TEST", "  Błąd podczas pobierania klucza: ${e.message}")
-//                                }
-//                            } else {
-//                                Log.w("LOGIN_TEST", "  Brak userId - nie można przetestować pobierania z serwera")
-//                            }
                             navController.navigate("recentScreen") {
                                 popUpTo(0) { inclusive = false }
                                 launchSingleTop = true
@@ -615,84 +562,98 @@ class MainActivity : ComponentActivity() {
         val passwordConfirmation = remember { mutableStateOf("") }
         val inProgress = remember { mutableStateOf(false) }
 
-        //ScreenTitle("Create your new account!")
         Box(
-            modifier = Modifier.fillMaxSize().padding(40.dp),
-            contentAlignment = Alignment.Center
+            contentAlignment = Alignment.TopEnd,
+            modifier = Modifier.padding(vertical = 16.dp)
         ) {
-            Column(
-                modifier = Modifier.fillMaxWidth().height(580.dp).verticalScroll(scrollPosition),
-                horizontalAlignment = Alignment.CenterHorizontally,
+            StandardButton(
+                image = R.drawable.gear,
+                containerColor = Color.Transparent,
+                iconColor = MaterialTheme.colorScheme.primary,
+                onClick = { // change server IP address
+                    vm.selectPopup(PopupType.SERVER_SETTINGS)
+                }
+            )
+            Box(
+                modifier = Modifier.fillMaxSize().padding(40.dp),
+                contentAlignment = Alignment.Center
             ) {
-                Image(
-                    painter = painterResource(R.drawable.nearnet_logotype),
-                    contentDescription = "Application logo",
-                    modifier = Modifier.size(200.dp)
-                )
-                Spacer(Modifier.height(40.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Start
+                Column(
+                    modifier = Modifier.fillMaxWidth().height(580.dp)
+                        .verticalScroll(scrollPosition),
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Text(
-                        text = "Get your chat on",
-                        style = LocalTextStyle.current.copy(
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            fontSize = 24.sp
-                        )
+                    Image(
+                        painter = painterResource(R.drawable.nearnet_logotype),
+                        contentDescription = "Application logo",
+                        modifier = Modifier.size(200.dp)
                     )
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    Text(
-                        text = "sign up and start connecting!",
-                        style = LocalTextStyle.current.copy(
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            //fontSize = 16.sp //default value
+                    Spacer(Modifier.height(40.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Start
+                    ) {
+                        Text(
+                            text = "Get your chat on",
+                            style = LocalTextStyle.current.copy(
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                fontSize = 24.sp
+                            )
                         )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        Text(
+                            text = "sign up and start connecting!",
+                            style = LocalTextStyle.current.copy(
+                                color = MaterialTheme.colorScheme.onPrimary,
+                            )
+                        )
+                    }
+                    Spacer(Modifier.height(20.dp))
+                    PlainTextField(
+                        placeholderText = "login",
+                        singleLine = true,
+                        maxChars = USER_LOGIN_MAX_LENGTH,
+                        value = login.value,
+                        onValueChange = { login.value = it }
                     )
-                }
-                Spacer(Modifier.height(20.dp))
-                PlainTextField(
-                    placeholderText = "login",
-                    singleLine = true,
-                    maxChars = USER_LOGIN_MAX_LENGTH,
-                    value = login.value,
-                    onValueChange = { login.value = it }
-                )
-                Spacer(Modifier.height(5.dp))
-                PasswordValidationText(password.value, passwordConfirmation.value)
-                Spacer(Modifier.height(5.dp))
-                PlainTextField(
-                    placeholderText = "password",
-                    singleLine = true,
-                    maxChars = USER_PASSWORD_MAX_LENGTH,
-                    passwordField = true,
-                    value = password.value,
-                    onValueChange = { password.value = it }
-                )
-                Spacer(Modifier.height(10.dp))
-                PlainTextField(
-                    placeholderText = "confirm password",
-                    singleLine = true,
-                    maxChars = USER_PASSWORD_MAX_LENGTH,
-                    passwordField = true,
-                    value = passwordConfirmation.value,
-                    onValueChange = { passwordConfirmation.value = it }
-                )
-                Spacer(Modifier.height(20.dp))
-                Button(
-                    onClick = {
-                        inProgress.value = true
-                        vm.registerUser(login.value, password.value)
-                        //tu animacja czekania na logowanie w postaci kota biegającego w kółko
-                    },
-                    enabled = !inProgress.value && login.value.isNotEmpty() && validatePassword(password.value, passwordConfirmation.value) == PasswordValidationResult.CORRECT,
-                    modifier = Modifier.widthIn(max = 200.dp).fillMaxWidth()
-                ) {
-                    Text(text = "Let's go!")
+                    Spacer(Modifier.height(5.dp))
+                    PasswordValidationText(password.value, passwordConfirmation.value)
+                    Spacer(Modifier.height(5.dp))
+                    PlainTextField(
+                        placeholderText = "password",
+                        singleLine = true,
+                        maxChars = USER_PASSWORD_MAX_LENGTH,
+                        passwordField = true,
+                        value = password.value,
+                        onValueChange = { password.value = it }
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    PlainTextField(
+                        placeholderText = "confirm password",
+                        singleLine = true,
+                        maxChars = USER_PASSWORD_MAX_LENGTH,
+                        passwordField = true,
+                        value = passwordConfirmation.value,
+                        onValueChange = { passwordConfirmation.value = it }
+                    )
+                    Spacer(Modifier.height(20.dp))
+                    Button(
+                        onClick = {
+                            inProgress.value = true
+                            vm.registerUser(login.value, password.value)
+                        },
+                        enabled = !inProgress.value && login.value.isNotEmpty() && validatePassword(
+                            password.value,
+                            passwordConfirmation.value
+                        ) == PasswordValidationResult.CORRECT,
+                        modifier = Modifier.widthIn(max = 200.dp).fillMaxWidth()
+                    ) {
+                        Text(text = "Let's go!")
+                    }
                 }
             }
         }
@@ -829,7 +790,6 @@ class MainActivity : ComponentActivity() {
                         val progress = inProgess.value
                         inProgess.value = true
                         if (!progress) vm.selectRoom(room)
-                        //tu animacja czekania na wejście do pokoju w postaci kota biegającego w kółko
                     })
                 }
             }
@@ -924,8 +884,8 @@ class MainActivity : ComponentActivity() {
             launch {
                 vm.joinRoomEvent.collect { event ->
                     when (event) {
-                        is ProcessEvent.Success -> {
-                            Toast.makeText(context, "Keep your fingers crossed for approval!", Toast.LENGTH_LONG).show()
+                        is ProcessEvent.Success<String> -> {
+                            Toast.makeText(context, event.data, Toast.LENGTH_LONG).show()
                         }
                         is ProcessEvent.Error -> {
                             Toast.makeText(context, event.err, Toast.LENGTH_SHORT).show()
@@ -1070,11 +1030,10 @@ class MainActivity : ComponentActivity() {
                         onClick = {
                             inProgress.value = true
                             if (selectedRoom != null) { //roomSettingsScreen
-                                vm.updateRoom(roomName, roomDescription, avatar.value, getPassword(), passwordConfirmation.value, !isCheckedPublic, !isCheckedVisible, additionalSettings = """{"theme":"dark","test":"value"}""")
+                                vm.updateRoom(roomName, roomDescription, avatar.value, getPassword(), passwordConfirmation.value, !isCheckedPublic, !isCheckedVisible, additionalSettings = "")
                             } else { //createRoomScreen
-                                vm.createRoom(roomName, roomDescription, avatar.value, getPassword(), passwordConfirmation.value, !isCheckedPublic, !isCheckedVisible, additionalSettings = """{"theme":"dark","test":"value"}""")
+                                vm.createRoom(roomName, roomDescription, avatar.value, getPassword(), passwordConfirmation.value, !isCheckedPublic, !isCheckedVisible, additionalSettings = "")
                             }
-                            //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
                         },
                         enabled = vm.validateRoom(roomName, roomDescription, getPassword(), passwordConfirmation.value, avatar.value, !isCheckedPublic, !isCheckedVisible, "", selectedRoom != null) && !inProgress.value
                     ) {
@@ -1096,22 +1055,19 @@ class MainActivity : ComponentActivity() {
                         Row {
                             Button(onClick = {
                                 vm.selectPopup(PopupType.DROP_ADMIN_CONFIRMATION)
-                                //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
                             }) {
                                 Text("Leave admin")
                             }
                             Spacer(Modifier.width(10.dp))
                             Button(onClick = {
                                 vm.selectPopup(PopupType.DELETE_ROOM_CONFIRMATION)
-                                //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
                             }) {
                                 Text("Delete room")
                             }
                         }
                     } else if (selectedRoom.idAdmin.isNullOrBlank()) {
                         Button(onClick = {
-                            vm.updateRoomAdmin(selectedUser.id) // TODO MAREK Daj możliwość zmiany Admina (chcę podać inne idAdmin niż jest, np.obecnego usera)
-                            //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
+                            vm.updateRoomAdmin(selectedUser.id)
                         }) {
                             Text("Claim the room")
                         }
@@ -1249,16 +1205,6 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.weight(1f)
                     )
                 }
-                //additional settings field
-                /*Spacer(Modifier.height(10.dp))
-                PlainTextField(
-                    value = additionalSettings.value,
-                    onValueChange = { text -> additionalSettings.value = text },
-                    placeholderText = "additionalSettings",
-                    singleLine = false,
-                    maxChars = 500,
-                    modifier = Modifier.fillMaxWidth()
-                )*/
                 Spacer(Modifier.height(10.dp))
                 PlainTextField(
                     value = currentPassword.value,
@@ -1317,7 +1263,6 @@ class MainActivity : ComponentActivity() {
                     Button(
                         onClick = {
                             vm.updateUser(userName.value, currentPassword.value, newPassword.value, passwordConfirmation.value, avatar.value, additionalSettings.value)
-                            //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
                         },
                         enabled = vm.validateUpdateUser(userName.value, currentPassword.value, newPassword.value, passwordConfirmation.value, avatar.value, additionalSettings.value)
                     ) {
@@ -1332,7 +1277,6 @@ class MainActivity : ComponentActivity() {
             ) {
                 Button(onClick = {
                     vm.selectPopup(PopupType.DELETE_USER_AUTHORIZATION)
-                    //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
                 }) {
                     Text("Delete account")
                 }
@@ -1484,7 +1428,6 @@ class MainActivity : ComponentActivity() {
                 }
                 if (!isReady.value) {
                     CircularProgressIndicator()
-                    //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
                 }
             }
             ConversationPanel()
@@ -1504,6 +1447,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
 
+        ServerConfig.initialize(applicationContext)
+
         MessageUtils.init(
             tokenProv = {
                 getSharedPreferences("auth", Context.MODE_PRIVATE)
@@ -1512,6 +1457,42 @@ class MainActivity : ComponentActivity() {
             contextProv = { applicationContext }
         )
         setContent {
+            val vm: NearNetViewModel = viewModel()
+
+
+            /**
+             * AUTO-GENERATOR WIADOMOŚCI TESTOWYCH
+             *
+             * stosowane przy testach wydajnościowych,
+             * aby wygenerować wiadmości należy:
+             * autoGenerateEnabled = true
+             * messageCount = ilość zadanych wiadomości
+             * następnie po włączeniu aplikacji w ciagu 30 sekund należy się zalogować i wejść do pokoju, w którym chcemy wygenerować wiadomości
+             *
+             */
+            val autoGenerateEnabled = false  //  zmiana true przy wlaczeniu i wejsciu do pokoju generuje wiadomosci
+            val messageCount = 5000          //  zmiana liczba wiadomosci
+            val delayBetweenMessages = 50L  //
+
+            if (autoGenerateEnabled) {
+                LaunchedEffect(Unit) {
+                    delay(30000) // Odczekaj 30s az zacznie generowac wiadomosci w pokoju
+
+                    val room = vm.selectedRoom.value
+                    val user = vm.selectedUser.value
+
+                    if (room != null && user != null) {
+                        Log.d("AUTO_TEST", "START: Generowanie $messageCount wiadomości...")
+                        Log.d("AUTO_TEST", "Pokój: ${room.name}")
+                        Log.d("AUTO_TEST", "Użytkownik: ${user.name}")
+
+                        vm.generateTestMessages(room, messageCount, delayBetweenMessages)
+                    } else {
+                        Log.w("AUTO_TEST", "Brak pokoju lub użytkownika - zaloguj się i wejdź do pokoju!")
+                    }
+                }
+            }
+            // ═══════════════════════════════════════════════════════════
             App()
         }
     }

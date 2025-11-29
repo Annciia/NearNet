@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.nearnet.sessionlayer.data.model.RoomData
+import com.nearnet.sessionlayer.logic.ServerConfig
 import com.nearnet.ui.model.LocalViewModel
 import com.nearnet.ui.model.PopupContext
 import com.nearnet.ui.model.PopupContextApprovalData
@@ -41,6 +42,7 @@ import com.nearnet.ui.model.PopupType
 import com.nearnet.ui.model.ProcessEvent
 import com.nearnet.ui.model.ROOM_PASSWORD_MAX_LENGTH
 import com.nearnet.ui.model.USER_PASSWORD_MAX_LENGTH
+
 
 @Composable
 fun PopupBox() {
@@ -83,6 +85,7 @@ fun PopupBox() {
                         PopupType.DROP_ADMIN_CONFIRMATION -> DropAdminConfirmationPopup()
                         PopupType.EDIT_AVATAR -> EditAvatarPopup(popupContext)
                         PopupType.USER_LIST_IN_ROOM -> UserListInRoomPopup()
+                        PopupType.SERVER_SETTINGS -> ServerSettingsPopus()
                     }
                 }
             }
@@ -221,6 +224,9 @@ fun JoinRoomConfirmationPopup(popupContext: PopupContext) {
         onAccept = {
             vm.closePopup()
             vm.joinRoom(room, password.value)
+            if (!room.isPrivate) {
+                vm.selectRoom(room)
+            }
         },
         onCancel = {
             vm.closePopup()
@@ -414,6 +420,67 @@ fun UserListInRoomPopup() {
                     UserItem(user, room, isKickEnabled = isAdmin)
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun ServerSettingsPopus() {
+    val context = LocalContext.current
+    val vm = LocalViewModel.current
+    val serverAddress = remember { mutableStateOf("") }
+
+    DialogPopup(
+        title = "Server settings",
+        text = "Enter a custom server address or use the default one.",
+        acceptEnabled = vm.validateServerAddress(serverAddress.value),
+        onAccept = {
+            vm.closePopup()
+            vm.setServerAddress(serverAddress.value) //ustawienie personalizowanej wartości serwera
+        },
+        onCancel = {
+            vm.closePopup()
+        }
+    ) {
+        Column {
+            Text(
+                text = "Specify your server address and port.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onPrimary,
+            )
+            Spacer(Modifier.height(5.dp))
+            PlainTextField(
+                value = serverAddress.value,
+                onValueChange = { text -> serverAddress.value = text },
+                placeholderText = "0.0.0.0:3000",
+                singleLine = true,
+                maxChars = 21,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Text(
+                text = "or",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onPrimary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Button(
+                modifier = Modifier.fillMaxWidth(),
+                onClick = {
+                    vm.closePopup()
+                    vm.setDefaultServerAddress() //ustawienie domyślnej wartości serwera
+                }
+            ) {
+                Text(text = "Use Default Server")
+            }
+            // Informacja o aktualnym serwerze
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = "Current: ${ServerConfig.getServerAddress(context)}:${ServerConfig.getServerPort(context)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f),
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }
