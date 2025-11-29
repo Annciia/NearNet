@@ -118,9 +118,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 
-//data class Room(val id: String, var name: String, var description: String, var avatar: String, var additionalSettings: String, var isPrivate: Boolean, var isVisible: Boolean, var idAdmin: String, var users: List<String>)
-//data class Message(val id: String, val userId: String, val roomId: String, val data: String, val timestamp: String, val messageType: String, var additionalData: String)
-//data class User(val id: String, val login: String, val name: String, var avatar: String, var additionalSettings: String, var publicKey: String)
 data class Recent(val message: Message, val room: RoomData?, val user: UserData?)
 
 class MainActivity : ComponentActivity() {
@@ -183,10 +180,6 @@ class MainActivity : ComponentActivity() {
                     content = { padding ->
                         Column(modifier = Modifier.padding(padding).padding(horizontal = 16.dp)) {
                             ContentArea(navController)
-                            /*Button(onClick = {}) {
-                                Text("MIAU")
-                            }*/
-
                         }
                     }
                 )
@@ -386,7 +379,6 @@ class MainActivity : ComponentActivity() {
                 ){}
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    //verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceEvenly
 
                 ){
@@ -461,7 +453,6 @@ class MainActivity : ComponentActivity() {
 
         val userRepository = remember { UserRepository(context) }
 
-        //ScreenTitle("Log in or create account!")
         Box(
             contentAlignment = Alignment.TopEnd,
             modifier = Modifier.padding(vertical = 16.dp)
@@ -494,7 +485,7 @@ class MainActivity : ComponentActivity() {
                         singleLine = true,
                         maxChars = USER_LOGIN_MAX_LENGTH,
                         value = login.value,
-                        onValueChange = { login.value = it } // {x -> login.value = x }
+                        onValueChange = { login.value = it }
                     )
                     Spacer(Modifier.height(10.dp))
                     PlainTextField(
@@ -510,7 +501,6 @@ class MainActivity : ComponentActivity() {
                         onClick = {
                             inProgress.value = true
                             vm.logInUser(login.value, password.value)
-                            //tu animacja czekania na logowanie w postaci kota biegającego w kółko
                         },
                         enabled = !inProgress.value,
                         modifier = Modifier.widthIn(max = 200.dp).fillMaxWidth()
@@ -544,64 +534,6 @@ class MainActivity : ComponentActivity() {
                 when (event) {
                     is ProcessEvent.Success -> {
                         if (event.data !== null) {
-
-
-//                            Log.d("LOGIN_TEST", "TESTY KLUCZY RSA DLA: ${login.value}")
-//                            // 1: Sprawdzenie czy uzytkownik ma klucze
-//                            val hasKeys = CryptoUtils.hasKeysForUser(context, login.value)
-//                            Log.d("LOGIN_TEST", "Użytkownik ma klucze RSA: $hasKeys")
-//
-//                            if (hasKeys) {
-//                                // 2: Odczytanie klucza prywatnego
-//                                val privateKey = CryptoUtils.getPrivateKey(context, login.value)
-//                                if (privateKey != null) {
-//                                    Log.d("LOGIN_TEST", " Klucz prywatny DOSTĘPNY")
-//                                } else {
-//                                    Log.e("LOGIN_TEST", " Klucz prywatny NIEDOSTĘPNY")
-//                                }
-//
-//                                // 3: Odczytanie klucza publicznego
-//                                val publicKey = CryptoUtils.getPublicKey(context, login.value)
-//                                if (publicKey != null) {
-//                                    Log.d("LOGIN_TEST", " Klucz publiczny DOSTĘPNY")
-//                                } else {
-//                                    Log.e("LOGIN_TEST", " Klucz publiczny NIEDOSTĘPNY")
-//                                }
-//                            } else {
-//                                Log.w("LOGIN_TEST", " Użytkownik nie ma kluczy")
-//                            }
-//
-//                            Log.d("LOGIN_TEST", "Pobieranie klucza publicznego z serwera")
-//
-//                            // pobranie userID (jesli dostepne)
-//                            val userId = event.data.id
-//                            if (userId != null) {
-//                                try {
-//                                    val publicKeyFromServer = userRepository.getUserPublicKey(userId)
-//
-//                                    if (publicKeyFromServer != null) {
-//                                        Log.d("LOGIN_TEST", " Klucz pobrany z serwera")
-//
-//                                        // Porównaj z lokalnym kluczem
-//                                        val localPublicKey = CryptoUtils.getPublicKey(context, login.value)
-//                                        if (localPublicKey != null) {
-//                                            val localBase64 = CryptoUtils.publicKeyToString(localPublicKey)
-//
-//                                            if (localBase64 == publicKeyFromServer) {
-//                                                Log.d("LOGIN_TEST", " Klucze identyczne (serwer = lokalny)")
-//                                            } else {
-//                                                Log.w("LOGIN_TEST", " Klucze sie roznia!")
-//                                            }
-//                                        }
-//                                    } else {
-//                                        Log.e("LOGIN_TEST", " Nie udało się pobrac klucza z serwera")
-//                                    }
-//                                } catch (e: Exception) {
-//                                    Log.e("LOGIN_TEST", "  Błąd podczas pobierania klucza: ${e.message}")
-//                                }
-//                            } else {
-//                                Log.w("LOGIN_TEST", "  Brak userId - nie można przetestować pobierania z serwera")
-//                            }
                             navController.navigate("recentScreen") {
                                 popUpTo(0) { inclusive = false }
                                 launchSingleTop = true
@@ -630,7 +562,6 @@ class MainActivity : ComponentActivity() {
         val passwordConfirmation = remember { mutableStateOf("") }
         val inProgress = remember { mutableStateOf(false) }
 
-        //ScreenTitle("Create your new account!")
         Box(
             contentAlignment = Alignment.TopEnd,
             modifier = Modifier.padding(vertical = 16.dp)
@@ -678,7 +609,6 @@ class MainActivity : ComponentActivity() {
                             text = "sign up and start connecting!",
                             style = LocalTextStyle.current.copy(
                                 color = MaterialTheme.colorScheme.onPrimary,
-                                //fontSize = 16.sp //default value
                             )
                         )
                     }
@@ -715,7 +645,6 @@ class MainActivity : ComponentActivity() {
                         onClick = {
                             inProgress.value = true
                             vm.registerUser(login.value, password.value)
-                            //tu animacja czekania na logowanie w postaci kota biegającego w kółko
                         },
                         enabled = !inProgress.value && login.value.isNotEmpty() && validatePassword(
                             password.value,
@@ -861,7 +790,6 @@ class MainActivity : ComponentActivity() {
                         val progress = inProgess.value
                         inProgess.value = true
                         if (!progress) vm.selectRoom(room)
-                        //tu animacja czekania na wejście do pokoju w postaci kota biegającego w kółko
                     })
                 }
             }
@@ -1106,7 +1034,6 @@ class MainActivity : ComponentActivity() {
                             } else { //createRoomScreen
                                 vm.createRoom(roomName, roomDescription, avatar.value, getPassword(), passwordConfirmation.value, !isCheckedPublic, !isCheckedVisible, additionalSettings = "")
                             }
-                            //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
                         },
                         enabled = vm.validateRoom(roomName, roomDescription, getPassword(), passwordConfirmation.value, avatar.value, !isCheckedPublic, !isCheckedVisible, "", selectedRoom != null) && !inProgress.value
                     ) {
@@ -1128,22 +1055,19 @@ class MainActivity : ComponentActivity() {
                         Row {
                             Button(onClick = {
                                 vm.selectPopup(PopupType.DROP_ADMIN_CONFIRMATION)
-                                //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
                             }) {
                                 Text("Leave admin")
                             }
                             Spacer(Modifier.width(10.dp))
                             Button(onClick = {
                                 vm.selectPopup(PopupType.DELETE_ROOM_CONFIRMATION)
-                                //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
                             }) {
                                 Text("Delete room")
                             }
                         }
                     } else if (selectedRoom.idAdmin.isNullOrBlank()) {
                         Button(onClick = {
-                            vm.updateRoomAdmin(selectedUser.id) // TODO MAREK Daj możliwość zmiany Admina (chcę podać inne idAdmin niż jest, np.obecnego usera)
-                            //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
+                            vm.updateRoomAdmin(selectedUser.id)
                         }) {
                             Text("Claim the room")
                         }
@@ -1281,16 +1205,6 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.weight(1f)
                     )
                 }
-                //additional settings field
-                /*Spacer(Modifier.height(10.dp))
-                PlainTextField(
-                    value = additionalSettings.value,
-                    onValueChange = { text -> additionalSettings.value = text },
-                    placeholderText = "additionalSettings",
-                    singleLine = false,
-                    maxChars = 500,
-                    modifier = Modifier.fillMaxWidth()
-                )*/
                 Spacer(Modifier.height(10.dp))
                 PlainTextField(
                     value = currentPassword.value,
@@ -1349,7 +1263,6 @@ class MainActivity : ComponentActivity() {
                     Button(
                         onClick = {
                             vm.updateUser(userName.value, currentPassword.value, newPassword.value, passwordConfirmation.value, avatar.value, additionalSettings.value)
-                            //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
                         },
                         enabled = vm.validateUpdateUser(userName.value, currentPassword.value, newPassword.value, passwordConfirmation.value, avatar.value, additionalSettings.value)
                     ) {
@@ -1364,7 +1277,6 @@ class MainActivity : ComponentActivity() {
             ) {
                 Button(onClick = {
                     vm.selectPopup(PopupType.DELETE_USER_AUTHORIZATION)
-                    //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
                 }) {
                     Text("Delete account")
                 }
@@ -1516,7 +1428,6 @@ class MainActivity : ComponentActivity() {
                 }
                 if (!isReady.value) {
                     CircularProgressIndicator()
-                    //tu animacja czekania na stworzenie pokoju w postaci kota biegającego w kółko
                 }
             }
             ConversationPanel()

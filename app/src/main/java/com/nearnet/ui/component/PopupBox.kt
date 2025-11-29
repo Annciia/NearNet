@@ -430,22 +430,10 @@ fun ServerSettingsPopus() {
     val vm = LocalViewModel.current
     val serverAddress = remember { mutableStateOf("") }
 
-    /*val isValid = remember(serverAddress.value) {
-        vm.validateServerAddress(serverAddress.value)
-    }
-
-    // Pokaż aktualny serwer jeśli niestandardowy
-    LaunchedEffect(Unit) {
-        if (ServerConfig.isUsingCustomServer(context)) {
-            val current = "${ServerConfig.getServerAddress(context)}:${ServerConfig.getServerPort(context)}"
-            serverAddress.value = current
-        }
-    }*/
     DialogPopup(
         title = "Server settings",
         text = "Enter a custom server address or use the default one.",
         acceptEnabled = vm.validateServerAddress(serverAddress.value),
-        //acceptEnabled = isValid,
         onAccept = {
             vm.closePopup()
             vm.setServerAddress(serverAddress.value) //ustawienie personalizowanej wartości serwera

@@ -44,20 +44,15 @@ import java.time.ZoneId
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun MessageItem(message: Message, user: UserData? = null, room: RoomData? = null, ellipse: Boolean = false, attachmentClickable : Boolean = true, onClick: ((message: Message, room: RoomData?)->Unit)? = null) {
-//    var date = ""
-//    if (message.timestamp.isNotEmpty()) {
-//        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
-//        date = LocalDateTime.parse(message.timestamp, formatter).format(DateTimeFormatter.ofPattern("yyyy-MM-dd • HH:mm"))
-//    }
     val context = LocalContext.current
 
     // Date conversion
     val date = try {
-        val tsMillis = message.timestamp.toLong() // zamień String na Long
+        val tsMillis = message.timestamp.toLong()
         val localDateTime = LocalDateTime.ofInstant(Instant.ofEpochMilli(tsMillis), ZoneId.systemDefault())
         localDateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd • HH:mm"))
     } catch (e: Exception) {
-        "" // jeśli coś pójdzie nie tak
+        ""
     }
 
     // File message handling

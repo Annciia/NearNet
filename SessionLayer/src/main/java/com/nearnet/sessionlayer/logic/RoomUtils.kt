@@ -1619,14 +1619,12 @@ class RoomRepository(private val context: Context) {
     }
 
     /**
-     * Resetuje status weryfikacji hasła gdy timeout minie
-     * Używane gdy użytkownik który zadeklarował sprawdzenie nie odpowiada
+     * Resetuje status weryfikacji hasła gdy uzytkownik poda złe
      *
      * @param roomId ID pokoju
      * @param targetUserId ID użytkownika czekającego na weryfikację
      * @return true jeśli reset się udał, false w przeciwnym razie
      */
-
     suspend fun rejectPassword(roomId: String, userId: String): Boolean {
         return withContext(Dispatchers.IO) {
             try {
@@ -1650,10 +1648,4 @@ class RoomRepository(private val context: Context) {
             }
         }
     }
-
-
-
 }
-
-
-
