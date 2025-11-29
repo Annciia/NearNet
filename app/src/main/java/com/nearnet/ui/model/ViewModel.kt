@@ -891,18 +891,18 @@ class NearNetViewModel(): ViewModel() {
 
                             val checkerId = requestStatus.encryptedRoomKey // ID weryfikatora
 
-                            Log.d("POLLING", "🔍 CheckerId: $checkerId")
+                            Log.d("POLLING", "CheckerId: $checkerId")
 
                             if (checkerId.isNullOrEmpty()) {
-                                Log.e("POLLING", "✗ CheckerId jest pusty!")
+                                Log.e("POLLING", "CheckerId jest pusty!")
                                 continue
                             }
 
-                            Log.d("POLLING", "✓ CheckerId OK: $checkerId")
+                            Log.d("POLLING", "CheckerId OK: $checkerId")
 
                             val context = contextProvider?.invoke()
                             if (context == null) {
-                                Log.e("POLLING", "✗ Context niedostępny")
+                                Log.e("POLLING", "Context niedostępny")
                                 continue
                             }
 
@@ -910,7 +910,7 @@ class NearNetViewModel(): ViewModel() {
                             // Pobierz klucz publiczny weryfikatora
                             val checkerPublicKey = PublicKeyManager(context).getPublicKeyForUser(checkerId)
 
-                            Log.d("POLLING", "PublicKey dla $checkerId: ${if (checkerPublicKey != null) "FOUND" else "NULL"}")  // ← DODAJ
+                            Log.d("POLLING", "PublicKey dla $checkerId: ${if (checkerPublicKey != null) "FOUND" else "NULL"}")
 
                             if (checkerPublicKey != null) {
                                 Log.d("POLLING", "Klucz publiczny weryfikatora pobrany")
@@ -920,7 +920,7 @@ class NearNetViewModel(): ViewModel() {
                                     val encryptedPassword = CryptoUtils.encryptStringWithRSA(password, checkerPublicKey)
 
                                     Log.d("POLLING", "Hasło zaszyfrowane")
-                                    Log.d("POLLING", "Encrypted password (50 chars): ${encryptedPassword.take(50)}")  // ← DODAJ
+                                    Log.d("POLLING", "Encrypted password (50 chars): ${encryptedPassword.take(50)}")
                                     // Wyślij zaszyfrowane hasło
                                     val sent = roomRepository.sendEncryptedPassword(room.idRoom, encryptedPassword)
 
@@ -1086,44 +1086,9 @@ class NearNetViewModel(): ViewModel() {
                                 Log.d("POLLING", "     Status: ${userStatus.status}")
                                 Log.d("POLLING", "     EncryptedRoomKey: ${userStatus.encryptedRoomKey?.take(20) ?: "null"}")
 
-                                // ============================================================
-                                // Sprawdź timeout dla declaredPasswordCheck (30 sekund)
-                                // ============================================================
-//                                if (userStatus.status == "declaredPasswordCheck") {
-//                                    val requestTime = try {
-//                                        java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US)
-//                                            .parse(userStatus.requestedAt ?: "")?.time ?: 0L
-//                                    } catch (e: Exception) {
-//                                        0L
-//                                    }
-//
-//                                    val now = System.currentTimeMillis()
-//                                    val timeoutMs = 30000 // 30 sekund
-//
-//                                    if (now - requestTime > timeoutMs) {
-//                                        Log.d("POLLING", "[${room.name}] Timeout dla declaredPasswordCheck użytkownika ${userStatus.userId} - resetuję")
-//
-//                                        launch {
-//                                            val reset = roomRepository.resetPasswordCheckTimeout(room.idRoom, userStatus.userId)
-//                                            if (reset) {
-//                                                Log.d("POLLING", "[${room.name}] Status zresetowany do requestJoin")
-//                                                // Usuń z handled, żeby mógł być ponownie obsłużony
-//                                                //USUŃ OBA KLUCZE - żeby ten sam użytkownik mógł ponownie przejąć
-//                                                val oldDeclaredKey = "${userStatus.userId}-${room.idRoom}-declaredPasswordCheck"
-//                                                val oldRequestKey = "${userStatus.userId}-${room.idRoom}-requestJoin"
-//
-//                                                handledPasswordChecks.remove(oldDeclaredKey)
-//                                                handledPasswordChecks.remove(oldRequestKey)
-//                                            } else {
-//                                                Log.e("POLLING", "[${room.name}] Nie udało się zresetować statusu")
-//                                            }
-//                                        }
-//                                        return@forEach
-//                                    }
-//                                }
                                 if (userStatus.status == "declaredPasswordCheck") {
                                     val requestTime = try {
-                                        java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US)
+                                        java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US)
                                             .parse(userStatus.requestedAt ?: "")?.time ?: 0L
                                     } catch (e: Exception) {
                                         Log.e("POLLING-DEBUG", "Błąd parsowania: ${e.message}")
@@ -1136,7 +1101,6 @@ class NearNetViewModel(): ViewModel() {
                                     val now = System.currentTimeMillis()
                                     val timeoutMs = 30000 // 30 sekund
 
-                                    // ⭐ KLUCZOWA ZMIANA: Sprawdź czy requestTime > 0
                                     if (requestTime > 0 && now - requestTime > timeoutMs) {
                                         Log.d("POLLING", "[${room.name}] Timeout - resetuję")
 
@@ -1156,7 +1120,6 @@ class NearNetViewModel(): ViewModel() {
                                         return@forEach
                                     }
                                 }
-                                // ============================================================
 
                                 val key = "${userStatus.userId}-${room.idRoom}-${userStatus.status}"
 
@@ -1169,22 +1132,6 @@ class NearNetViewModel(): ViewModel() {
                                 Log.d("POLLING", "Nowy request - obsługuję!")
 
                                 when (userStatus.status) {
-//                                    "requestJoin" -> {
-//                                        // Nowy użytkownik czeka - AUTOMATYCZNIE zadeklaruj sprawdzenie
-//                                        Log.d("POLLING", "[${room.name}] Nowy użytkownik ${userStatus.userId} czeka - deklaruję sprawdzenie")
-//
-//                                        handledPasswordChecks.add(key)
-//
-//                                        launch {
-//                                            val declared = roomRepository.declarePasswordCheck(room.idRoom, userStatus.userId)
-//
-//                                            if (declared) {
-//                                                Log.d("POLLING", "[${room.name}] Zadeklarowano sprawdzenie hasła")
-//                                            } else {
-//                                                Log.e("POLLING", "[${room.name}] Nie udało się zadeklarować sprawdzenia")
-//                                            }
-//                                        }
-//                                    }
                                     "requestJoin" -> {
                                         Log.d("POLLING", "[${room.name}] Nowy użytkownik ${userStatus.userId} czeka - deklaruję sprawdzenie")
 
@@ -1201,7 +1148,7 @@ class NearNetViewModel(): ViewModel() {
                                     }
 
                                     "passwordReadyToCheck" -> {
-                                        // Użytkownik wysłał zaszyfrowane hasło - AUTOMATYCZNIE sprawdź
+                                        // Użytkownik wysłał zaszyfrowane hasło
                                         Log.d("POLLING", "[${room.name}] Otrzymano zaszyfrowane hasło od ${userStatus.userId} - sprawdzam")
 
                                         //handledPasswordChecks.add(key)
@@ -1211,7 +1158,7 @@ class NearNetViewModel(): ViewModel() {
                                                 verifyUserPassword(room, userStatus)
                                             } catch (e: Exception) {
                                                 Log.e("POLLING", "[${room.name}] Błąd weryfikacji - usuwam klucz z handled", e)
-                                                //handledPasswordChecks.remove(key)  // ← USUŃ przy błędzie
+                                                //handledPasswordChecks.remove(key)
                                             }
                                         }
                                     }
@@ -1458,7 +1405,14 @@ class NearNetViewModel(): ViewModel() {
                     Log.e("POLLING", "Nie udało się wysłać danych")
                 }
             } else {
-                Log.d("POLLING", "Hasło NIEPOPRAWNE - nie wysyłam danych")
+                Log.d("POLLING", "Hasło NIEPOPRAWNE - odrzucam request")
+                val rejected = roomRepository.rejectPassword(room.idRoom, userStatus.userId)
+                if (rejected) {
+                    Log.d("POLLING", "Request odrzucony - user dostanie błąd")
+                } else {
+                    Log.e("POLLING", "Nie udało się odrzucić requestu")
+                }
+
             }
 
         } catch (e: Exception) {
@@ -1711,21 +1665,9 @@ class NearNetViewModel(): ViewModel() {
                 Log.e("LEAVE_DEBUG", "Failed to leave room!")
                 leaveRoomEventMutable.emit(ProcessEvent.Error("Failed to leave the room. Please try again."))
             }
-            Log.d("LEAVE_DEBUG", "====== LEAVE ROOM END ======")
         }
     }
 
-//    fun removeUserFromRoom(user: UserData, room: RoomData) {
-//        viewModelScope.launch {
-//            //TODO Call function to remove user from the room.
-//            val isUserRemoved = roomRepository.removeUserFromRoom(room.idRoom, user.id)
-//            if (isUserRemoved) {
-//                roomUsersMutable.value = roomUsersMutable.value.filter { it.id != user.id }
-//            } else {
-//                leaveRoomEventMutable.emit(ProcessEvent.Error("Failed to remove the user from the room."))
-//            }
-//        }
-//    }
 
     fun removeUserFromRoom(user: UserData, room: RoomData) {
         viewModelScope.launch {
@@ -2095,13 +2037,9 @@ class NearNetViewModel(): ViewModel() {
      */
     fun generateTestMessages(room: RoomData, count: Int, delayMs: Long = 50) {
         viewModelScope.launch {
-            Log.d("TEST_GENERATOR", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-            Log.d("TEST_GENERATOR", "🔧 GENERATOR WIADOMOŚCI TESTOWYCH")
-            Log.d("TEST_GENERATOR", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-            Log.d("TEST_GENERATOR", "📊 Pokój: ${room.name}")
-            Log.d("TEST_GENERATOR", "📊 Liczba: $count wiadomości")
-            Log.d("TEST_GENERATOR", "📊 Opóźnienie: ${delayMs}ms")
-            Log.d("TEST_GENERATOR", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+            Log.d("TEST_GENERATOR", "GENERATOR WIADOMOŚCI TESTOWYCH")
+            Log.d("TEST_GENERATOR", "Pokój: ${room.name}")
+            Log.d("TEST_GENERATOR", "Liczba: $count wiadomości")
 
             val startTime = System.currentTimeMillis()
             var successCount = 0
@@ -2110,7 +2048,7 @@ class NearNetViewModel(): ViewModel() {
             for (i in 1..count) {
                 val user = selectedUser.value
                 if (user == null) {
-                    Log.e("TEST_GENERATOR", "❌ Brak zalogowanego użytkownika - przerwano na #$i")
+                    Log.e("TEST_GENERATOR", "Brak zalogowanego użytkownika - przerwano na #$i")
                     break
                 }
 
@@ -2135,16 +2073,16 @@ class NearNetViewModel(): ViewModel() {
                         if (i % 50 == 0) {
                             val elapsed = (System.currentTimeMillis() - startTime) / 1000.0
                             val rate = i / elapsed
-                            Log.d("TEST_GENERATOR", "✅ Postęp: $i/$count (${String.format("%.1f", rate)} msg/s)")
+                            Log.d("TEST_GENERATOR", "Postęp: $i/$count (${String.format("%.1f", rate)} msg/s)")
                         }
                     } else {
                         errorCount++
-                        Log.e("TEST_GENERATOR", "❌ Błąd wysyłania #$i")
+                        Log.e("TEST_GENERATOR", "Błąd wysyłania #$i")
                     }
 
                 } catch (e: Exception) {
                     errorCount++
-                    Log.e("TEST_GENERATOR", "❌ Wyjątek #$i: ${e.message}")
+                    Log.e("TEST_GENERATOR", "Wyjątek #$i: ${e.message}")
                 }
 
                 // Opóźnienie między wiadomościami
@@ -2155,15 +2093,13 @@ class NearNetViewModel(): ViewModel() {
 
             val totalTime = (System.currentTimeMillis() - startTime) / 1000.0
 
-            Log.d("TEST_GENERATOR", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-            Log.d("TEST_GENERATOR", "🏁 ZAKOŃCZONO GENEROWANIE")
-            Log.d("TEST_GENERATOR", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-            Log.d("TEST_GENERATOR", "✅ Sukces: $successCount")
-            Log.d("TEST_GENERATOR", "❌ Błędy: $errorCount")
-            Log.d("TEST_GENERATOR", "📊 Łącznie: ${successCount + errorCount}")
-            Log.d("TEST_GENERATOR", "⏱️  Czas: ${String.format("%.2f", totalTime)}s")
-            Log.d("TEST_GENERATOR", "📈 Średnia: ${String.format("%.2f", successCount / totalTime)} msg/s")
-            Log.d("TEST_GENERATOR", "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+
+            Log.d("TEST_GENERATOR", "ZAKOŃCZONO GENEROWANIE")
+            Log.d("TEST_GENERATOR", "Sukces: $successCount")
+            Log.d("TEST_GENERATOR", "Błędy: $errorCount")
+            Log.d("TEST_GENERATOR", "Łącznie: ${successCount + errorCount}")
+            Log.d("TEST_GENERATOR", "Czas: ${String.format("%.2f", totalTime)}s")
+            Log.d("TEST_GENERATOR", "Średnia: ${String.format("%.2f", successCount / totalTime)} msg/s")
         }
     }
 
@@ -2265,11 +2201,7 @@ class NearNetViewModel(): ViewModel() {
 
             if (success) {
                 Log.d("ViewModel", "Serwer ustawiony: $serverAddress")
-//                // Informuj użytkownika o konieczności ponownego zalogowania
-//                Toast.makeText(context, "Server changed. Please log in again.", Toast.LENGTH_LONG).show()
-//
-//                // Wyloguj użytkownika, aby mógł się połączyć z nowym serwerem
-//                restartApp(context)
+
                 ServerConfig.clearCache()
 
                 Toast.makeText(context, "Server changed to $serverAddress", Toast.LENGTH_LONG).show()
@@ -2303,14 +2235,6 @@ class NearNetViewModel(): ViewModel() {
                 Log.e("ViewModel", "Brak kontekstu - nie można przywrócić domyślnego serwera")
                 return@launch
             }
-
-//            ServerConfig.setDefaultServer(context)
-//            Log.d("ViewModel", "Przywrócono domyślny serwer")
-//
-//            // Informuj użytkownika
-//            Toast.makeText(context, "Default server restored. Please log in again.", Toast.LENGTH_LONG).show()
-//
-//            restartApp(context)
 
             ServerConfig.setDefaultServer(context)
             ServerConfig.clearCache()

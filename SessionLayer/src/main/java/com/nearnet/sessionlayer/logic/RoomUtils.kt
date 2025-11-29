@@ -2,6 +2,7 @@ package com.nearnet.sessionlayer.logic
 
 import android.content.Context
 import android.util.Log
+import com.google.gson.JsonObject
 import com.google.gson.annotations.SerializedName
 import com.nearnet.sessionlayer.data.model.RoomData
 import com.nearnet.sessionlayer.data.model.UserData
@@ -310,6 +311,12 @@ interface RoomApiService {
         @Path("userId") userId: String
     ): Response<SimpleResponse>
 
+    @POST("api/rooms/{roomId}/reject-password/{userId}")
+    suspend fun rejectPassword(
+        @Header("Authorization") token: String,
+        @Path("roomId") roomId: String,
+        @Path("userId") userId: String
+    ): Response<JsonObject>
 
 }
 // ============================================================================
@@ -1567,7 +1574,7 @@ class RoomRepository(private val context: Context) {
             val success = response.isSuccessful && response.body()?.success == true
 
             if (success) {
-                Log.d("ROOM", "✓ JSON z kluczem i hasłem wysłany do użytkownika $targetUserId")
+                Log.d("ROOM", "JSON z kluczem i hasłem wysłany do użytkownika $targetUserId")
             }
 
             return@withContext success
@@ -1589,15 +1596,12 @@ class RoomRepository(private val context: Context) {
         roomId: String,
         targetUserId: String
     ): Boolean = withContext(Dispatchers.IO) {
-        // 1. Pobierz token autoryzacyjny
         val token = getToken()
         if (token.isNullOrBlank()) return@withContext false
 
         try {
-            // 2. Wywołaj endpoint API
             val response = api.resetPasswordCheck(token, roomId, targetUserId)
 
-            // 3. Sprawdź odpowiedź
             val success = response.isSuccessful && response.body()?.success == true
 
             if (success) {
@@ -1611,6 +1615,39 @@ class RoomRepository(private val context: Context) {
         } catch (e: Exception) {
             Log.e("ROOM", "Wyjątek w resetPasswordCheckTimeout", e)
             return@withContext false
+        }
+    }
+
+    /**
+     * Resetuje status weryfikacji hasła gdy timeout minie
+     * Używane gdy użytkownik który zadeklarował sprawdzenie nie odpowiada
+     *
+     * @param roomId ID pokoju
+     * @param targetUserId ID użytkownika czekającego na weryfikację
+     * @return true jeśli reset się udał, false w przeciwnym razie
+     */
+
+    suspend fun rejectPassword(roomId: String, userId: String): Boolean {
+        return withContext(Dispatchers.IO) {
+            try {
+                val token = getToken() ?: return@withContext false
+
+                Log.d("RoomRepository", "Wysyłam reject-password: roomId=$roomId, userId=$userId")
+                Log.d("RoomRepository", "Token: $token")
+                val response = api.rejectPassword(token, roomId, userId)
+
+                Log.d("RoomRepository", "Odpowiedź reject-password: code=${response.code()}, success=${response.isSuccessful}")
+
+                if (!response.isSuccessful) {
+                    val errorBody = response.errorBody()?.string()
+                    Log.e("RoomRepository", "Błąd reject-password: $errorBody")
+                }
+
+                response.isSuccessful
+            } catch (e: Exception) {
+                Log.e("RoomRepository", "Wyjątek reject-password", e)
+                false
+            }
         }
     }
 
