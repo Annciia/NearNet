@@ -131,10 +131,6 @@ object MessageUtils {
         contextProvider = contextProv
     }
 
-//    private val retrofit = Retrofit.Builder()
-//        .baseUrl("https://$SERVER_ADDRESS:$SERVER_PORT")
-//        .addConverterFactory(GsonConverterFactory.create())
-//        .build()
 
     private val retrofit by lazy {
         val context = contextProvider?.invoke()
@@ -155,7 +151,6 @@ object MessageUtils {
     private val api: MessageApiService
         get() = retrofit.create(MessageApiService::class.java)
 
-    //private val api = retrofit.create(MessageApiService::class.java)
     private val client = OkHttpClient()
     private val gson = Gson()
 

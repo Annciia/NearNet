@@ -1224,7 +1224,7 @@ class NearNetViewModel(): ViewModel() {
                 return
             }
 
-            Log.d("ROOM", "✓ Klucz AES pokoju pobrany")
+            Log.d("ROOM", "Klucz AES pokoju pobrany")
 
             // Pobierz hasło pokoju (jeśli jest)
             val roomPassword = roomRepository.getRoomPassword(room.idRoom) ?: ""
@@ -1637,7 +1637,7 @@ class NearNetViewModel(): ViewModel() {
 
             // Walidacja: pokój musi być wybrany
             if (room == null) {
-                Log.e("ViewModel", "✗ No room selected")
+                Log.e("ViewModel", "No room selected")
                 dropAdminEventMutable.emit(
                     ProcessEvent.Error("No room selected")
                 )
@@ -1646,7 +1646,7 @@ class NearNetViewModel(): ViewModel() {
 
             // Walidacja: user musi być zalogowany
             if (user == null) {
-                Log.e("ViewModel", "✗ No user logged in")
+                Log.e("ViewModel", "No user logged in")
                 dropAdminEventMutable.emit(
                     ProcessEvent.Error("Not logged in")
                 )
@@ -1655,7 +1655,7 @@ class NearNetViewModel(): ViewModel() {
 
             // Walidacja: user MUSI być adminem
             if (room.idAdmin != user.id) {
-                Log.e("ViewModel", "✗ User is not the admin")
+                Log.e("ViewModel", "User is not the admin")
                 dropAdminEventMutable.emit(
                     ProcessEvent.Error("You are not the admin of this room")
                 )
@@ -1668,7 +1668,7 @@ class NearNetViewModel(): ViewModel() {
             val result = roomRepository.dropAdmin(room.idRoom)
 
             if (result) {
-                Log.d("ViewModel", "✓ Admin status dropped successfully")
+                Log.d("ViewModel", "Admin status dropped successfully")
 
                 // Zaktualizuj lokalny stan pokoju
                 val updatedRoom = room.copy(idAdmin = null)
@@ -1683,7 +1683,7 @@ class NearNetViewModel(): ViewModel() {
                 dropAdminEventMutable.emit(ProcessEvent.Success(Unit))
 
             } else {
-                Log.e("ViewModel", "✗ Failed to drop admin status")
+                Log.e("ViewModel", "Failed to drop admin status")
                 dropAdminEventMutable.emit(
                     ProcessEvent.Error("Failed to leave the admin role. Please try again.")
                 )

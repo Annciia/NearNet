@@ -70,12 +70,6 @@ interface ApiService {
 // ============================================================================
 
 class UserRepository(private val context: Context) {
-    //private val db = AppDatabase.getDatabase(context)
-
-//    private val retrofit = Retrofit.Builder()
-//        .baseUrl("https://$SERVER_ADDRESS:$SERVER_PORT")
-//        .addConverterFactory(GsonConverterFactory.create())
-//        .build()
 
     private val retrofit by lazy {
         Retrofit.Builder()
