@@ -303,6 +303,13 @@ interface RoomApiService {
         @Body body: SendRoomKeyRequest
     ): Response<SimpleResponse>
 
+    @POST("/api/rooms/{id}/reset-password-check/{userId}")
+    suspend fun resetPasswordCheck(
+        @Header("Authorization") token: String,
+        @Path("id") roomId: String,
+        @Path("userId") userId: String
+    ): Response<SimpleResponse>
+
 
 }
 // ============================================================================
@@ -1253,6 +1260,7 @@ class RoomRepository(private val context: Context) {
     }
 
 
+
     /**
      * Opuszcza pokój (funkcja dla zwykłego użytkownika)
      *
@@ -1565,6 +1573,43 @@ class RoomRepository(private val context: Context) {
             return@withContext success
         } catch (e: Exception) {
             Log.e("ROOM", "Wyjątek w sendRoomKeyToUser", e)
+            return@withContext false
+        }
+    }
+
+    /**
+     * Resetuje status weryfikacji hasła gdy timeout minie
+     * Używane gdy użytkownik który zadeklarował sprawdzenie nie odpowiada
+     *
+     * @param roomId ID pokoju
+     * @param targetUserId ID użytkownika czekającego na weryfikację
+     * @return true jeśli reset się udał, false w przeciwnym razie
+     */
+    suspend fun resetPasswordCheckTimeout(
+        roomId: String,
+        targetUserId: String
+    ): Boolean = withContext(Dispatchers.IO) {
+        // 1. Pobierz token autoryzacyjny
+        val token = getToken()
+        if (token.isNullOrBlank()) return@withContext false
+
+        try {
+            // 2. Wywołaj endpoint API
+            val response = api.resetPasswordCheck(token, roomId, targetUserId)
+
+            // 3. Sprawdź odpowiedź
+            val success = response.isSuccessful && response.body()?.success == true
+
+            if (success) {
+                Log.d("ROOM", "Reset weryfikacji hasła dla użytkownika $targetUserId")
+            } else {
+                Log.e("ROOM", "Błąd resetu weryfikacji: ${response.code()}")
+            }
+
+            return@withContext success
+
+        } catch (e: Exception) {
+            Log.e("ROOM", "Wyjątek w resetPasswordCheckTimeout", e)
             return@withContext false
         }
     }

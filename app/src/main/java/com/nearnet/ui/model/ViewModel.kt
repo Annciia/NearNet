@@ -292,6 +292,8 @@ class NearNetViewModel(): ViewModel() {
         stopWaitingForKeyPolling()
         stopPasswordVerificationPolling()
         stopGlobalPasswordCheckPolling()
+        handledPasswordChecks.clear()
+        Log.d("POLLING", "Wyczyszczono wszystkie klucze weryfikacji przy wylogowaniu")
 
     }
 //    // TODO tutaj chyba jakas oblusge/pola do additionalSettings
@@ -1000,6 +1002,44 @@ class NearNetViewModel(): ViewModel() {
     private val handledPasswordChecks = mutableSetOf<String>()
 
     /**
+     * Usuwa wszystkie wpisy z handledPasswordChecks związane z danym użytkownikiem w danym pokoju
+     *
+     * Używane gdy:
+     * - Użytkownik opuszcza pokój
+     * - Admin usuwa użytkownika z pokoju
+     *
+     * @param userId ID użytkownika
+     * @param roomId ID pokoju
+     */
+    private fun cleanupHandledPasswordChecksForUser(userId: String, roomId: String) {
+        val keysToRemove = mutableListOf<String>()
+
+        // Wszystkie możliwe statusy
+        val statuses = listOf(
+            "requestJoin",
+            "declaredPasswordCheck",
+            "passwordReadyToCheck",
+            "waitingForKey"
+        )
+
+        statuses.forEach { status ->
+            val key = "$userId-$roomId-$status"
+            if (handledPasswordChecks.contains(key)) {
+                keysToRemove.add(key)
+            }
+        }
+
+        keysToRemove.forEach { key ->
+            handledPasswordChecks.remove(key)
+        }
+
+        if (keysToRemove.isNotEmpty()) {
+            Log.d("POLLING", "Wyczyszczono ${keysToRemove.size} kluczy dla użytkownika $userId w pokoju $roomId")
+            Log.d("POLLING", "Wyczyszczono ${keysToRemove.size} kluczy dla użytkownika $userId w pokoju $roomId: $keysToRemove")
+        }
+    }
+
+    /**
      * Globalny polling sprawdzający prośby o weryfikację haseł we WSZYSTKICH pokojach użytkownika
      *
      * Uruchamiany automatycznie po zalogowaniu
@@ -1042,9 +1082,81 @@ class NearNetViewModel(): ViewModel() {
                             Log.d("POLLING", " [${room.name}] Znaleziono ${usersWaiting.size} użytkowników czekających")
 
                             usersWaiting.forEach { userStatus ->
-                                //Log.d("POLLING", "     User: ${userStatus.userId}")
-                                //Log.d("POLLING", "     Status: ${userStatus.status}")
-                                //Log.d("POLLING", "     EncryptedRoomKey: ${userStatus.encryptedRoomKey?.take(20) ?: "null"}")
+                                Log.d("POLLING", "     User: ${userStatus.userId}")
+                                Log.d("POLLING", "     Status: ${userStatus.status}")
+                                Log.d("POLLING", "     EncryptedRoomKey: ${userStatus.encryptedRoomKey?.take(20) ?: "null"}")
+
+                                // ============================================================
+                                // Sprawdź timeout dla declaredPasswordCheck (30 sekund)
+                                // ============================================================
+//                                if (userStatus.status == "declaredPasswordCheck") {
+//                                    val requestTime = try {
+//                                        java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US)
+//                                            .parse(userStatus.requestedAt ?: "")?.time ?: 0L
+//                                    } catch (e: Exception) {
+//                                        0L
+//                                    }
+//
+//                                    val now = System.currentTimeMillis()
+//                                    val timeoutMs = 30000 // 30 sekund
+//
+//                                    if (now - requestTime > timeoutMs) {
+//                                        Log.d("POLLING", "[${room.name}] Timeout dla declaredPasswordCheck użytkownika ${userStatus.userId} - resetuję")
+//
+//                                        launch {
+//                                            val reset = roomRepository.resetPasswordCheckTimeout(room.idRoom, userStatus.userId)
+//                                            if (reset) {
+//                                                Log.d("POLLING", "[${room.name}] Status zresetowany do requestJoin")
+//                                                // Usuń z handled, żeby mógł być ponownie obsłużony
+//                                                //USUŃ OBA KLUCZE - żeby ten sam użytkownik mógł ponownie przejąć
+//                                                val oldDeclaredKey = "${userStatus.userId}-${room.idRoom}-declaredPasswordCheck"
+//                                                val oldRequestKey = "${userStatus.userId}-${room.idRoom}-requestJoin"
+//
+//                                                handledPasswordChecks.remove(oldDeclaredKey)
+//                                                handledPasswordChecks.remove(oldRequestKey)
+//                                            } else {
+//                                                Log.e("POLLING", "[${room.name}] Nie udało się zresetować statusu")
+//                                            }
+//                                        }
+//                                        return@forEach
+//                                    }
+//                                }
+                                if (userStatus.status == "declaredPasswordCheck") {
+                                    val requestTime = try {
+                                        java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US)
+                                            .parse(userStatus.requestedAt ?: "")?.time ?: 0L
+                                    } catch (e: Exception) {
+                                        Log.e("POLLING-DEBUG", "Błąd parsowania: ${e.message}")
+                                        0L
+                                    }
+
+                                    Log.d("POLLING-DEBUG", "Parsed time: $requestTime")
+                                    Log.d("POLLING-DEBUG", "Current time: ${System.currentTimeMillis()}")
+
+                                    val now = System.currentTimeMillis()
+                                    val timeoutMs = 30000 // 30 sekund
+
+                                    // ⭐ KLUCZOWA ZMIANA: Sprawdź czy requestTime > 0
+                                    if (requestTime > 0 && now - requestTime > timeoutMs) {
+                                        Log.d("POLLING", "[${room.name}] Timeout - resetuję")
+
+                                        launch {
+                                            val reset = roomRepository.resetPasswordCheckTimeout(room.idRoom, userStatus.userId)
+                                            if (reset) {
+                                                Log.d("POLLING", "[${room.name}] Status zresetowany do requestJoin")
+                                                val oldDeclaredKey = "${userStatus.userId}-${room.idRoom}-declaredPasswordCheck"
+                                                val oldRequestKey = "${userStatus.userId}-${room.idRoom}-requestJoin"
+
+                                                handledPasswordChecks.remove(oldDeclaredKey)
+                                                handledPasswordChecks.remove(oldRequestKey)
+                                            } else {
+                                                Log.e("POLLING", "[${room.name}] Nie udało się zresetować statusu")
+                                            }
+                                        }
+                                        return@forEach
+                                    }
+                                }
+                                // ============================================================
 
                                 val key = "${userStatus.userId}-${room.idRoom}-${userStatus.status}"
 
@@ -1057,19 +1169,33 @@ class NearNetViewModel(): ViewModel() {
                                 Log.d("POLLING", "Nowy request - obsługuję!")
 
                                 when (userStatus.status) {
+//                                    "requestJoin" -> {
+//                                        // Nowy użytkownik czeka - AUTOMATYCZNIE zadeklaruj sprawdzenie
+//                                        Log.d("POLLING", "[${room.name}] Nowy użytkownik ${userStatus.userId} czeka - deklaruję sprawdzenie")
+//
+//                                        handledPasswordChecks.add(key)
+//
+//                                        launch {
+//                                            val declared = roomRepository.declarePasswordCheck(room.idRoom, userStatus.userId)
+//
+//                                            if (declared) {
+//                                                Log.d("POLLING", "[${room.name}] Zadeklarowano sprawdzenie hasła")
+//                                            } else {
+//                                                Log.e("POLLING", "[${room.name}] Nie udało się zadeklarować sprawdzenia")
+//                                            }
+//                                        }
+//                                    }
                                     "requestJoin" -> {
-                                        // Nowy użytkownik czeka - AUTOMATYCZNIE zadeklaruj sprawdzenie
                                         Log.d("POLLING", "[${room.name}] Nowy użytkownik ${userStatus.userId} czeka - deklaruję sprawdzenie")
-
-                                        handledPasswordChecks.add(key)
 
                                         launch {
                                             val declared = roomRepository.declarePasswordCheck(room.idRoom, userStatus.userId)
 
                                             if (declared) {
                                                 Log.d("POLLING", "[${room.name}] Zadeklarowano sprawdzenie hasła")
+                                                //handledPasswordChecks.add(key)  //
                                             } else {
-                                                Log.e("POLLING", "[${room.name}] Nie udało się zadeklarować sprawdzenia")
+                                                Log.e("POLLING", "[${room.name}] Nie udało się zadeklarować sprawdzenia - NIE dodaję do handled (retry możliwy)")
                                             }
                                         }
                                     }
@@ -1078,10 +1204,15 @@ class NearNetViewModel(): ViewModel() {
                                         // Użytkownik wysłał zaszyfrowane hasło - AUTOMATYCZNIE sprawdź
                                         Log.d("POLLING", "[${room.name}] Otrzymano zaszyfrowane hasło od ${userStatus.userId} - sprawdzam")
 
-                                        handledPasswordChecks.add(key)
+                                        //handledPasswordChecks.add(key)
 
                                         launch {
-                                            verifyUserPassword(room, userStatus)
+                                            try {
+                                                verifyUserPassword(room, userStatus)
+                                            } catch (e: Exception) {
+                                                Log.e("POLLING", "[${room.name}] Błąd weryfikacji - usuwam klucz z handled", e)
+                                                //handledPasswordChecks.remove(key)  // ← USUŃ przy błędzie
+                                            }
                                         }
                                     }
 
@@ -1514,24 +1645,96 @@ class NearNetViewModel(): ViewModel() {
 
 
 
+//    fun leaveRoom(){
+//        viewModelScope.launch {
+//            var isLeftRoom : Boolean = false
+//            val room = selectedRoom.value!!
+//            //TODO Call asynchronous function to user leave their room.
+//            isLeftRoom = roomRepository.leaveRoom(room.idRoom)
+//            if (isLeftRoom){
+//                leaveRoomEventMutable.emit(ProcessEvent.Success(Unit))
+//            } else { //błąd gdzieś i nie udało się
+//                leaveRoomEventMutable.emit(ProcessEvent.Error("Failed to leave the room. Please try again."))
+//            }
+//        }
+//    }
+
+//    fun leaveRoom(){
+//        viewModelScope.launch {
+//            Log.d("LEAVE_ROOM_DEBUG", "=== leaveRoom() STARTED ===")
+//
+//            var isLeftRoom : Boolean = false
+//            val room = selectedRoom.value!!
+//            val userId = selectedUser.value?.id  // ← DODANE
+//            Log.d("LEAVE_ROOM_DEBUG", "Room: ${room.name}, UserId: $userId")
+//            //TODO Call asynchronous function to user leave their room.
+//            isLeftRoom = roomRepository.leaveRoom(room.idRoom)
+//            if (isLeftRoom){
+//                //Wyczyść klucze weryfikacji dla tego użytkownika
+//                if (userId != null) {
+//                    cleanupHandledPasswordChecksForUser(userId, room.idRoom)
+//                }
+//
+//                leaveRoomEventMutable.emit(ProcessEvent.Success(Unit))
+//            } else { //błąd gdzieś i nie udało się
+//                leaveRoomEventMutable.emit(ProcessEvent.Error("Failed to leave the room. Please try again."))
+//            }
+//        }
+//    }
+
     fun leaveRoom(){
         viewModelScope.launch {
+            Log.d("LEAVE_DEBUG", "====== LEAVE ROOM START ======")
             var isLeftRoom : Boolean = false
             val room = selectedRoom.value!!
+            val userId = selectedUser.value?.id
+            Log.d("LEAVE_DEBUG", "Room: ${room.name} (${room.idRoom})")
+            Log.d("LEAVE_DEBUG", "UserId: $userId")
+
             //TODO Call asynchronous function to user leave their room.
             isLeftRoom = roomRepository.leaveRoom(room.idRoom)
+
+            Log.d("LEAVE_DEBUG", "Left room: $isLeftRoom")
+
             if (isLeftRoom){
+                //Wyczyść klucze weryfikacji dla tego użytkownika
+                if (userId != null) {
+                    Log.d("LEAVE_DEBUG", "Calling cleanup for userId=$userId, roomId=${room.idRoom}")
+                    cleanupHandledPasswordChecksForUser(userId, room.idRoom)
+                    Log.d("LEAVE_DEBUG", "Cleanup completed")
+                } else {
+                    Log.e("LEAVE_DEBUG", "userId is NULL - cannot cleanup!")
+                }
+
                 leaveRoomEventMutable.emit(ProcessEvent.Success(Unit))
-            } else { //błąd gdzieś i nie udało się
+            } else {
+                Log.e("LEAVE_DEBUG", "Failed to leave room!")
                 leaveRoomEventMutable.emit(ProcessEvent.Error("Failed to leave the room. Please try again."))
             }
+            Log.d("LEAVE_DEBUG", "====== LEAVE ROOM END ======")
         }
     }
+
+//    fun removeUserFromRoom(user: UserData, room: RoomData) {
+//        viewModelScope.launch {
+//            //TODO Call function to remove user from the room.
+//            val isUserRemoved = roomRepository.removeUserFromRoom(room.idRoom, user.id)
+//            if (isUserRemoved) {
+//                roomUsersMutable.value = roomUsersMutable.value.filter { it.id != user.id }
+//            } else {
+//                leaveRoomEventMutable.emit(ProcessEvent.Error("Failed to remove the user from the room."))
+//            }
+//        }
+//    }
+
     fun removeUserFromRoom(user: UserData, room: RoomData) {
         viewModelScope.launch {
             //TODO Call function to remove user from the room.
             val isUserRemoved = roomRepository.removeUserFromRoom(room.idRoom, user.id)
             if (isUserRemoved) {
+                //Wyczyść klucze weryfikacji dla usuniętego użytkownika
+                cleanupHandledPasswordChecksForUser(user.id, room.idRoom)
+
                 roomUsersMutable.value = roomUsersMutable.value.filter { it.id != user.id }
             } else {
                 leaveRoomEventMutable.emit(ProcessEvent.Error("Failed to remove the user from the room."))
